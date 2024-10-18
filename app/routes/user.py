@@ -1,27 +1,45 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from ..schemas import UserCreate, UserResponse
 from ..models import User
-from ..database import get_db  # Fixed relative import
+from ..database import get_db
 from ..auth import hash_password, verify_password, create_access_token
 from datetime import timedelta
 from ..config import ACCESS_TOKEN_EXPIRE_MINUTES
 
 router = APIRouter()
 
-@router.post("/register", response_model=UserResponse)
+# User registration route
+@router.post("/register", status_code=status.HTTP_201_CREATED)
 def register_user(user: UserCreate, db: Session = Depends(get_db)):
-    hashed_pwd = hash_password(user.password)
+    # Check if user already exists in the database by email or username
+    existing_user = db.query(User).filter((User.email == user.email) | (User.username == user.username)).first()
     
-    # Set the role if necessary, or default it in the model
-    db_user = User(username=user.username, email=user.email, hashed_password=hashed_pwd, role="user")
+    if existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User with this email or username already exists"
+        )
     
-    db.add(db_user)
+    # Hash the password
+    hashed_password = hash_password(user.password)  # Corrected to hash_password
+    
+    # Create the new user object
+    new_user = User(
+        email=user.email,
+        username=user.username,
+        hashed_password=hashed_password
+    )
+    
+    # Add and commit the new user to the database
+    db.add(new_user)
     db.commit()
-    db.refresh(db_user)
-    return db_user
+    db.refresh(new_user)
+    
+    return {"message": "User created successfully", "user": {"id": new_user.id, "username": new_user.username, "email": new_user.email}}
 
+# Login and token creation route
 @router.post("/token")
 def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     user = db.query(User).filter(User.username == form_data.username).first()
