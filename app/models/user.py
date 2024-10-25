@@ -1,5 +1,14 @@
 from sqlalchemy import Column, Integer, String
+from sqlalchemy.ext.declarative import declarative_base
 from ..database import Base
+import enum
+
+class RoleEnum(str, enum.Enum):
+    user = "user"
+    admin = "admin"
+    superadmin = "superadmin"
+    manager = "manager"
+    editor = "editor"
 
 class User(Base):
     __tablename__ = "users"
