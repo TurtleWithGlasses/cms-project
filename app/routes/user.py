@@ -80,8 +80,32 @@ def list_users(current_user: User = Depends(get_current_user), db: Session = Dep
 def update_user_profile(user_data: UserUpdate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     if current_user.role == "editor" and (user_data.email or user_data.username):
         raise HTTPException(status_code=403, detail="Editors cannot change email or username")
+    if user_data.email:
+        current_user.email = user_data.email
+        log_activity(
+            db=db,
+            action="email_update",
+            user_id=current_user.id,
+            description=f"User updated their email to {user_data.email}"
+        )
+    
+    if user_data.username:
+        current_user.username = user_data.username
+        log_activity(
+            db=db,
+            action="username_update",
+            user_id=current_user.id,
+            description=f"User updated their username to {user_data.username}"
+        )
+
     if user_data.password:
         current_user.hashed_password = hash_password(user_data.password)
+        log_activity(
+            db=db,
+            action="password_update",
+            user_id=current_user.id,
+            description="User updated their password"
+        )
     db.commit()
     db.refresh(current_user)
     return current_user

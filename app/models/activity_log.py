@@ -12,6 +12,7 @@ class ActivityLog(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     target_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     timestamp = Column(String, nullable=True)
+    description = Column(String)
 
     admin_user = relationship("User", foreign_keys=[user_id])
     target_user = relationship("User", foreign_keys=[user_id])
