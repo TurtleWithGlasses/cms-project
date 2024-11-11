@@ -14,5 +14,5 @@ class ActivityLog(Base):
     timestamp = Column(String, nullable=True)
     description = Column(String)
 
-    admin_user = relationship("User", foreign_keys=[user_id])
-    target_user = relationship("User", foreign_keys=[user_id])
+    admin_user = relationship("User", foreign_keys=[user_id], overlaps="target_user")
+    target_user = relationship("User", foreign_keys=[user_id], overlaps="admin_user")

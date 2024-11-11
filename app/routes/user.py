@@ -33,6 +33,12 @@ def register_user(user: UserCreate, db: Session = Depends(get_db)):
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
+    log_activity(
+        db=db,
+        action="user_registration",
+        user_id=new_user.id,
+        description=f"New user registered with username: {new_user.username} and email: {new_user.email}"
+    )
     return new_user
 
 # Get current user function
