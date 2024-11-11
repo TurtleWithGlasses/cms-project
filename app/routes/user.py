@@ -3,9 +3,11 @@ from sqlalchemy.orm import Session
 from typing import List
 from ..schemas import UserCreate, UserResponse, UserUpdate, RoleUpdate
 from ..models import User
+from ..models.activity_log import ActivityLog
 from ..database import get_db
 from ..auth import hash_password, decode_access_token
 from app.auth import oauth2_scheme
+from datetime import datetime
 
 router = APIRouter()
 
@@ -73,49 +75,17 @@ def list_users(current_user: User = Depends(get_current_user), db: Session = Dep
     users = db.query(User).all()
     return users
 
-# Delete user (superadmin only)
-@router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_user(user_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    if current_user.role not in ["admin", "superadmin"]:
-        raise HTTPException(status_code=403, detail="Not authorized to delete users")
-    user_to_delete = db.query(User).filter(User.id == user_id).first()
-    if not user_to_delete:
-        raise HTTPException(status_code=404, detail="User not found.")
-    db.delete(user_to_delete)
-    db.commit()
-    return {"message": "User deleted successfully"}
-
 # Update user profile (editor cannot change email/username)
 @router.patch("/users/me", response_model=UserResponse)
 def update_user_profile(user_data: UserUpdate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     if current_user.role == "editor" and (user_data.email or user_data.username):
         raise HTTPException(status_code=403, detail="Editors cannot change email or username")
-    if user_data.email:
-        current_user.email = user_data.email
-    if user_data.username:
-        current_user.username = user_data.username
     if user_data.password:
         current_user.hashed_password = hash_password(user_data.password)
     db.commit()
     db.refresh(current_user)
     return current_user
 
-# Update user role (superadmin only)
-@router.put("/users/{user_id}/role", response_model=UserResponse)
-def update_user_role(user_id: int, role_data: RoleUpdate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Only admins can promote users.")
-
-    user_to_update = db.query(User).filter(User.id == user_id).first()
-    if not user_to_update:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    if role_data.role == "superadmin" and user_to_update.role != "admin":
-        raise HTTPException(status_code=403, detail="Only admins can be promoted to superadmin.")
-    user_to_update.role = role_data.role
-    db.commit()
-    db.refresh(user_to_update)
-    return user_to_update
 
 # Create a new admin (superadmin only)
 @router.post("/users/admin", response_model=UserResponse)
@@ -131,3 +101,61 @@ def create_admin(user_data: UserCreate, current_user: User = Depends(get_current
     db.commit()
     db.refresh(new_admin)
     return new_admin
+
+@router.put("/users/{user_id}/role", response_model=UserResponse)
+def update_user_role(user_id: int, role_data: RoleUpdate, current_user: User = Depends(get_current_user), db:Session = Depends(get_db)):
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    user_to_update = db.query(User).filter(User.id == user_id).first()
+    if not user_to_update:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    user_to_update.role = role_data.role
+    db.commit()
+    db.refresh(user_to_update)
+
+    log_activity(
+        db=db,
+        action="role_update",
+        user_id=current_user.id,
+        target_user_id=user_to_update.id,
+        description=f"Updated role to {role_data.role}"
+    )
+
+    return user_to_update
+
+@router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_user(user_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Not authorized to delete users")
+    
+    user_to_delete = db.query(User).filter(User.id == user_id).first()
+    if not user_to_delete:
+        raise HTTPException(status_code=404, detail="User not found.")
+    
+    db.delete(user_to_delete)
+    db.commit()
+    
+    # Log the deletion action
+    log_activity(
+        db=db,
+        action="user_deletion",
+        user_id=current_user.id,
+        target_user_id=user_to_delete.id,
+        description="Deleted user account"
+    )
+
+    return {"message": "User deleted successfully"}
+
+
+def log_activity(db:Session, action: str, user_id: int, target_user_id: int = None, description: str = None):
+    new_log = ActivityLog(
+        action=action,
+        user_id=user_id,
+        target_user_id=target_user_id,
+        timestamp=datetime.utcnow(),
+        description=description,
+    )
+    db.add(new_log)
+    db.commit()
