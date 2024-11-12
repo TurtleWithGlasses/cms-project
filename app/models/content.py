@@ -1,19 +1,29 @@
-from sqlalchemy import Column, Integer, String, Text, ForeignKey, UniqueConstraint, DateTime
+from sqlalchemy import Column, Integer, String, Text, ForeignKey, UniqueConstraint, DateTime, Enum
 from sqlalchemy.orm import relationship
 from app.database import Base
 from datetime import datetime
+import enum
+
+
+class ContentStatus(enum.Enum):
+    DRAFT = "draft"
+    PENDING = "pending"
+    PUBLISHED = "published"
 
 class Content(Base):
-    __tablename__ = "contents"
+    __tablename__ = "content"
     
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String, index=True)
     body = Column(Text)
     slug = Column(String, unique=True, index=True)
+    description = Column(Text, nullable=True)
+    publish_date = Column(DateTime, default=None, nullable=True)
     status = Column(String, default="draft")
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     author_id = Column(Integer, ForeignKey("users.id"))
+    publish_date = Column(DateTime, nullable=True)
 
     meta_title = Column(String, nullable=True)
     meta_description = Column(Text, nullable=True)

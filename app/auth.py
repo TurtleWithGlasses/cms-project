@@ -4,6 +4,8 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
+
+from app.routes.user import get_current_user
 from .config import SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
 from .database import get_db
 from .models.user import User
@@ -105,4 +107,13 @@ def verify_token(token: str, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == token_data).first()
     if user is None:
         raise credentials_exception
+    return user
+
+def get_current_user_with_role(required_roles: list, db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)) -> User:
+    user = get_current_user(token, db)
+    if user.role not in required_roles:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="you do not have permission to perform this action"
+        )
     return user

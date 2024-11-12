@@ -178,6 +178,12 @@ def delete_user(user_id: int, current_user: User = Depends(get_current_user), db
 
     return {"message": "User deleted successfully"}
 
+def check_role(current_user: User, required_roles: List[str]):
+    if current_user.role not in required_roles:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to perform this action."
+        )
 
 def log_activity(db:Session, action: str, user_id: int, target_user_id: int = None, description: str = None):
     new_log = ActivityLog(
