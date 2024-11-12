@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.models.user import User
-from app.schemas.content import ContentCreate, ContentResponse, ContentUpdate
 from app.models.content import Content, ContentStatus
+from app.models.notification import Notification, NotificationStatus
+from app.schemas.content import ContentCreate, ContentResponse, ContentUpdate
 from app.database import get_db
 from app.utils.slugify import slugify
 from ..auth import get_current_user, get_current_user_with_role
@@ -74,11 +75,22 @@ def submit_for_approval(content_id: int, db: Session = Depends(get_db), current_
     content = db.query(Content).filter(Content.id == content_id).first()
     if not content or content.status != ContentStatus.DRAFT:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Content must be in DRAFT status to submit for approval.")
+    
     content.status = ContentStatus.PENDING
     content.updated_at = datetime.utcnow()
     db.commit()
-    db.refresh(content)
-    
+
+    # Notify editors and admins
+    admins_and_editors = db.query(User).filter(User.role.in_(["admin", "editor"])).all()
+    for user in admins_and_editors:
+        notification = Notification(
+            user_id=user.id,
+            content_id=content_id,
+            message=f"Content '{content.title}' is pending approval",
+        )
+        db.add(notification)
+    db.commit()
+
     # Log the status change
     log_activity(
         db=db,
@@ -87,6 +99,8 @@ def submit_for_approval(content_id: int, db: Session = Depends(get_db), current_
         content_id=content.id,
         description=f"Content with ID {content.id} submitted for approval."
     )
+
+    db.refresh(content)
     return content
 
 # Approve and publish content

@@ -1,6 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
+
+from app.models.content import Content
+from app.models.notification import Notification, NotificationStatus
+from app.schemas.content import ContentResponse
 from ..schemas import UserCreate, UserResponse, UserUpdate, RoleUpdate
 from ..models import User
 from ..models.activity_log import ActivityLog
@@ -178,12 +182,23 @@ def delete_user(user_id: int, current_user: User = Depends(get_current_user), db
 
     return {"message": "User deleted successfully"}
 
-def check_role(current_user: User, required_roles: List[str]):
-    if current_user.role not in required_roles:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You do not have permission to perform this action."
-        )
+@router.get("/content/pending-approvals", response_model=List[ContentResponse])
+def get_pending_approvals(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if current_user.role not in ["admin", "editor"]:
+        raise HTTPException(status_code=403, detail="Not authorized to view pending approvals")
+    
+    pending_content = db.query(Content).filter(Content.status == "PENDING").all()
+    return pending_content
+
+@router.patch("/notifications/{notification_id}/mark-read", status_code=status.HTTP_204_NO_CONTENT)
+def mark_notification_as_read(notification_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    notification = db.query(Notification).filter(Notification.id == notification_id, Notification.user_id == current_user.id).first()
+    if not notification:
+        raise HTTPException(status_code=404, detail="Notification not found")
+    notification.status = NotificationStatus.READ
+    db.commit()
+    return {"message": "Notification marked as read"}
+
 
 def log_activity(db:Session, action: str, user_id: int, target_user_id: int = None, description: str = None):
     new_log = ActivityLog(
