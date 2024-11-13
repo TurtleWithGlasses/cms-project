@@ -12,3 +12,4 @@ def log_activity(db: Session, action: str, user_id: int, content_id: int, descri
     )
     db.add(new_log)
     db.commit()
+

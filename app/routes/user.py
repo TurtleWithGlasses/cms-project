@@ -5,13 +5,12 @@ from typing import List
 from app.models.content import Content
 from app.models.notification import Notification, NotificationStatus
 from app.schemas.content import ContentResponse
+from app.utils.activity_log import log_activity
+from app.utils.auth_helpers import get_current_user
 from ..schemas import UserCreate, UserResponse, UserUpdate, RoleUpdate
 from ..models import User
-from ..models.activity_log import ActivityLog
 from ..database import get_db
-from ..auth import hash_password, decode_access_token
-from app.auth import oauth2_scheme
-from datetime import datetime
+from ..auth import hash_password
 
 router = APIRouter()
 
@@ -45,25 +44,6 @@ def register_user(user: UserCreate, db: Session = Depends(get_db)):
     )
     return new_user
 
-# Get current user function
-def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-    try:
-        email = decode_access_token(token)
-    except HTTPException as e:
-        raise e
-    user = db.query(User).filter(User.email == email).first()
-    if user is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    return user
 
 # Utility function to check roles
 def check_role(current_user: User, required_roles: List[str]):
@@ -198,15 +178,3 @@ def mark_notification_as_read(notification_id: int, current_user: User = Depends
     notification.status = NotificationStatus.READ
     db.commit()
     return {"message": "Notification marked as read"}
-
-
-def log_activity(db:Session, action: str, user_id: int, target_user_id: int = None, description: str = None):
-    new_log = ActivityLog(
-        action=action,
-        user_id=user_id,
-        target_user_id=target_user_id,
-        timestamp=datetime.utcnow(),
-        description=description,
-    )
-    db.add(new_log)
-    db.commit()

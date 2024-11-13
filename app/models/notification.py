@@ -2,8 +2,9 @@ from sqlalchemy import Column, Integer, String, ForeignKey, Enum, DateTime
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from app.database import Base
+from enum import Enum as PyEnum
 
-class NotificationStatus(str, Enum):
+class NotificationStatus(str, PyEnum):
     UNREAD = "UNREAD"
     READ = "READ"
 
