@@ -10,15 +10,19 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
+    print(f"Received token: {token}")
     try:
         email = decode_access_token(token)
+        print(f"Decoded email: {email}")
     except HTTPException as e:
         raise e
     user = db.query(User).filter(User.email == email).first()
     if user is None:
+        print("User not found in database")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    print(f"Authenticated user: {user}") 
     return user

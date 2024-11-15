@@ -13,9 +13,9 @@ import logging
 from typing import Optional
 
 # Make sure to store SECRET_KEY securely (use environment variables in production)
-SECRET_KEY = "my_secret_key"  
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+# SECRET_KEY = "my_secret_key"  
+# ALGORITHM = "HS256"
+# ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 

@@ -14,7 +14,7 @@ from ..auth import hash_password
 
 router = APIRouter()
 
-# Utility function for role permission checks
+
 def has_permission(role: str, allowed_roles: List[str]) -> bool:
     return role in allowed_roles
 

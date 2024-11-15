@@ -3,7 +3,6 @@ from sqlalchemy.orm import relationship
 from datetime import datetime
 from ..database import Base
 
-
 class ActivityLog(Base):
     __tablename__ = "activity_logs"
 
@@ -11,8 +10,10 @@ class ActivityLog(Base):
     action = Column(String, nullable=False)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     target_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
-    timestamp = Column(String, nullable=True)
+    content_id = Column(Integer, ForeignKey("content.id"), nullable=True)
+    timestamp = Column(DateTime, default=datetime.utcnow)
     description = Column(String)
 
-    admin_user = relationship("User", foreign_keys=[user_id], overlaps="target_user")
-    target_user = relationship("User", foreign_keys=[user_id], overlaps="admin_user")
+    user = relationship("User", back_populates="activity_logs", foreign_keys=[user_id])
+    target_user = relationship("User", back_populates="target_activity_logs", foreign_keys=[target_user_id])
+    content = relationship("Content", back_populates="activity_logs")
