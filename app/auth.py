@@ -4,9 +4,9 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
-
+from typing import Callable, List
 from app.routes.user import get_current_user
-from .config import SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
+from .constants import SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
 from .database import get_db
 from .models.user import User
 import logging
@@ -55,39 +55,33 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
-
-# Function to decode an access token
 def decode_access_token(token: str):
-    print(f"Decoding token: {token}")
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
+    logger.info(f"Decoding token: {token}")
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         email: str = payload.get("sub")
-        print(f"Decoded payload: {payload}")
+        logger.debug(f"Decoded payload: {payload}")
         if email is None:
-            print("No username in token")
-            raise credentials_exception
-        print(f"Decoded email from token: {email}")
+            logger.warning("Token is missing 'sub' claim")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token does not contain 'sub' field.",
+            )
         return email
     except ExpiredSignatureError:
-        print("Token expired")
+        logger.error("Token expired")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token has expired",
-            headers={"WWW-Authenticate": "Bearer"},
         )
-    except JWTError:
+    except JWTError as e:
+        logger.error(f"JWT decoding failed: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token",
-            headers={"WWW-Authenticate": "Bearer"},
         )
-    
-# Function to verify token and extract user
+
+
 def verify_token(token: str, db: Session = Depends(get_db)):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -109,11 +103,37 @@ def verify_token(token: str, db: Session = Depends(get_db)):
         raise credentials_exception
     return user
 
-def get_current_user_with_role(required_roles: list, db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)) -> User:
-    user = get_current_user(token, db)
-    if user.role not in required_roles:
+def get_current_user_with_role(
+    required_roles: list,
+    db: Session = Depends(get_db),
+    token: str = Depends(oauth2_scheme),
+) -> User:
+    # Ensure the token is not empty or None
+    if not token or not isinstance(token, str):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token provided."
+        )
+    user = get_current_user(token=token, db=db)
+    if not user.role or user.role.name not in required_roles:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="you do not have permission to perform this action"
+            detail=f"Role '{user.role.name if user.role else 'None'}' does not have access to this resource.",
         )
     return user
+
+
+def get_role_validator(required_roles: List[str]) -> Callable[[Session, str], User]:
+    def role_validator(
+        db: Session = Depends(get_db),
+        token: str = Depends(oauth2_scheme),
+    ) -> User:
+        user = get_current_user(token=token, db=db)
+        if not user.role or user.role.name not in required_roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Role '{user.role.name if user.role else 'None'}' does not have access to this resource.",
+            )
+        return user
+
+    return role_validator

@@ -7,76 +7,98 @@ from app.models.notification import Notification, NotificationStatus
 from app.schemas.content import ContentResponse
 from app.utils.activity_log import log_activity
 from app.utils.auth_helpers import get_current_user
+from app.permissions_config.permissions import ROLE_PERMISSIONS
+from app.models.user import Role
+
 from ..schemas import UserCreate, UserResponse, UserUpdate, RoleUpdate
 from ..models import User
 from ..database import get_db
-from ..auth import hash_password
+from ..auth import get_role_validator, hash_password
 
 router = APIRouter()
 
+def get_role_name(role_id: int, db: Session) -> str:
+    """
+    Helper function to fetch role name from the database using role_id.
+    """
+    role_name = db.query(Role.name).filter(Role.id == role_id).scalar()
+    if not role_name:
+        raise HTTPException(status_code=500, detail="Role not found for the user")
+    return role_name
 
-def has_permission(role: str, allowed_roles: List[str]) -> bool:
-    return role in allowed_roles
-
-# User registration route
 @router.post("/register", status_code=status.HTTP_201_CREATED, response_model=UserResponse)
 def register_user(user: UserCreate, db: Session = Depends(get_db)):
-    existing_user = db.query(User).filter((User.username == user.email) | (User.username == user.username)).first()
+    existing_user = db.query(User).filter(
+        (User.username == user.username) | (User.email == user.email)
+    ).first()
     if existing_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="User with this email or username already exists"
+            detail="User with this email or username already exists",
         )
+
+    default_role = db.query(Role).filter(Role.name == "user").first()
+    if not default_role:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Default role 'user' not found in the database",
+        )
+
     hashed_password = hash_password(user.password)
     new_user = User(
         email=user.email,
         username=user.username,
-        hashed_password=hashed_password
+        hashed_password=hashed_password,
+        role_id=default_role.id,
     )
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
-    log_activity(
-        db=db,
-        action="user_registration",
-        user_id=new_user.id,
-        description=f"New user registered with username: {new_user.username} and email: {new_user.email}"
-    )
-    return new_user
 
+    return {
+        "id": new_user.id,
+        "username": new_user.username,
+        "email": new_user.email,
+        "role": default_role.name,
+    }
 
-# Utility function to check roles
-def check_role(current_user: User, required_roles: List[str]):
-    if current_user.role not in required_roles:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You do not have permission to perform this action."
-        )
-
-# Get current authenticated user
 @router.get("/users/me", response_model=UserResponse)
-def get_current_user_profile(current_user: User = Depends(get_current_user)):
-    return current_user
+def get_current_user_profile(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    role_name = get_role_name(current_user.role_id, db)
+    return {
+        "id": current_user.id,
+        "username": current_user.username,
+        "email": current_user.email,
+        "role": role_name,
+    }
 
-# List users (admin only)
-@router.get("/users", response_model=List[UserResponse])
-def list_users(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    check_role(current_user, ["admin", "superadmin"])
+@router.get("/users", response_model=List[UserResponse], dependencies=[Depends(get_role_validator(["admin", "superadmin"]))])
+def list_users(db: Session = Depends(get_db)):
     users = db.query(User).all()
-    return users
+    response = [
+        {
+            "id": user.id,
+            "username": user.username,
+            "email": user.email,
+            "role": get_role_name(user.role_id, db),
+        }
+        for user in users
+    ]
+    return response
 
-# Update user profile (editor cannot change email/username)
 @router.patch("/users/me", response_model=UserResponse)
 def update_user_profile(user_data: UserUpdate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    if current_user.role == "editor" and (user_data.email or user_data.username):
+    editor_role_id = db.query(Role.id).filter(Role.name == "editor").scalar()
+    if current_user.role_id == editor_role_id and (user_data.email or user_data.username):
         raise HTTPException(status_code=403, detail="Editors cannot change email or username")
+
     if user_data.email:
         current_user.email = user_data.email
         log_activity(
             db=db,
             action="email_update",
             user_id=current_user.id,
-            description=f"User updated their email to {user_data.email}"
+            description=f"User updated their email to {user_data.email}",
         )
     
     if user_data.username:
@@ -85,7 +107,7 @@ def update_user_profile(user_data: UserUpdate, current_user: User = Depends(get_
             db=db,
             action="username_update",
             user_id=current_user.id,
-            description=f"User updated their username to {user_data.username}"
+            description=f"User updated their username to {user_data.username}",
         )
 
     if user_data.password:
@@ -94,87 +116,97 @@ def update_user_profile(user_data: UserUpdate, current_user: User = Depends(get_
             db=db,
             action="password_update",
             user_id=current_user.id,
-            description="User updated their password"
+            description="User updated their password",
         )
+
     db.commit()
     db.refresh(current_user)
-    return current_user
 
+    return {
+        "id": current_user.id,
+        "username": current_user.username,
+        "email": current_user.email,
+        "role": get_role_name(current_user.role_id, db),
+    }
 
-# Create a new admin (superadmin only)
-@router.post("/users/admin", response_model=UserResponse)
-def create_admin(user_data: UserCreate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    check_role(current_user, ["superadmin"])
+@router.post("/users/admin", response_model=UserResponse, dependencies=[Depends(get_role_validator(["superadmin"]))])
+def create_admin(user_data: UserCreate, db: Session = Depends(get_db)):
+    admin_role_id = db.query(Role.id).filter(Role.name == "admin").scalar()
     new_admin = User(
         email=user_data.email,
         username=user_data.username,
         hashed_password=hash_password(user_data.password),
-        role="admin"
+        role_id=admin_role_id,
     )
     db.add(new_admin)
     db.commit()
     db.refresh(new_admin)
-    return new_admin
+    return {
+        "id": new_admin.id,
+        "username": new_admin.username,
+        "email": new_admin.email,
+        "role": "admin",
+    }
 
-@router.put("/users/{user_id}/role", response_model=UserResponse)
-def update_user_role(user_id: int, role_data: RoleUpdate, current_user: User = Depends(get_current_user), db:Session = Depends(get_db)):
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Not authorized")
-    
+@router.put("/users/{user_id}/role", response_model=UserResponse, dependencies=[Depends(get_role_validator(["admin"]))])
+def update_user_role(user_id: int, role_data: RoleUpdate, db: Session = Depends(get_db)):
     user_to_update = db.query(User).filter(User.id == user_id).first()
     if not user_to_update:
         raise HTTPException(status_code=404, detail="User not found")
     
-    user_to_update.role = role_data.role
+    role_id = db.query(Role.id).filter(Role.name == role_data.role).scalar()
+    if not role_id:
+        raise HTTPException(status_code=400, detail="Invalid role provided")
+
+    user_to_update.role_id = role_id
     db.commit()
     db.refresh(user_to_update)
 
     log_activity(
         db=db,
         action="role_update",
-        user_id=current_user.id,
-        target_user_id=user_to_update.id,
-        description=f"Updated role to {role_data.role}"
+        user_id=user_to_update.id,
+        description=f"Updated role to {role_data.role}",
     )
 
-    return user_to_update
+    return {
+        "id": user_to_update.id,
+        "username": user_to_update.username,
+        "email": user_to_update.email,
+        "role": role_data.role,
+    }
 
-@router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_user(user_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Not authorized to delete users")
-    
+@router.get("/user/{user_id}", response_model=UserResponse)
+def get_user(user_id: int, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    return {
+        "id": user.id,
+        "username": user.username,
+        "email": user.email,
+        "role": get_role_name(user.role_id, db),
+    }
+
+@router.delete("/users/{user_id}", status_code=204, dependencies=[Depends(get_role_validator(["admin", "superadmin"]))])
+def delete_user(user_id: int, db: Session = Depends(get_db)):
     user_to_delete = db.query(User).filter(User.id == user_id).first()
     if not user_to_delete:
-        raise HTTPException(status_code=404, detail="User not found.")
-    
+        raise HTTPException(status_code=404, detail="User not found")
+
     db.delete(user_to_delete)
     db.commit()
-    
-    # Log the deletion action
-    log_activity(
-        db=db,
-        action="user_deletion",
-        user_id=current_user.id,
-        target_user_id=user_to_delete.id,
-        description="Deleted user account"
-    )
 
-    return {"message": "User deleted successfully"}
+    return {"message": f"User with ID {user_id} has been deleted successfully"}
 
-@router.get("/content/pending-approvals", response_model=List[ContentResponse])
-def get_pending_approvals(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    if current_user.role not in ["admin", "editor"]:
-        raise HTTPException(status_code=403, detail="Not authorized to view pending approvals")
-    
-    pending_content = db.query(Content).filter(Content.status == "PENDING").all()
-    return pending_content
+@router.get("/secure-endpoint", dependencies=[Depends(get_role_validator(["admin", "editor"]))])
+def secure_endpoint():
+    return {"message": "You have permission to access this resource."}
 
-@router.patch("/notifications/{notification_id}/mark-read", status_code=status.HTTP_204_NO_CONTENT)
-def mark_notification_as_read(notification_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    notification = db.query(Notification).filter(Notification.id == notification_id, Notification.user_id == current_user.id).first()
-    if not notification:
-        raise HTTPException(status_code=404, detail="Notification not found")
-    notification.status = NotificationStatus.READ
-    db.commit()
-    return {"message": "Notification marked as read"}
+@router.get("/admin-only", dependencies=[Depends(get_role_validator(["admin"]))], status_code=status.HTTP_200_OK)
+def admin_only_endpoint():
+    """
+    This endpoint is restricted to admin users only.
+    """
+    return {"message": "This is restricted to admins only."}

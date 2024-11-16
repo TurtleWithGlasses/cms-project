@@ -2,7 +2,7 @@ from fastapi import HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from datetime import datetime, timedelta
 from jose import JWTError, jwt
-from app.config import SECRET_KEY, ALGORITHM
+from app.constants import SECRET_KEY, ALGORITHM
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
