@@ -6,9 +6,9 @@ import json
 
 def log_activity(db: Session,
                  action: str,
-                 user_id: int,
+                 user_id: Optional[int],
                  description: str,
-                 content_id: int = None,                 
+                 content_id: Optional[int] = None,                 
                  target_user_id: Optional[int] = None,
                  details: Optional[Dict] = None):
     new_log = ActivityLog(

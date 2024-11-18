@@ -208,16 +208,41 @@ def get_user(user_id: int, db: Session = Depends(get_db)):
         "role": get_role_name(user.role_id, db),
     }
 
-@router.delete("/users/{user_id}", status_code=204, dependencies=[Depends(get_role_validator(["admin", "superadmin"]))])
-def delete_user(user_id: int, db: Session = Depends(get_db)):
+@router.delete("/users/{user_id}", status_code=200, dependencies=[Depends(get_role_validator(["admin", "superadmin"]))])
+def delete_user(user_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     user_to_delete = db.query(User).filter(User.id == user_id).first()
     if not user_to_delete:
         raise HTTPException(status_code=404, detail="User not found")
+    
+    if not current_user or not current_user.id:
+        raise HTTPException(status_code=400, detail="Invalid current user")
 
-    db.delete(user_to_delete)
+    # Log the delete activity
+    log_activity(
+        db=db,
+        action="delete_user",
+        user_id=current_user.id,
+        description=f"Deleted user {user_to_delete.username} (ID: {user_to_delete.id})",
+        details={
+            "username": user_to_delete.username,
+            "email": user_to_delete.email,
+            "deleted_by": current_user.username,
+        },
+    )
+
+    db.query(ActivityLog).filter(ActivityLog.user_id == user_to_delete.id).update({"user_id": None})
     db.commit()
 
-    return {"message": f"User with ID {user_id} has been deleted successfully"}
+    try:
+        db.delete(user_to_delete)
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to delete user: {str(e)}")
+
+    return {
+        "message": f"User {user_to_delete.username} (ID: {user_to_delete.id}) has been successfully deleted."
+    }
 
 @router.get("/secure-endpoint", dependencies=[Depends(get_role_validator(["admin", "editor"]))])
 def secure_endpoint():

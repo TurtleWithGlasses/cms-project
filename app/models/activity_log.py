@@ -8,7 +8,7 @@ class ActivityLog(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     action = Column(String, nullable=False)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"))
     target_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     content_id = Column(Integer, ForeignKey("content.id"), nullable=True)
     timestamp = Column(DateTime, default=datetime.utcnow)
