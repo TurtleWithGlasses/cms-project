@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 from typing import List
 
@@ -9,6 +9,7 @@ from app.utils.activity_log import log_activity
 from app.utils.auth_helpers import get_current_user
 from app.permissions_config.permissions import ROLE_PERMISSIONS
 from app.models.user import Role
+from app.models.activity_log import ActivityLog
 
 from ..schemas import UserCreate, UserResponse, UserUpdate, RoleUpdate
 from ..models import User
@@ -26,8 +27,9 @@ def get_role_name(role_id: int, db: Session) -> str:
         raise HTTPException(status_code=500, detail="Role not found for the user")
     return role_name
 
+
 @router.post("/register", status_code=status.HTTP_201_CREATED, response_model=UserResponse)
-def register_user(user: UserCreate, db: Session = Depends(get_db)):
+def register_user(user: UserCreate, request: Request, db: Session = Depends(get_db)):
     existing_user = db.query(User).filter(
         (User.username == user.username) | (User.email == user.email)
     ).first()
@@ -51,9 +53,25 @@ def register_user(user: UserCreate, db: Session = Depends(get_db)):
         hashed_password=hashed_password,
         role_id=default_role.id,
     )
-    db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
+    try:
+        db.add(new_user)
+        db.commit()
+        db.refresh(new_user)
+    except Exception:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while saving the user. Please try again later.",
+        )
+
+    log_activity(
+        db=db,
+        user_id=new_user.id,
+        action="user_registration",
+        description="New user registered",
+        details={"username": user.username, "email": user.email},
+        # ip_address=request.client.host
+    )
 
     return {
         "id": new_user.id,
@@ -61,6 +79,7 @@ def register_user(user: UserCreate, db: Session = Depends(get_db)):
         "email": new_user.email,
         "role": default_role.name,
     }
+
 
 @router.get("/users/me", response_model=UserResponse)
 def get_current_user_profile(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
@@ -210,3 +229,8 @@ def admin_only_endpoint():
     This endpoint is restricted to admin users only.
     """
     return {"message": "This is restricted to admins only."}
+
+@router.get("/logs", dependencies=[Depends(get_role_validator(["admin","superadmin"]))])
+def get_activity_logs(db: Session = Depends(get_db)):
+    logs = db.query(ActivityLog).order_by(ActivityLog.timestamp.desc()).all()
+    return logs
