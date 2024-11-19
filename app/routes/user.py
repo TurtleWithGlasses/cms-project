@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 
 from app.models.content import Content
 from app.models.notification import Notification, NotificationStatus
@@ -259,3 +259,45 @@ def admin_only_endpoint():
 def get_activity_logs(db: Session = Depends(get_db)):
     logs = db.query(ActivityLog).order_by(ActivityLog.timestamp.desc()).all()
     return logs
+
+@router.get("/notifications")
+async def get_notifications(status: Optional[str] = None, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    query = db.query(Notification).filter(Notification.user_id == current_user.id)
+    
+    if status:
+        query = query.filter(Notification.status == status)
+    
+    notifications = query.all()
+
+    return notifications
+
+@router.put("/notifications/{id}")
+async def update_notification_status(id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    notification = db.query(Notification).filter(Notification.id == id, Notification.user_id == current_user.id).first()
+    if not notification:
+        raise HTTPException(status_code=404, detail="Notification not found")
+    notification.status = NotificationStatus.READ
+    db.commit()
+    db.refresh(notification)
+    return notification
+
+
+@router.put("/notifications/{notification_id}/read", status_code=200)
+async def mark_notification_as_read(
+    notification_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    notification = db.query(Notification).filter(
+        Notification.id == notification_id,
+        Notification.user_id == current_user.id
+    ).first()
+
+    if not notification:
+        raise HTTPException(status_code=404, detail="Notification not found")
+
+    notification.status = NotificationStatus.READ
+    db.commit()
+    db.refresh(notification)
+
+    return {"message": "Notification marked as read", "notification": notification}

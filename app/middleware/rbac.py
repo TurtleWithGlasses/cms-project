@@ -3,7 +3,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.base import RequestResponseEndpoint
 from app.utils.auth_helpers import get_current_user
 from app.database import get_db
-from app.models.user import Role  # Import the Role model
+from app.models.user import Role
 from fastapi.dependencies.utils import run_in_threadpool
 from contextlib import contextmanager
 

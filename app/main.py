@@ -11,7 +11,7 @@ app = FastAPI()
 
 app.add_middleware(
     RBACMiddleware, 
-    allowed_roles=["admin", "superadmin"]
+    allowed_roles=["user", "admin", "superadmin"]
 )
 
 # Include routers

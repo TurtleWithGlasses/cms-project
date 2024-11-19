@@ -2,7 +2,8 @@ from sqlalchemy import Column, Integer, String, Text, ForeignKey, UniqueConstrai
 from sqlalchemy.orm import relationship
 from app.database import Base
 from datetime import datetime
-from app.models.content_tags import content_tags  # Ensure content_tags is properly defined
+from app.models.content_tags import content_tags
+from app.models.notification import Notification
 import enum
 
 
@@ -25,6 +26,9 @@ class Content(Base):
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
     author_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    notifications = relationship(
+        "Notification", back_populates="content", cascade="all, delete-orphan"
+    )
 
     meta_title = Column(String, nullable=True)
     meta_description = Column(Text, nullable=True)
@@ -34,6 +38,6 @@ class Content(Base):
     __table_args__ = (UniqueConstraint("slug", name="unique_slug"),)
 
     # Relationships
-    author = relationship("User", back_populates="contents")  # Ensure User model has `contents`
-    activity_logs = relationship("ActivityLog", back_populates="content")  # Ensure ActivityLog model has `content`
-    tags = relationship("Tag", secondary=content_tags, back_populates="contents")  # Ensure `Tag` model has `contents`
+    author = relationship("User", back_populates="contents")
+    activity_logs = relationship("ActivityLog", back_populates="content")
+    tags = relationship("Tag", secondary=content_tags, back_populates="contents")

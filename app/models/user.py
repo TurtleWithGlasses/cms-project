@@ -1,6 +1,7 @@
 from sqlalchemy import Column, Integer, String, ForeignKey
 from sqlalchemy.orm import relationship
 from app.database import Base
+from app.models.notification import Notification
 import enum
 
 class RoleEnum(str, enum.Enum):
@@ -26,8 +27,9 @@ class User(Base):
     hashed_password = Column(String, nullable=False)
     role_id = Column(Integer, ForeignKey("roles.id"), nullable=False)
     role = relationship("Role", back_populates="users")
-
-
+    notifications = relationship(
+        "Notification", back_populates="user", cascade="all, delete-orphan"
+    )
 
     contents = relationship("Content", back_populates="author")
     activity_logs = relationship("ActivityLog", back_populates="user", foreign_keys="ActivityLog.user_id")
