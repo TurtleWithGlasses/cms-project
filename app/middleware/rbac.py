@@ -21,6 +21,9 @@ class RBACMiddleware(BaseHTTPMiddleware):
         self.allowed_roles = allowed_roles or []
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint):
+        print(f"Processing request for path: {request.url.path}")
+        print(f"Request Method: {request.method}")
+        print(f"Request Headers: {request.headers}")
         public_paths = ["/docs", "/openapi.json", "/login", "/register", "/users/me", "/token"]
         if request.url.path in public_paths:
             return await call_next(request)
@@ -56,3 +59,4 @@ class RBACMiddleware(BaseHTTPMiddleware):
         except Exception as e:
             print(f"Unexpected error in RBACMiddleware: {e}")
             raise HTTPException(status_code=500, detail="Internal Server Error")
+

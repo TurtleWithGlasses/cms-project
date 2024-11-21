@@ -19,3 +19,6 @@ class PaginatedNotifications(BaseModel):
     page: int
     size: int
     notifications: List[NotificationOut]
+
+class MarkAllNotificationsReadRequest(BaseModel):
+    unread_notification_ids: List[int]

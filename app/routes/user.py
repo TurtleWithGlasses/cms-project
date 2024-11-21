@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Body
 from sqlalchemy.orm import Session
 from typing import List, Optional
 
@@ -10,7 +10,7 @@ from app.utils.auth_helpers import get_current_user
 from app.permissions_config.permissions import ROLE_PERMISSIONS
 from app.models.user import Role
 from app.models.activity_log import ActivityLog
-from app.schemas.notifications import PaginatedNotifications
+from app.schemas.notifications import PaginatedNotifications, MarkAllNotificationsReadRequest
 
 from ..schemas import UserCreate, UserResponse, UserUpdate, RoleUpdate
 from ..models import User
@@ -302,6 +302,32 @@ async def get_all_notifications(
         "notifications": notifications
     }
 
+@router.put("/notifications/read_all", status_code=200)
+async def mark_all_notifications_as_read(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    try:
+        unread_notifications = db.query(Notification).filter(
+            Notification.user_id == current_user.id,
+            Notification.status == NotificationStatus.UNREAD
+        ).all()
+
+        if not unread_notifications:
+            return {"message": "No unread notifications to mark as read"}
+
+        for notification in unread_notifications:
+            notification.status = NotificationStatus.READ
+
+        db.commit()
+
+        return {"message": f"{len(unread_notifications)} notifications marked as read"}
+
+    except Exception as e:
+        print(f"Unexpected Error: {e}")
+        raise HTTPException(status_code=500, detail="Internal Server Error")
+
+
 @router.put("/notifications/{id}")
 async def update_notification_status(id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     notification = db.query(Notification).filter(Notification.id == id, Notification.user_id == current_user.id).first()
@@ -332,3 +358,4 @@ async def mark_notification_as_read(
     db.refresh(notification)
 
     return {"message": "Notification marked as read", "notification": notification}
+
