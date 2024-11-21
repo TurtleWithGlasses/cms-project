@@ -10,6 +10,7 @@ from app.utils.auth_helpers import get_current_user
 from app.permissions_config.permissions import ROLE_PERMISSIONS
 from app.models.user import Role
 from app.models.activity_log import ActivityLog
+from app.schemas.notifications import PaginatedNotifications
 
 from ..schemas import UserCreate, UserResponse, UserUpdate, RoleUpdate
 from ..models import User
@@ -270,6 +271,36 @@ async def get_notifications(status: Optional[str] = None, db: Session = Depends(
     notifications = query.all()
 
     return notifications
+
+@router.get("/fetch_notifications", response_model=PaginatedNotifications)
+async def get_all_notifications(
+    status: Optional[str] = None,
+    page: int = 1,
+    size: int = 10,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    if page < 1 or size < 1:
+        raise HTTPException(status_code=400, detail="Page and size must be greater than 0")
+    
+    print(f"Filter status: {status}")
+    query = db.query(Notification).filter(Notification.user_id == current_user.id)
+
+    if status:
+        try:
+            query = query.filter(Notification.status == NotificationStatus[status.upper()])
+        except KeyError:
+            raise HTTPException(status_code=400, detail=f"Invalid status: {status}")
+    
+    total_notifications = query.count()
+    notifications = query.offset((page - 1) * size).limit(size).all()
+
+    return {
+        "total": total_notifications,
+        "page": page,
+        "size": size,
+        "notifications": notifications
+    }
 
 @router.put("/notifications/{id}")
 async def update_notification_status(id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
