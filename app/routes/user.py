@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Request, Body
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 from typing import List, Optional
 
@@ -327,6 +327,30 @@ async def mark_all_notifications_as_read(
         print(f"Unexpected Error: {e}")
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
+@router.put("/notifications/unread_all", status_code=200)
+async def mark_all_notifications_as_unread(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    try:
+        read_notifications = db.query(Notification).filter(
+            Notification.user_id == current_user.id,
+            Notification.status == NotificationStatus.READ
+        ).all()
+
+        if not read_notifications:
+            return {"message": "No read notifications to mark as unread"}
+
+        for notification in read_notifications:
+            notification.status = NotificationStatus.UNREAD
+
+        db.commit()
+
+        return {"message": f"{len(read_notifications)} notifications marked as unread"}
+
+    except Exception as e:
+        print(f"Unexpected Error: {e}")
+        raise HTTPException(status_code=500, detail="Internal Server Error")
 
 @router.put("/notifications/{id}")
 async def update_notification_status(id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
