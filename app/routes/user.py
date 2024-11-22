@@ -383,3 +383,22 @@ async def mark_notification_as_read(
 
     return {"message": "Notification marked as read", "notification": notification}
 
+@router.put("/notifications/{notification_id}/unread", status_code=200)
+async def mark_notification_as_unread(
+    notification_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    notification = db.query(Notification).filter(
+        Notification.id == notification_id,
+        Notification.user_id == current_user.id
+    ).first()
+
+    if not notification:
+        raise HTTPException(status_code=404, detail="Notification not found")
+
+    notification.status = NotificationStatus.UNREAD
+    db.commit()
+    db.refresh(notification)
+
+    return {"message": "Notification marked as unread", "notification": notification}
