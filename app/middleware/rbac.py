@@ -1,62 +1,68 @@
-from fastapi import Request, HTTPException
+from sqlalchemy import select
+from fastapi import Request, HTTPException, Depends
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.base import RequestResponseEndpoint
 from app.utils.auth_helpers import get_current_user
-from app.database import get_db
+from app.database import AsyncSessionLocal
+from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.user import Role
-from fastapi.dependencies.utils import run_in_threadpool
-from contextlib import contextmanager
+import logging
 
-@contextmanager
-def db_context():
-    db = next(get_db())
-    try:
-        yield db
-    finally:
-        db.close()
+logger = logging.getLogger(__name__)
 
 class RBACMiddleware(BaseHTTPMiddleware):
     def __init__(self, app, allowed_roles=None):
         super().__init__(app)
         self.allowed_roles = allowed_roles or []
+        self.public_paths = {
+            "/",
+            "/docs",
+            "/openapi.json",
+            "/login",
+            "/users/register",
+            "/register",
+            "/users/me",
+            "/users/users/me",
+            "/users/users",
+            "/users/users/admin"
+            "/users/token",
+            "/token",
+            "/auth/token",
+        }
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint):
-        print(f"Processing request for path: {request.url.path}")
-        print(f"Request Method: {request.method}")
-        print(f"Request Headers: {request.headers}")
-        public_paths = ["/docs", "/openapi.json", "/login", "/register", "/users/me", "/token"]
-        if request.url.path in public_paths:
+        logger.debug(f"Processing request for path: {request.url.path}")
+        logger.debug(f"Request Method: {request.method}")
+        logger.debug(f"Request Headers: {request.headers}")
+
+        if request.url.path in self.public_paths:
             return await call_next(request)
 
         token = request.headers.get("Authorization", "").replace("Bearer ", "")
-        print(f"Authorization Header: {request.headers.get('Authorization')}")
-
         if not token:
-            if request.url.path not in public_paths:
-                raise HTTPException(status_code=401, detail="Authentication token is required")
-            return await call_next(request)
+            raise HTTPException(status_code=401, detail="Authentication token is required")
 
-        try:
-            with db_context() as db:
-                user = await run_in_threadpool(get_current_user, token, db)
-                print(f"Authenticated user: {user.username}, Role ID: {user.role_id}")
+        # Manually create the DB session
+        async with AsyncSessionLocal() as db:
+            try:
+                user = await get_current_user(token=token, db=db)
+                logger.info(f"Authenticated user: {user.username}, Role ID: {user.role_id}")
 
-                # Query the role name from the Role table using role_id
-                role_name = db.query(Role.name).filter(Role.id == user.role_id).scalar()
+                # Fetch the role name
+                result = await db.execute(select(Role.name).where(Role.id == user.role_id))
+                role_name = result.scalar()
 
                 if not role_name or role_name not in self.allowed_roles:
                     raise HTTPException(
                         status_code=403,
                         detail=f"Role '{role_name if role_name else 'None'}' not authorized for this resource",
                     )
-
-                print(f"User Role: {role_name}")
-                print(f"Allowed Roles: {self.allowed_roles}")
                 return await call_next(request)
-        except HTTPException as e:
-            print(f"Authorization error: {e.detail}")
-            raise e
-        except Exception as e:
-            print(f"Unexpected error in RBACMiddleware: {e}")
-            raise HTTPException(status_code=500, detail="Internal Server Error")
 
+            except HTTPException as e:
+                logger.error(f"Authorization error: {e.detail}")
+                raise e
+
+            except Exception as e:
+                logger.exception("Unexpected error in RBACMiddleware")
+                raise HTTPException(status_code=500, detail="Internal Server Error")

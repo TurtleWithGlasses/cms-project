@@ -1,9 +1,9 @@
-from sqlalchemy import Column, Integer, String, ForeignKey
+from sqlalchemy import Column, Integer, String, ForeignKey, Enum, JSON
 from sqlalchemy.orm import relationship
 from app.database import Base
-from app.models.notification import Notification
 import enum
 
+# Enum for predefined roles
 class RoleEnum(str, enum.Enum):
     user = "user"
     admin = "admin"
@@ -11,14 +11,15 @@ class RoleEnum(str, enum.Enum):
     manager = "manager"
     editor = "editor"
 
+# Role model
 class Role(Base):
     __tablename__ = "roles"
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, unique=True, nullable=False)
-    permissions = Column(String, nullable=False)
+    name = Column(String, unique=True, nullable=False)  # Use Enum for role names
+    permissions = Column(JSON, nullable=False)  # Store permissions in JSON format
     users = relationship("User", back_populates="role")
 
-
+# User model
 class User(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True, index=True)
@@ -26,9 +27,14 @@ class User(Base):
     email = Column(String, unique=True, nullable=False)
     hashed_password = Column(String, nullable=False)
     role_id = Column(Integer, ForeignKey("roles.id"), nullable=False)
-    role = relationship("Role", back_populates="users")
+    role = relationship("Role", lazy="joined")
+    
+    # Update the relationship to remove `delete-orphan`
     notifications = relationship(
-        "Notification", back_populates="user", cascade="all, delete-orphan"
+        "Notification",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        single_parent=True  # Enforces strict ownership
     )
 
     contents = relationship("Content", back_populates="author")

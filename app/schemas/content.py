@@ -1,28 +1,61 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import List, Optional
 from datetime import datetime
+from enum import Enum
+
+class ContentStatus(str, Enum):
+    DRAFT = "draft"
+    PUBLISHED = "published"
+
+status: ContentStatus = Field(ContentStatus.DRAFT, title="Content Status", description="The status of the content.")
+
 
 class ContentCreate(BaseModel):
-    title: str
-    body: str
-    status: Optional[str] = "draft"
+    title: str = Field(..., title="Content Title", description="The title of the content.")
+    body: str = Field(..., title="Content Body", description="The main body of the content.")
+    status: Optional[str] = Field("draft", title="Content Status", description="The status of the content (e.g., draft, published).")
+
 
 class ContentUpdate(BaseModel):
-    title: str = None
-    body: str = None
-    slug: str = None
-    meta_title: str = None
-    meta_description: str = None
-    meta_keywords: str = None
+    title: Optional[str] = Field(None, title="Updated Title", description="The updated title of the content.")
+    body: Optional[str] = Field(None, title="Updated Body", description="The updated body of the content.")
+    slug: Optional[str] = Field(None, title="Slug", description="The slugified version of the content title for URL purposes.")
+    meta_title: Optional[str] = Field(None, title="Meta Title", description="SEO title for the content.")
+    meta_description: Optional[str] = Field(None, title="Meta Description", description="SEO description for the content.")
+    meta_keywords: Optional[str] = Field(None, title="Meta Keywords", description="SEO keywords for the content.")
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "title": "Updated Content Title",
+                "body": "Updated content body text.",
+                "slug": "updated-content-title",
+                "meta_title": "Updated Meta Title",
+                "meta_description": "Updated meta description for the content.",
+                "meta_keywords": "updated, content, keywords",
+            }
+        }
+
 
 class ContentResponse(BaseModel):
-    id: int
-    title: str
-    body: str
-    status: str
-    created_at: datetime
-    updated_at: datetime
-    author_id: int
+    id: int = Field(..., title="Content ID", description="The unique identifier for the content.")
+    title: str = Field(..., title="Content Title", description="The title of the content.")
+    body: str = Field(..., title="Content Body", description="The body of the content.")
+    status: str = Field(..., title="Content Status", description="The status of the content (e.g., draft, published).")
+    created_at: datetime = Field(..., title="Created At", description="The timestamp when the content was created.")
+    updated_at: datetime = Field(..., title="Updated At", description="The timestamp when the content was last updated.")
+    author_id: int = Field(..., title="Author ID", description="The ID of the user who authored the content.")
 
     class Config:
         orm_mode = True
+        schema_extra = {
+            "example": {
+                "id": 1,
+                "title": "Example Content Title",
+                "body": "This is the body of the example content.",
+                "status": "draft",
+                "created_at": "2024-11-22T12:00:00.000Z",
+                "updated_at": "2024-11-22T12:30:00.000Z",
+                "author_id": 42,
+            }
+        }

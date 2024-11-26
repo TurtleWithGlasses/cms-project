@@ -1,26 +1,38 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
 from app.models.user import User
 from app.models.content import Content, ContentStatus
-from app.models.notification import Notification, NotificationStatus
+from app.models.notification import Notification
 from app.schemas.content import ContentCreate, ContentResponse, ContentUpdate
 from app.database import get_db
 from app.utils.slugify import slugify
 from ..auth import get_current_user, get_current_user_with_role
 from ..utils.activity_log import log_activity
 from datetime import datetime
-from typing import List
 
 router = APIRouter()
 
-# Create draft content
+async def fetch_content_by_id(content_id: int, db: AsyncSession) -> Content:
+    result = await db.execute(select(Content).where(Content.id == content_id))
+    content = result.scalars().first()
+    if not content:
+        raise HTTPException(status_code=404, detail="Content not found")
+    return content
+
+def validate_content_status(content: Content, required_status: ContentStatus):
+    if content.status != required_status:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Content must be in {required_status.value} status."
+        )
+
 @router.post("/content", response_model=ContentResponse, status_code=status.HTTP_201_CREATED)
-def create_draft(content: ContentCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+async def create_draft(content: ContentCreate, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     slug = content.slug or slugify(content.title)
 
-    # Check for existing content with the same slug
-    existing_content = db.query(Content).filter(Content.slug == slug).first()
-    if existing_content:
+    result = await db.execute(select(Content).where(Content.slug == slug))
+    if result.scalars().first():
         raise HTTPException(status_code=400, detail="Slug already exists. Choose a unique URL.")
 
     new_content = Content(
@@ -33,31 +45,31 @@ def create_draft(content: ContentCreate, db: Session = Depends(get_db), current_
         meta_description=content.meta_description,
         meta_keywords=content.meta_keywords,
         author_id=current_user.id,
-        created_at=datetime.utcnow()
+        created_at=datetime.utcnow(),
     )
     db.add(new_content)
-    db.commit()
-    db.refresh(new_content)
+    try:
+        await db.commit()
+        await db.refresh(new_content)
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to create content: {str(e)}")
+
     return new_content
 
-# Update content details
 @router.patch("/content/{content_id}", response_model=ContentResponse)
-def update_content(content_id: int, content: ContentUpdate, db: Session = Depends(get_db)):
-    existing_content = db.query(Content).filter(Content.id == content_id).first()
-    if not existing_content:
-        raise HTTPException(status_code=404, detail="Content not found")
-    
-    # Update slug and check for conflicts
+async def update_content(content_id: int, content: ContentUpdate, db: AsyncSession = Depends(get_db)):
+    existing_content = await fetch_content_by_id(content_id, db)
+
     if content.slug:
         slug = content.slug
-        duplicate_content = db.query(Content).filter(Content.slug == slug, Content.id != content_id).first()
-        if duplicate_content:
+        result = await db.execute(select(Content).where(Content.slug == slug, Content.id != content_id))
+        if result.scalars().first():
             raise HTTPException(status_code=400, detail="Slug already exists. Choose a unique URL.")
         existing_content.slug = slug
     else:
         existing_content.slug = slugify(content.title)
 
-    # Update other fields
     existing_content.title = content.title or existing_content.title
     existing_content.body = content.body or existing_content.body
     existing_content.meta_title = content.meta_title or existing_content.meta_title
@@ -65,23 +77,30 @@ def update_content(content_id: int, content: ContentUpdate, db: Session = Depend
     existing_content.meta_keywords = content.meta_keywords or existing_content.meta_keywords
     existing_content.updated_at = datetime.utcnow()
 
-    db.commit()
-    db.refresh(existing_content)
+    try:
+        await db.commit()
+        await db.refresh(existing_content)
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to update content: {str(e)}")
+
     return existing_content
 
-# Submit draft for approval
 @router.patch("/content/{content_id}/submit", response_model=ContentResponse)
-def submit_for_approval(content_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user_with_role(["editor", "admin"]))):
-    content = db.query(Content).filter(Content.id == content_id).first()
-    if not content or content.status != ContentStatus.DRAFT:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Content must be in DRAFT status to submit for approval.")
-    
+async def submit_for_approval(content_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user_with_role(["editor", "admin"]))):
+    content = await fetch_content_by_id(content_id, db)
+    validate_content_status(content, ContentStatus.DRAFT)
+
     content.status = ContentStatus.PENDING
     content.updated_at = datetime.utcnow()
-    db.commit()
+    try:
+        await db.commit()
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to submit content: {str(e)}")
 
-    # Notify editors and admins
-    admins_and_editors = db.query(User).filter(User.role.in_(["admin", "editor"])).all()
+    result = await db.execute(select(User).where(User.role.in_(["admin", "editor"])))
+    admins_and_editors = result.scalars().all()
     for user in admins_and_editors:
         notification = Notification(
             user_id=user.id,
@@ -89,38 +108,44 @@ def submit_for_approval(content_id: int, db: Session = Depends(get_db), current_
             message=f"Content '{content.title}' is pending approval",
         )
         db.add(notification)
-    db.commit()
+    try:
+        await db.commit()
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to notify admins/editors: {str(e)}")
 
-    # Log the status change
-    log_activity(
+    await log_activity(
         db=db,
         action="content_submission",
         user_id=current_user.id,
         content_id=content.id,
-        description=f"Content with ID {content.id} submitted for approval."
+        description=f"Content with ID {content.id} submitted for approval.",
     )
 
-    db.refresh(content)
+    await db.refresh(content)
     return content
 
-# Approve and publish content
 @router.patch("/content/{content_id}/approve", response_model=ContentResponse)
-def approve_content(content_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user_with_role(["admin"]))):
-    content = db.query(Content).filter(Content.id == content_id).first()
-    if not content or content.status != ContentStatus.PENDING:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Content must be in PENDING status to publish.")
+async def approve_content(content_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user_with_role(["admin"]))):
+    content = await fetch_content_by_id(content_id, db)
+    validate_content_status(content, ContentStatus.PENDING)
+
     content.status = ContentStatus.PUBLISHED
     content.publish_date = datetime.utcnow()
     content.updated_at = datetime.utcnow()
-    db.commit()
-    db.refresh(content)
 
-    # Log the status change
-    log_activity(
+    try:
+        await db.commit()
+        await db.refresh(content)
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to approve content: {str(e)}")
+
+    await log_activity(
         db=db,
         action="content_approval",
         user_id=current_user.id,
         content_id=content.id,
-        description=f"Content with ID {content.id} approved and published."
+        description=f"Content with ID {content.id} approved and published.",
     )
     return content

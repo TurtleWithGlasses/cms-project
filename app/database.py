@@ -1,16 +1,46 @@
-# app/database.py
-from sqlalchemy import create_engine
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker, declarative_base
+from app.config import settings
+import logging
 
+logger = logging.getLogger(__name__)
 
-SQLALCHEMY_DATABASE_URL = "postgresql://cms_admin:mehmetcms@localhost/cms_project"
-engine = create_engine(SQLALCHEMY_DATABASE_URL)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+# Environment-based configurations
+if settings.environment == "production":
+    engine = create_async_engine(
+        settings.database_url,
+        pool_size=20,
+        max_overflow=50,
+        pool_timeout=60,
+        pool_recycle=1800,
+    )
+else:
+    engine = create_async_engine(
+        settings.database_url,
+        echo=True,  # Enable query logging in dev mode
+        pool_size=10,
+        max_overflow=20,
+        pool_timeout=30,
+    )
+
+AsyncSessionLocal = sessionmaker(
+    autocommit=False,
+    autoflush=False,
+    bind=engine,
+    class_=AsyncSession,
+)
+
 Base = declarative_base()
 
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+async def get_db():
+    async with AsyncSessionLocal() as db:
+        try:
+            yield db
+        except Exception as e:
+            logger.error(f"Database session error: {e}")
+            raise
+        finally:
+            try:
+                await db.close()
+            except Exception as close_error:
+                logger.warning(f"Error closing database session: {close_error}")
