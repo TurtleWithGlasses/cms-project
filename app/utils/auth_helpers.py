@@ -1,7 +1,10 @@
 from fastapi import Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer
+from jose import JWTError, jwt
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from app.utils.auth_utils import decode_access_token, oauth2_scheme
+from app.config import Settings
 from app.models import User
 from app.database import get_db
 from app.permissions_config.permissions import ROLE_PERMISSIONS
@@ -28,19 +31,34 @@ async def get_current_user(
     Raises:
         HTTPException: If the user cannot be authenticated or does not exist.
     """
+    # Define a reusable credentials exception for unauthorized access
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
+
     logger.debug(f"Received token: {token}")
+
+    # Decode the token and validate
     try:
-        email = decode_access_token(token)
+        email = decode_access_token(token)  # Assuming this decodes and validates the token
         logger.info(f"Decoded email: {email}")
     except HTTPException as e:
         logger.error(f"Error decoding token: {str(e)}")
         raise credentials_exception
+    except jwt.ExpiredSignatureError:
+        logger.error("Token has expired")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has expired",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    except jwt.JWTError:
+        logger.error("Invalid token")
+        raise credentials_exception
 
+    # Query the database for the user
     try:
         result = await db.execute(select(User).where(User.email == email))
         user = result.scalars().first()
@@ -51,6 +69,7 @@ async def get_current_user(
             detail="An error occurred while retrieving the user.",
         )
 
+    # If the user doesn't exist, raise an exception
     if user is None:
         logger.warning("User not found in the database")
         raise HTTPException(

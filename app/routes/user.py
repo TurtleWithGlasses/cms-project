@@ -16,7 +16,7 @@ from app.models.user import Role, RoleEnum
 from app.models.activity_log import ActivityLog
 from app.schemas.notifications import PaginatedNotifications, MarkAllNotificationsReadRequest
 
-from app.schemas import UserCreate, UserResponse, UserUpdate, RoleUpdate
+from app.schemas.user import UserCreate, UserResponse, UserUpdate, RoleUpdate, RoleResponse
 from app.models import User
 from app.database import get_db
 from app.auth import get_role_validator, hash_password
@@ -116,7 +116,6 @@ async def update_user_role(user_id: int, role_data: RoleUpdate, db: AsyncSession
         "email": user_to_update.email,
         "role": role_data.role,
     }
-
 
 @router.put("/users/{user_id}", response_model=UserResponse)
 async def update_user(
@@ -346,38 +345,39 @@ async def update_user_role(user_id: int, role_data: RoleUpdate, db: AsyncSession
 
 
 @router.delete("/users/{user_id}", status_code=200, dependencies=[Depends(get_role_validator(["admin", "superadmin"]))])
-async def delete_user(user_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+async def delete_user(user_id: int,
+                      db: AsyncSession = Depends(get_db),
+                      current_user: User = Depends(get_current_user)):
     # Fetch user to delete
-    result = await db.execute("SELECT * FROM users WHERE id = :user_id", {"user_id": user_id})
+    result = await db.execute(select(User).where(User.id == user_id))
     user_to_delete = result.scalar()
     if not user_to_delete:
         raise HTTPException(status_code=404, detail="User not found")
 
     # Log delete activity
-    await log_activity(
-        db=db,
-        action="delete_user",
-        user_id=current_user.id,
-        description=f"Deleted user {user_to_delete.username} (ID: {user_to_delete.id})",
-        details={
-            "username": user_to_delete.username,
-            "email": user_to_delete.email,
-            "deleted_by": current_user.username,
-        },
-    )
-
-    # Nullify related logs and delete the user
-    await db.execute("UPDATE activity_logs SET user_id = NULL WHERE user_id = :user_id", {"user_id": user_to_delete.id})
     try:
+        await log_activity(
+            db=db,
+            action="delete_user",
+            user_id=current_user.id,
+            description=f"Deleted user {user_to_delete.username} (ID: {user_to_delete.id})",
+            details={
+                "username": user_to_delete.username,
+                "email": user_to_delete.email,
+                "deleted_by": current_user.username,
+            },
+        )
+        # Delete user
         await db.delete(user_to_delete)
         await db.commit()
+
+        return {
+            "message": f"User {user_to_delete.username} (ID: {user_to_delete.id}) has been successfully deleted."
+        }
     except Exception as e:
         await db.rollback()
         raise HTTPException(status_code=500, detail=f"Failed to delete user: {str(e)}")
 
-    return {
-        "message": f"User {user_to_delete.username} (ID: {user_to_delete.id}) has been successfully deleted."
-    }
 
 @router.get("/notifications")
 async def get_notifications(

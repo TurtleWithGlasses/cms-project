@@ -54,6 +54,7 @@ class RoleUpdate(BaseModel):
 class RoleResponse(BaseModel):
     id: int
     name: str
+    description: str | None
 
     class Config:
         orm_mode = True
