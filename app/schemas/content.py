@@ -13,8 +13,12 @@ status: ContentStatus = Field(ContentStatus.DRAFT, title="Content Status", descr
 class ContentCreate(BaseModel):
     title: str = Field(..., title="Content Title", description="The title of the content.")
     body: str = Field(..., title="Content Body", description="The main body of the content.")
-    status: Optional[str] = Field("draft", title="Content Status", description="The status of the content (e.g., draft, published).")
-
+    description: str = Field(..., title="Description", description="A short description of the content.")
+    status: str = Field(ContentStatus.DRAFT, title="Content Status")
+    slug: Optional[str] = Field(None, title="Slug", description="Slug for the content.")
+    meta_title: Optional[str] = Field(None, title="Meta Title", description="SEO title for the content.")
+    meta_description: Optional[str] = Field(None, title="Meta Description", description="SEO description for the content.")
+    meta_keywords: Optional[str] = Field(None, title="Meta Keywords", description="SEO keywords for the content.")
 
 class ContentUpdate(BaseModel):
     title: Optional[str] = Field(None, title="Updated Title", description="The updated title of the content.")
@@ -23,6 +27,7 @@ class ContentUpdate(BaseModel):
     meta_title: Optional[str] = Field(None, title="Meta Title", description="SEO title for the content.")
     meta_description: Optional[str] = Field(None, title="Meta Description", description="SEO description for the content.")
     meta_keywords: Optional[str] = Field(None, title="Meta Keywords", description="SEO keywords for the content.")
+    status: Optional[ContentStatus] = Field(None, title="Content Status", description="The updated status of the content.")
 
     class Config:
         schema_extra = {
@@ -33,21 +38,22 @@ class ContentUpdate(BaseModel):
                 "meta_title": "Updated Meta Title",
                 "meta_description": "Updated meta description for the content.",
                 "meta_keywords": "updated, content, keywords",
+                "status": "published",
             }
         }
-
 
 class ContentResponse(BaseModel):
     id: int = Field(..., title="Content ID", description="The unique identifier for the content.")
     title: str = Field(..., title="Content Title", description="The title of the content.")
     body: str = Field(..., title="Content Body", description="The body of the content.")
-    status: str = Field(..., title="Content Status", description="The status of the content (e.g., draft, published).")
+    status: ContentStatus = Field(..., title="Content Status", description="The status of the content (e.g., draft, published).")
     created_at: datetime = Field(..., title="Created At", description="The timestamp when the content was created.")
     updated_at: datetime = Field(..., title="Updated At", description="The timestamp when the content was last updated.")
     author_id: int = Field(..., title="Author ID", description="The ID of the user who authored the content.")
 
     class Config:
         orm_mode = True
+        use_enum_values = True
         schema_extra = {
             "example": {
                 "id": 1,

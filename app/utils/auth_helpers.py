@@ -1,11 +1,13 @@
 from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
-from jose import JWTError, jwt
+# from fastapi.security import OAuth2PasswordBearer
+from jose import jwt
+# from app.config import settings
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy.orm import selectinload
+from app.models.user import User
 from app.utils.auth_utils import decode_access_token, oauth2_scheme
-from app.config import Settings
-from app.models import User
+# from app.models import User
 from app.database import get_db
 from app.permissions_config.permissions import ROLE_PERMISSIONS
 import logging
@@ -60,7 +62,7 @@ async def get_current_user(
 
     # Query the database for the user
     try:
-        result = await db.execute(select(User).where(User.email == email))
+        result = await db.execute(select(User).options(selectinload(User.role)).where(User.email==email))
         user = result.scalars().first()
     except Exception as e:
         logger.error(f"Error querying user from the database: {str(e)}")
@@ -79,6 +81,16 @@ async def get_current_user(
         )
 
     logger.info(f"Authenticated user: {user.email} (ID: {user.id})")
+
+    # Ensure role is preloaded and accessible
+    if not user.role:
+        logger.error(f"User {user.email} has no role associated")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User role not found",
+        )
+
+    logger.info(f"User role: {user.role.name}")
     return user
 
 

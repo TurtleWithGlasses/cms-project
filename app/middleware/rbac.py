@@ -1,3 +1,4 @@
+from pydantic import ValidationError
 from sqlalchemy import select
 from fastapi import Request, HTTPException, Depends
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -57,12 +58,20 @@ class RBACMiddleware(BaseHTTPMiddleware):
                         status_code=403,
                         detail=f"Role '{role_name if role_name else 'None'}' not authorized for this resource",
                     )
+
                 return await call_next(request)
 
             except HTTPException as e:
                 logger.error(f"Authorization error: {e.detail}")
                 raise e
 
+            except ValidationError as e:
+                logger.error(f"Validation error: {e.json()}")
+                raise HTTPException(status_code=422, detail=e.errors())
+            
             except Exception as e:
-                logger.exception("Unexpected error in RBACMiddleware")
+                logger.error(f"Unhandled middleware exception: {str(e)}")
                 raise HTTPException(status_code=500, detail="Internal Server Error")
+
+
+

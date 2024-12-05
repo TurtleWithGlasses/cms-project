@@ -21,8 +21,8 @@ class Notification(Base):
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     user = relationship(
-        "User", back_populates="notifications", cascade="all, delete-orphan", single_parent=True
+        "User", back_populates="notifications", cascade="all, delete-orphan", single_parent=True, lazy="selectin"
     )
     content = relationship(
-        "Content", back_populates="notifications", cascade="all, delete-orphan", single_parent=True
+        "Content", back_populates="notifications", cascade="all, delete-orphan", single_parent=True, lazy="selectin"
     )

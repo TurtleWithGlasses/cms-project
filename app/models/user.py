@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, Enum, JSON
+from sqlalchemy import Column, Integer, String, ForeignKey, JSON
 from sqlalchemy.orm import relationship
 from app.database import Base
 import enum
@@ -27,7 +27,7 @@ class User(Base):
     email = Column(String, unique=True, nullable=False)
     hashed_password = Column(String, nullable=False)
     role_id = Column(Integer, ForeignKey("roles.id"), nullable=False)
-    role = relationship("Role", lazy="joined")
+    role = relationship("Role", lazy="selectin")
     
     # Update the relationship to remove `delete-orphan`
     notifications = relationship(

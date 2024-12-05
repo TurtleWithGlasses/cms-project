@@ -1,13 +1,30 @@
+# FastAPI framework and ASGI server
 fastapi==0.95.2
 uvicorn==0.23.0
-sqlalchemy==2.0.21
-psycopg2-binary==2.9.7
-alembic==1.11.3
-python-jose==3.3.0
-passlib[bcrypt]==1.7.4
-pydantic==1.10.9
-python-multipart==0.0.6
-python-decouple
-pytest
-httpx
-unidecode
+
+# Database and ORM
+sqlalchemy==2.0.21  # Core SQLAlchemy
+sqlalchemy[asyncio]  # Adds async support to SQLAlchemy
+asyncpg  # Async PostgreSQL driver
+alembic==1.11.3  # Database migrations
+
+# Authentication and password management
+python-jose==3.3.0  # JWT support
+passlib[bcrypt]==1.7.4  # Secure password hashing
+
+# Utilities
+pydantic==1.10.9  # Data validation and serialization
+pydantic[email]
+python-multipart==0.0.6  # Support for form data
+python-dotenv  # Load environment variables from .env
+python-decouple  # Another utility for environment management
+unidecode  # For slug generation
+greenlet  # Required by SQLAlchemy for sync/async bridging
+
+# Testing
+pytest  # Testing framework
+httpx  # HTTP client for testing
+
+# Optional (if used in your project)
+
+email-validator

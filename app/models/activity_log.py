@@ -1,4 +1,5 @@
 from sqlalchemy import Column, Integer, String, Text, ForeignKey, DateTime, Index
+from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from ..database import Base
@@ -13,12 +14,12 @@ class ActivityLog(Base):
     content_id = Column(Integer, ForeignKey("content.id", ondelete="SET NULL"), nullable=True)
     timestamp = Column(DateTime, default=datetime.utcnow, nullable=False)
     description = Column(Text, nullable=False)
-    details = Column(Text, nullable=True)
+    details = Column(JSON, nullable=True)
 
     # Relationships
-    user = relationship("User", back_populates="activity_logs", foreign_keys=[user_id])
-    target_user = relationship("User", back_populates="target_activity_logs", foreign_keys=[target_user_id])
-    content = relationship("Content", back_populates="activity_logs")
+    user = relationship("User", back_populates="activity_logs", foreign_keys=[user_id], lazy="selectin")
+    target_user = relationship("User", back_populates="target_activity_logs", foreign_keys=[target_user_id], lazy="selectin")
+    content = relationship("Content", back_populates="activity_logs", lazy="selectin")
 
     # Indexes for performance optimization
     __table_args__ = (

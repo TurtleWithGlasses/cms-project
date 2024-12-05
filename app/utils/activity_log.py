@@ -1,15 +1,31 @@
+from typing import Optional, Dict
+from app.database import AsyncSessionLocal
+from app.models.activity_log import ActivityLog
+# from sqlalchemy.exc import SQLAlchemyError
+from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from app.models.activity_log import ActivityLog
-from datetime import datetime, timezone
+from sqlalchemy.orm import selectinload
 import json
-from typing import Optional, Dict
 import logging
 
 logger = logging.getLogger(__name__)
 
+def validate_details(details: Optional[Dict]) -> None:
+    """
+    Validate that the details are JSON-serializable.
+    Raise an exception if invalid.
+    """
+    if details:
+        try:
+            # Try serializing the details
+            json.dumps(details)
+        except TypeError as e:
+            logger.error(f"Details validation failed. Non-serializable data: {details}")
+            raise ValueError(f"Details must be JSON-serializable. Error: {e}") from e
+
+
 async def log_activity(
-    db: AsyncSession,
     action: str,
     user_id: Optional[int],
     description: str,
@@ -17,31 +33,25 @@ async def log_activity(
     target_user_id: Optional[int] = None,
     details: Optional[Dict] = None,
 ):
+    """
+    Logs an activity in the database using a separate session.
+    """
     try:
-        # Serialize details if provided
         details_serialized = json.dumps(details) if details else None
 
-        # Create new log entry
-        new_log = ActivityLog(
-            action=action,
-            user_id=user_id,
-            content_id=content_id,
-            # Convert timezone-aware datetime to naive
-            timestamp=datetime.now(timezone.utc).replace(tzinfo=None),  # Fix applied here
-            description=description,
-            details=details_serialized,
-        )
-        db.add(new_log)
+        # Use a separate session for logging
+        async with AsyncSessionLocal() as session:
+            new_log = ActivityLog(
+                action=action,
+                user_id=user_id,
+                content_id=content_id,
+                target_user_id=target_user_id,
+                timestamp=datetime.utcnow(),
+                description=description,
+                details=details_serialized,
+            )
+            session.add(new_log)
+            await session.commit()
 
-        # Commit transaction
-        await db.commit()
-
-        # Optionally return the new log for debugging or testing
-        return new_log
-    except TypeError as e:
-        logger.error(f"Details not JSON serializable: {details} - {e}")
-        raise ValueError("Provided details are not JSON serializable") from e
     except Exception as e:
-        logger.error(f"Error while logging activity: {e}")
-        await db.rollback()
-        raise e
+        logger.error(f"Failed to log activity: {str(e)}")

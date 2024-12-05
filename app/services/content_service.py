@@ -1,5 +1,5 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.future import select
+# from sqlalchemy.future import select
 from app.models.content import Content
 from app.schemas.content import ContentCreate
 from datetime import datetime

@@ -104,23 +104,51 @@ async def verify_token(token: str, db: AsyncSession = Depends(get_db)):
     return user
 
 # Asynchronous function to get the current user with required roles
-async def get_current_user_with_role(
-    required_roles: List[str],
-    db: AsyncSession = Depends(get_db),
-    token: str = Depends(oauth2_scheme),
-) -> User:
-    if not token or not isinstance(token, str):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token provided."
-        )
-    user = await verify_token(token=token, db=db)
-    if not user.role or user.role.name not in required_roles:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"Role '{user.role.name if user.role else 'None'}' does not have access to this resource.",
-        )
-    return user
+def get_current_user_with_role(required_roles: List[str]) -> Callable[..., User]:
+    async def _current_user_with_role(
+        db: AsyncSession = Depends(get_db),
+        token: str = Depends(oauth2_scheme),
+    ) -> User:
+        """
+        Verify the current user and ensure they have the required role(s).
+
+        Args:
+            required_roles (List[str]): List of roles that are allowed access.
+            db (AsyncSession): Database session dependency.
+            token (str): Bearer token for authentication.
+
+        Returns:
+            User: The authenticated user.
+
+        Raises:
+            HTTPException: If token is invalid, user does not exist, or role is unauthorized.
+        """
+        if not token or not isinstance(token, str):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token provided.",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        # Verify the token and fetch the user
+        user = await verify_token(token=token, db=db)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User not authenticated.",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        # Check if the user's role is in the required roles
+        if not user.role or user.role.name not in required_roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Role '{user.role.name if user.role else 'None'}' does not have access to this resource.",
+            )
+
+        return user
+
+    return _current_user_with_role
 
 # Asynchronous function to create a role validator
 def get_role_validator(required_roles: List[str]) -> Callable[[AsyncSession, str], User]:

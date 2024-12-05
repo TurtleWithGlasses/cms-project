@@ -7,7 +7,7 @@ from app.models.notification import Notification
 import enum
 
 
-class ContentStatus(enum.Enum):
+class ContentStatus(str, enum.Enum):
     DRAFT = "draft"
     PENDING = "pending"
     PUBLISHED = "published"
@@ -16,10 +16,10 @@ class ContentStatus(enum.Enum):
 class Content(Base):
     __tablename__ = "content"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     title = Column(String, index=True, nullable=False)
     body = Column(Text, nullable=False)
-    slug = Column(String, unique=True, index=True, nullable=False)
+    slug = Column(String, unique=True, index=True, nullable=False)    
     description = Column(Text, nullable=True)
     publish_date = Column(DateTime, nullable=True)
     status = Column(Enum(ContentStatus), default=ContentStatus.DRAFT, nullable=False)
@@ -28,15 +28,15 @@ class Content(Base):
     author_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     
     # Metadata fields
-    meta_title = Column(String, nullable=True)
+    meta_title = Column(Text, nullable=True)
     meta_description = Column(Text, nullable=True)
-    meta_keywords = Column(String, nullable=True)
+    meta_keywords = Column(Text, nullable=True)
 
     # Relationships
     notifications = relationship(
         "Notification", back_populates="content", cascade="all, delete-orphan"
     )
-    author = relationship("User", back_populates="contents")
+    author = relationship("User", back_populates="contents", lazy="selectin")
     activity_logs = relationship("ActivityLog", back_populates="content", cascade="all, delete-orphan")
     tags = relationship("Tag", secondary=content_tags, back_populates="contents")
 

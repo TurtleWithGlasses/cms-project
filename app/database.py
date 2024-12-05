@@ -33,6 +33,7 @@ AsyncSessionLocal = sessionmaker(
 Base = declarative_base()
 
 async def get_db():
+    logging.info("Opening database session...")
     async with AsyncSessionLocal() as db:
         try:
             yield db
@@ -42,5 +43,6 @@ async def get_db():
         finally:
             try:
                 await db.close()
+                logging.info("Database session closed.")
             except Exception as close_error:
                 logger.warning(f"Error closing database session: {close_error}")

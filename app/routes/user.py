@@ -1,22 +1,21 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, HTTPException, status
 import logging
-from sqlalchemy.orm import Session, selectinload, joinedload
+# from sqlalchemy.orm import Session, selectinload, joinedload
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import update, text
 from typing import List, Optional
 
-from app.models.content import Content
+# from app.models.content import Content
 from app.models.notification import Notification, NotificationStatus
-from app.schemas.content import ContentResponse
 from app.utils.activity_log import log_activity
 from app.utils.auth_helpers import get_current_user
-from app.permissions_config.permissions import ROLE_PERMISSIONS
-from app.models.user import Role, RoleEnum
-from app.models.activity_log import ActivityLog
-from app.schemas.notifications import PaginatedNotifications, MarkAllNotificationsReadRequest
+# from app.permissions_config.permissions import ROLE_PERMISSIONS
+from app.models.user import Role
+# from app.models.activity_log import ActivityLog
+from app.schemas.notifications import PaginatedNotifications
 
-from app.schemas.user import UserCreate, UserResponse, UserUpdate, RoleUpdate, RoleResponse
+from app.schemas.user import UserCreate, UserResponse, UserUpdate, RoleUpdate
 from app.models import User
 from app.database import get_db
 from app.auth import get_role_validator, hash_password
@@ -202,18 +201,14 @@ async def register_user(user: UserCreate, db: AsyncSession = Depends(get_db)):
             detail="User with this email or username already exists",
         )
 
-    # Fetch the default role and preload attributes
+    # Fetch the default role
     result = await db.execute(select(Role).where(Role.name == "user"))
     default_role = result.scalars().first()
-
     if not default_role:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Default role 'user' not found in the database",
         )
-
-    # Access `default_role.name` safely
-    default_role_name = default_role.name
 
     # Create new user
     hashed_password = hash_password(user.password)
@@ -227,6 +222,14 @@ async def register_user(user: UserCreate, db: AsyncSession = Depends(get_db)):
     try:
         await db.commit()
         await db.refresh(new_user)
+
+        # Log activity after user registration
+        await log_activity(
+            action="user_register",
+            user_id=new_user.id,
+            description=f"User {new_user.username} registered successfully.",
+        )
+
     except Exception as e:
         await db.rollback()
         raise HTTPException(
@@ -238,7 +241,7 @@ async def register_user(user: UserCreate, db: AsyncSession = Depends(get_db)):
         "id": new_user.id,
         "username": new_user.username,
         "email": new_user.email,
-        "role": default_role_name,  # This is now safe
+        "role": default_role.name,
     }
 
 @router.patch("/me", response_model=UserResponse)
@@ -290,59 +293,27 @@ async def update_user_profile(user_data: UserUpdate,
 
 @router.get("/user/{user_id}", response_model=UserResponse)
 async def get_user(user_id: int, db: AsyncSession = Depends(get_db)):
-    # Fetch user by ID
-    result = await db.execute("SELECT * FROM users WHERE id = :user_id", {"user_id": user_id})
-    user = result.scalar()
+    # Specify the exact columns you need in the query
+    query = text("SELECT id, username, email, role_id FROM users WHERE id = :user_id")
+    result = await db.execute(query, {"user_id": user_id})
+    user = result.fetchone()  # Fetch one row
+
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    role_name = await get_role_name(user.role_id, db)
+    # Unpack the result based on the columns fetched
+    user_id, username, email, role_id = user
 
+    # Get the role name using the role_id
+    role_name = await get_role_name(role_id, db)
+
+    # Return the user details in the expected format
     return {
-        "id": user.id,
-        "username": user.username,
-        "email": user.email,
+        "id": user_id,
+        "username": username,
+        "email": email,
         "role": role_name,
     }
-
-@router.put("/users/{user_id}/role", response_model=UserResponse, dependencies=[Depends(get_role_validator(["admin"]))])
-async def update_user_role(user_id: int, role_data: RoleUpdate, db: AsyncSession = Depends(get_db)):
-    logging.info(f"Received request to update user_id: {user_id} to role: {role_data.role}")
-
-    result = await db.execute(select(User).where(User.id == user_id))
-    user_to_update = result.scalar()
-
-    if not user_to_update:
-        logging.error(f"User not found: {user_id}")
-        raise HTTPException(status_code=404, detail="User not found")
-
-    result = await db.execute(
-        text("SELECT id FROM roles WHERE name = :role_name"), {"role_name": role_data.role}
-    )
-    role_id = result.scalar()
-    if not role_id:
-        logging.error(f"Invalid role: {role_data.role}")
-        raise HTTPException(status_code=400, detail="Invalid role provided")
-
-    logging.info(f"Updating user_id: {user_id} to role_id: {role_id}")
-    user_to_update.role_id = role_id
-
-    try:
-        await db.commit()
-        await db.refresh(user_to_update)
-        logging.info(f"User updated successfully: {user_to_update}")
-    except Exception as e:
-        logging.error(f"Failed to update role: {e}")
-        await db.rollback()
-        raise HTTPException(status_code=500, detail=f"Failed to update role: {str(e)}")
-
-    return {
-        "id": user_to_update.id,
-        "username": user_to_update.username,
-        "email": user_to_update.email,
-        "role": role_data.role,
-    }
-
 
 @router.delete("/users/{user_id}", status_code=200, dependencies=[Depends(get_role_validator(["admin", "superadmin"]))])
 async def delete_user(user_id: int,
@@ -538,16 +509,22 @@ async def mark_notification_as_unread(
 
 @router.get("/logs", dependencies=[Depends(get_role_validator(["admin", "superadmin"]))])
 async def get_activity_logs(db: AsyncSession = Depends(get_db)):
-    result = await db.execute("SELECT * FROM activity_logs ORDER BY timestamp DESC")
-    logs = result.scalars().all()
-    return logs
+    try:
+        result = await db.execute(text("SELECT * FROM activity_logs ORDER BY timestamp DESC"))
+        logs = result.mappings().all()  # Use `.mappings()` to fetch as dictionaries if needed
+        return logs
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"An error occurred while fetching logs: {str(e)}"
+        )
 
 @router.get("/secure-endpoint", dependencies=[Depends(get_role_validator(["admin", "editor"]))])
-def secure_endpoint():
+async def secure_endpoint():
     return {"message": "You have permission to access this resource."}
 
 @router.get("/admin-only", dependencies=[Depends(get_role_validator(["admin"]))], status_code=status.HTTP_200_OK)
-def admin_only_endpoint():
+async def admin_only_endpoint():
     """
     This endpoint is restricted to admin users only.
     """

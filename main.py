@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from app.routes import user, auth, roles
 from app.database import Base, engine
 from app.middleware.rbac import RBACMiddleware
+from app.routes.content import router as content_router
 from app.config import settings
 
 # Configure logging
@@ -28,9 +29,14 @@ def create_app() -> FastAPI:
     app.include_router(user.router, prefix="/users", tags=["Users"])
     app.include_router(auth.router, prefix="/auth", tags=["Auth"])
     app.include_router(roles.router, prefix="/api", tags=["roles"])
+    app.include_router(content_router, prefix="/api/v1", tags=["Content"])
 
     if settings.debug:
         logger.info(f"Running in {settings.environment} mode")
+        logging.getLogger("sqlalchemy.engine").setLevel(logging.INFO)  # Logs SQL statements
+        logging.getLogger("sqlalchemy.pool").setLevel(logging.INFO)  # Logs connection pool checkouts
+        logging.getLogger("sqlalchemy.dialects").setLevel(logging.DEBUG)  # Logs SQL dialect-specific queries
+        logging.getLogger("sqlalchemy.orm").setLevel(logging.DEBUG) 
 
     return app
 
