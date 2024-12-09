@@ -1,11 +1,7 @@
 from typing import Optional, Dict
 from app.database import AsyncSessionLocal
 from app.models.activity_log import ActivityLog
-# from sqlalchemy.exc import SQLAlchemyError
 from datetime import datetime
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.future import select
-from sqlalchemy.orm import selectinload
 import json
 import logging
 

@@ -15,6 +15,8 @@ from datetime import datetime
 # from functools import partial
 import logging
 
+from app.models.activity_log import ActivityLog
+
 logging.basicConfig(
     level=logging.INFO,  # Set the desired log level (INFO, DEBUG, etc.)
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -85,7 +87,6 @@ async def create_draft(
         await db.rollback()
         raise HTTPException(status_code=500, detail=f"Failed to create content: {str(e)}")
 
-
 @router.patch("/content/{content_id}", response_model=ContentResponse)
 async def update_content(content_id: int, content: ContentUpdate, db: AsyncSession = Depends(get_db)):
     # Fetch content with eager loading
@@ -146,7 +147,6 @@ async def submit_for_approval(
     content_id: int,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user_with_role(["editor", "admin"])),
-    
 ):
     logger.debug(f"DB session at start: {db}")
     content = await fetch_content_by_id(content_id, db)
@@ -155,49 +155,82 @@ async def submit_for_approval(
     content.status = ContentStatus.PENDING
     content.updated_at = datetime.utcnow()
 
+    details = {
+        "id": content.id,
+        "title": content.title,
+        "slug": content.slug,
+        "status": content.status,
+        "description": content.description,
+    }
+
     try:
+        # Log activity within the same session and transaction
+        new_log = ActivityLog(
+            action="content_submission",
+            user_id=current_user.id,
+            content_id=content.id,
+            description=f"Content with ID {content.id} submitted for approval.",
+            details=details,
+            timestamp=datetime.utcnow(),
+        )
+        db.add(new_log)
+
+        # Commit both the content update and the log
         await db.commit()
         logger.info(f"Content {content_id} submitted for approval by user {current_user.id}")
-
-        # Isolated logging context
-        async with db.bind.connect() as connection:
-            async with AsyncSession(bind=connection) as log_session:
-                await log_activity(
-                    db=log_session,
-                    action="content_submission",
-                    user_id=current_user.id,
-                    content_id=content.id,
-                    description=f"Content with ID {content.id} submitted for approval.",
-                )
     except Exception as e:
-        logger.error(f"Failed to log activity for content {content_id}: {str(e)}")
+        logger.error(f"Failed to submit content {content_id}: {str(e)}")
         await db.rollback()
         raise HTTPException(status_code=500, detail=f"Failed to submit content: {str(e)}")
 
     return content
 
-
 @router.patch("/content/{content_id}/approve", response_model=ContentResponse)
-async def approve_content(content_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user_with_role(["admin"]))):
-    content = await fetch_content_by_id(content_id, db)
-    validate_content_status(content, ContentStatus.PENDING)
-
-    content.status = ContentStatus.PUBLISHED
-    content.publish_date = datetime.utcnow()
-    content.updated_at = datetime.utcnow()
-
+async def approve_content(
+    content_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user_with_role(["admin"])),
+):
     try:
+        # Fetch content and validate its current status
+        content = await fetch_content_by_id(content_id, db)
+        validate_content_status(content, ContentStatus.PENDING)
+
+        # Update content status and timestamps
+        content.status = ContentStatus.PUBLISHED
+        content.publish_date = datetime.utcnow()
+        content.updated_at = datetime.utcnow()
+
+        # Prepare details for logging
+        details = {
+            "id": content.id,
+            "title": content.title,
+            "slug": content.slug,
+            "status": content.status.value,  # Ensure Enum values are serialized
+            "description": content.description,
+        }
+
+        # Add the log entry to the same session
+        new_log = ActivityLog(
+            action="content_approval",
+            user_id=current_user.id,
+            content_id=content.id,
+            description=f"Content with ID {content.id} approved and published.",
+            details=details,
+            timestamp=datetime.utcnow(),
+        )
+        db.add(new_log)
+
         await db.commit()
+
         await db.refresh(content)
+
     except Exception as e:
         await db.rollback()
         raise HTTPException(status_code=500, detail=f"Failed to approve content: {str(e)}")
 
-    await log_activity(
-        db=db,
-        action="content_approval",
-        user_id=current_user.id,
-        content_id=content.id,
-        description=f"Content with ID {content.id} approved and published.",
-    )
+    finally:
+        # Ensure session cleanup
+        await db.close()
+
     return content
