@@ -19,6 +19,7 @@ class ContentCreate(BaseModel):
     meta_title: Optional[str] = Field(None, title="Meta Title", description="SEO title for the content.")
     meta_description: Optional[str] = Field(None, title="Meta Description", description="SEO description for the content.")
     meta_keywords: Optional[str] = Field(None, title="Meta Keywords", description="SEO keywords for the content.")
+    publish_at: Optional[datetime] = Field(None, description="When the content should be published")
 
 class ContentUpdate(BaseModel):
     title: Optional[str] = Field(None, title="Updated Title", description="The updated title of the content.")
@@ -28,6 +29,7 @@ class ContentUpdate(BaseModel):
     meta_description: Optional[str] = Field(None, title="Meta Description", description="SEO description for the content.")
     meta_keywords: Optional[str] = Field(None, title="Meta Keywords", description="SEO keywords for the content.")
     status: Optional[ContentStatus] = Field(None, title="Content Status", description="The updated status of the content.")
+    publish_at: Optional[datetime] = Field(None, description="When the content should be published")
 
     class Config:
         schema_extra = {

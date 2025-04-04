@@ -5,7 +5,9 @@ from sqlalchemy.orm import selectinload
 from app.models.user import User
 from app.models.content import Content, ContentStatus
 from app.models.notification import Notification
+from app.models.content_version import ContentVersion
 from app.schemas.content import ContentCreate, ContentResponse, ContentUpdate
+from scheduler import schedule_content
 from app.database import get_db
 from app.utils.slugify import slugify
 from app.auth import get_current_user_with_role
@@ -14,6 +16,7 @@ from app.utils.activity_log import log_activity
 from datetime import datetime
 # from functools import partial
 import logging
+from typing import List
 
 from app.models.activity_log import ActivityLog
 
@@ -65,6 +68,9 @@ async def create_draft(
         await db.commit()
         await db.refresh(new_content)
 
+        if content.publish_date:
+            schedule_content(new_content.id, content.publish_date)
+
         # Log activity using a separate session
         try:
             await log_activity(
@@ -88,7 +94,11 @@ async def create_draft(
         raise HTTPException(status_code=500, detail=f"Failed to create content: {str(e)}")
 
 @router.patch("/content/{content_id}", response_model=ContentResponse)
-async def update_content(content_id: int, content: ContentUpdate, db: AsyncSession = Depends(get_db)):
+async def update_content(content_id: int,
+                         content: ContentUpdate,
+                         db: AsyncSession = Depends(get_db),
+                         current_user: User = Depends(get_current_user)
+                         ):
     # Fetch content with eager loading
     existing_content = await db.execute(
         select(Content)
@@ -110,13 +120,24 @@ async def update_content(content_id: int, content: ContentUpdate, db: AsyncSessi
     else:
         existing_content.slug = slugify(content.title)
 
+    # Save current version before applying updates
+    version = ContentVersion(
+        content_id=existing_content.id,
+        title=existing_content.title,
+        body=existing_content.body,
+        slug=existing_content.slug,
+        editor_id=current_user.id
+    )
+    db.add(version)
+
     # Update fields
-    existing_content.title = content.title or existing_content.title
+    existing_content.title = content.title or existing_content.titleco
     existing_content.body = content.body or existing_content.body
     existing_content.meta_title = content.meta_title or existing_content.meta_title
     existing_content.meta_description = content.meta_description or existing_content.meta_description
     existing_content.meta_keywords = content.meta_keywords or existing_content.meta_keywords
     existing_content.updated_at = datetime.utcnow()
+
 
     try:
         # Commit updates
@@ -234,3 +255,14 @@ async def approve_content(
         await db.close()
 
     return content
+
+@router.get("/content/{content_id}/versions", response_model=List[ContentResponse])
+async def get_content_versions(
+    content_id: int,
+    db: AsyncSession = Depends(get_db)
+):
+    result = await db.execute(
+        select(ContentVersion).where(ContentVersion.content_id == content_id)
+    )
+    versions = result.scalars().all()
+    return versions

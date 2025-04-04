@@ -26,6 +26,9 @@ class Content(Base):
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
     author_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    versions = relationship("ContentVersion", back_populates="content", cascade="all, delete-orphan")
+    category_id = Column(Integer, ForeignKey("categories.id"), nullable=True)
+    category = relationship("Category")
     
     # Metadata fields
     meta_title = Column(Text, nullable=True)

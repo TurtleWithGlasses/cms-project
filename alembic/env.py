@@ -4,11 +4,17 @@ from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 from alembic import context
 
 from app.database import Base
-from app.models.user import User
+from app.config import settings
 from app.models.content import Content
+from app.models.user import User
 from app.models.tag import Tag
+from app.routes.roles import Role
+from app.models.notification import Notification
 from app.models.activity_log import ActivityLog
+from app.models.category import Category
+from app.models.content_version import ContentVersion
 from app.models.content_tags import content_tags
+
 
 # Alembic configuration
 config = context.config
@@ -22,24 +28,23 @@ target_metadata = Base.metadata
 
 # Retrieve database URL from the configuration
 def get_url() -> str:
-    return config.get_main_option("sqlalchemy.url")
+    return settings.database_url
 
-async def run_migrations_online() -> None:
+async def run_migrations_online():
     """Run migrations in 'online' mode using AsyncEngine."""
-    connectable: AsyncEngine = create_async_engine(
-        get_url(),
-        poolclass=pool.NullPool,
-    )
+    connectable = create_async_engine(get_url(), future=True)
 
     async with connectable.connect() as connection:
-        await connection.run_sync(
-            context.configure,
-            connection=connection,
-            target_metadata=target_metadata,
-        )
-
-        async with context.begin_transaction():
-            await connection.run_sync(context.run_migrations)
+        def do_run_migrations(sync_connection):
+            context.configure(
+                connection=sync_connection,
+                target_metadata=target_metadata,
+                compare_type=True,
+            )
+            with context.begin_transaction():
+                context.run_migrations()
+        
+        await connection.run_sync(do_run_migrations)
 
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode."""

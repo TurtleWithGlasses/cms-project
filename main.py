@@ -3,8 +3,10 @@ from fastapi import FastAPI
 from app.routes import user, auth, roles
 from app.database import Base, engine
 from app.middleware.rbac import RBACMiddleware
+from app.routes import category
 from app.routes.content import router as content_router
 from app.config import settings
+from scheduler import scheduler
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -30,6 +32,7 @@ def create_app() -> FastAPI:
     app.include_router(auth.router, prefix="/auth", tags=["Auth"])
     app.include_router(roles.router, prefix="/api", tags=["roles"])
     app.include_router(content_router, prefix="/api/v1", tags=["Content"])
+    app.include_router(category.router, prefix="/api", tags=["Categories"])
 
     if settings.debug:
         logger.info(f"Running in {settings.environment} mode")
@@ -50,6 +53,8 @@ async def startup_event():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     logger.info("Database tables created (if not existing).")
+
+    scheduler.start()
 
 @app.on_event("shutdown")
 async def shutdown_event():

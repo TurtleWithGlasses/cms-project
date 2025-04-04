@@ -4,8 +4,9 @@ from .content_tags import content_tags
 from .notification import Notification
 from .tag import Tag
 from .user import User
+from .category import Category
+from .content_version import ContentVersion
 
-# Exported symbols for 'from app.models import *'
 __all__ = [
     "ActivityLog",
     "Content",
@@ -13,4 +14,7 @@ __all__ = [
     "Notification",
     "Tag",
     "User",
+    "Role",
+    "Category",
+    "ContentVersion",
 ]
