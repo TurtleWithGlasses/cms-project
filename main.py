@@ -1,16 +1,29 @@
 import logging
+import uvicorn
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from app.routes import user, auth, roles
 from app.database import Base, engine
 from app.middleware.rbac import RBACMiddleware
 from app.routes import category
 from app.routes.content import router as content_router
 from app.config import settings
-from scheduler import scheduler
+from app.scheduler import scheduler
 
 # Configure logging
+app = FastAPI(title="CMS Project")
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
+
+# CORS (adjust origins as needed)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Update with allowed origins in production
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 def create_app() -> FastAPI:
     """Create the FastAPI application."""
@@ -50,8 +63,9 @@ async def startup_event():
     """Tasks to run at application startup."""
     logger.info("Starting up the application...")
     # Perform database initialization or other startup tasks
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    if settings.debug:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
     logger.info("Database tables created (if not existing).")
 
     scheduler.start()

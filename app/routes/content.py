@@ -7,7 +7,7 @@ from app.models.content import Content, ContentStatus
 from app.models.notification import Notification
 from app.models.content_version import ContentVersion
 from app.schemas.content import ContentCreate, ContentResponse, ContentUpdate
-from scheduler import schedule_content
+from app.scheduler import schedule_content
 from app.database import get_db
 from app.utils.slugify import slugify
 from app.auth import get_current_user_with_role
