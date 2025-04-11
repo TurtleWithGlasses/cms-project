@@ -11,7 +11,13 @@ class ContentVersion(Base):
     content_id = Column(Integer, ForeignKey("content.id", ondelete="CASCADE"))
     title = Column(String, nullable=False)
     body = Column(Text, nullable=False)
+    meta_title = Column(Text)
+    meta_description = Column(Text)
+    meta_keywords = Column(Text)
     slug = Column(String, nullable=True)
+    status = Column(String, nullable=False)
+    author_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"))
+    created_at = Column(DateTime, default=datetime.utcnow)
     update_at = Column(DateTime, default=datetime.utcnow)
     editor_id = Column(Integer, ForeignKey("users.id"))
 

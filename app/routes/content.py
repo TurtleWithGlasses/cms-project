@@ -1,5 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
+from typing import List
+
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 from app.models.user import User
@@ -13,10 +15,13 @@ from app.utils.slugify import slugify
 from app.auth import get_current_user_with_role
 from app.utils.auth_helpers import get_current_user
 from app.utils.activity_log import log_activity
+from app.services import content_version_service
+from app.schemas.content import ContentResponse
+from app.schemas.content_version import ContentVersionOut
 from datetime import datetime
 # from functools import partial
 import logging
-from typing import List
+
 
 from app.models.activity_log import ActivityLog
 
@@ -266,3 +271,16 @@ async def get_content_versions(
     )
     versions = result.scalars().all()
     return versions
+
+@router.get("/content/{content_id}/versions", response_model=List[ContentVersionOut])
+async def get_content_versions(content_id: int, db: AsyncSession = Depends(get_db)):
+    return await content_version_service.get_versions(content_id, db)
+
+@router.post("/content({content_id}/rollback/{version_id})", response_model=ContentResponse)
+async def rollback_content_version(
+    content_id: int,
+    version_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return await content_version_service.rollback_to_version(content_id, version_id, db, current_user)

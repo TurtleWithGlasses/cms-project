@@ -1,7 +1,10 @@
+from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-# from sqlalchemy.future import select
+from sqlalchemy.future import select
 from app.models.content import Content
-from app.schemas.content import ContentCreate
+from app.models.user import User
+from app.schemas.content import ContentCreate, ContentUpdate
+from app.services import content_version_service
 from datetime import datetime
 import logging
 
@@ -40,3 +43,22 @@ async def create_content(db: AsyncSession, content_data: ContentCreate) -> Conte
         raise RuntimeError(f"Failed to create content: {str(e)}") from e
 
     return new_content
+
+async def update_content(content_id: int, data: ContentUpdate, db: AsyncSession, current_user: User):
+    result = await db.execute(select(Content).where(Content.id == content_id))
+    existing_content = result.scalars().first()
+
+    if not existing_content:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Content not found")
+    
+    # Create version before applying updates
+    await content_version_service.create_version_from_content(existing_content, db, current_user)
+
+    # Apply updates
+    for field, value in data.dict(exclude_unset=True).items():
+        setattr(existing_content, field, value)
+
+    await db.commit()
+    await db.refresh(existing_content)
+
+    return existing_content
