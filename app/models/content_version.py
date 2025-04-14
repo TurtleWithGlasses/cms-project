@@ -2,6 +2,7 @@ from sqlalchemy import Column, Integer, String, ForeignKey, Text, DateTime
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from app.database import Base
+from app.models.user import User
 
 
 class ContentVersion(Base):
@@ -19,7 +20,8 @@ class ContentVersion(Base):
     author_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"))
     created_at = Column(DateTime, default=datetime.utcnow)
     update_at = Column(DateTime, default=datetime.utcnow)
-    editor_id = Column(Integer, ForeignKey("users.id"))
-
+    
     content = relationship("Content", back_populates="versions")
-    editor = relationship("User")
+    editor_id = Column(Integer, ForeignKey("users.id"))
+    editor = relationship("User", foreign_keys=[editor_id])
+    

@@ -29,6 +29,8 @@ class RBACMiddleware(BaseHTTPMiddleware):
             "/users/token",
             "/token",
             "/auth/token",
+            "/admin/dashboard",
+            "/favicon.ico"
         }
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint):
