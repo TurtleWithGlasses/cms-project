@@ -1,12 +1,14 @@
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy import select
 from app.models.content import Content
 from app.models.user import User
 from app.schemas.content import ContentCreate, ContentUpdate
 from app.services import content_version_service
 from app.scheduler import schedule_content
 from datetime import datetime
+from typing import Optional
 import logging
 
 logger = logging.getLogger(__name__)
@@ -71,3 +73,18 @@ async def update_content(content_id: int, data: ContentUpdate, db: AsyncSession,
         schedule_content(existing_content.id, existing_content.publish_date)
 
     return existing_content
+
+async def get_all_content(
+        db: AsyncSession,
+        skip: int = 0,
+        limit: int = 10,
+        category_id: Optional[int] = None,
+) -> list[Content]:
+    query = select(Content)
+
+    if category_id:
+        query = query.where(Content.category_id == category_id)
+    
+    query = query.offset(skip).limit(limit)
+    result = await db.execute(query)
+    return result.scalars().all()

@@ -15,7 +15,7 @@ from app.utils.slugify import slugify
 from app.auth import get_current_user_with_role
 from app.utils.auth_helpers import get_current_user
 from app.utils.activity_log import log_activity
-from app.services import content_version_service
+from app.services import content_version_service, content_service
 from app.schemas.content import ContentResponse
 from app.schemas.content_version import ContentVersionOut
 from datetime import datetime
@@ -284,3 +284,12 @@ async def rollback_content_version(
     current_user: User = Depends(get_current_user),
 ):
     return await content_version_service.rollback_to_version(content_id, version_id, db, current_user)
+
+@router.get("/content", response_model=List[ContentResponse])
+async def get_all_content_route(
+    skip: int = 0,
+    limit: int = 10,
+    category_id: int | None = None,
+    db: AsyncSession = Depends(get_db)
+):
+    return await content_service.get_all_content(db, skip=skip, limit=limit, category_id=category_id)
