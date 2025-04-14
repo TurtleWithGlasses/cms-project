@@ -5,6 +5,7 @@ from app.models.content import Content
 from app.models.user import User
 from app.schemas.content import ContentCreate, ContentUpdate
 from app.services import content_version_service
+from app.scheduler import schedule_content
 from datetime import datetime
 import logging
 
@@ -41,6 +42,11 @@ async def create_content(db: AsyncSession, content_data: ContentCreate) -> Conte
         await db.rollback()
         logger.error(f"Error creating content: {str(e)}")
         raise RuntimeError(f"Failed to create content: {str(e)}") from e
+    
+    await db.refresh(new_content)
+    logger.info(f"Content created successfully: {new_content.id}")
+    if content_data.publish_at and content_data.status == "scheduled":
+        schedule_content(new_content.id, content_data.publish_at)
 
     return new_content
 
@@ -60,5 +66,8 @@ async def update_content(content_id: int, data: ContentUpdate, db: AsyncSession,
 
     await db.commit()
     await db.refresh(existing_content)
+
+    if existing_content.publish_date and existing_content.status == "scheduled":
+        schedule_content(existing_content.id, existing_content.publish_date)
 
     return existing_content
