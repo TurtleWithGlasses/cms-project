@@ -78,12 +78,20 @@ async def get_all_content(
         db: AsyncSession,
         skip: int = 0,
         limit: int = 10,
+        status: Optional[str] = None,
         category_id: Optional[int] = None,
+        authopr_id: Optional[int] = None
 ) -> list[Content]:
     query = select(Content)
 
     if category_id:
         query = query.where(Content.category_id == category_id)
+    
+    if status:
+        query = query.where(Content.status == status)
+    
+    if authopr_id:
+        query = query.where(Content.author_id == authopr_id)
     
     query = query.offset(skip).limit(limit)
     result = await db.execute(query)

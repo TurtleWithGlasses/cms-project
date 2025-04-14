@@ -289,7 +289,14 @@ async def rollback_content_version(
 async def get_all_content_route(
     skip: int = 0,
     limit: int = 10,
+    status: str | None = None,
     category_id: int | None = None,
+    author_id: int | None = None,
     db: AsyncSession = Depends(get_db)
 ):
-    return await content_service.get_all_content(db, skip=skip, limit=limit, category_id=category_id)
+    return await content_service.get_all_content(db,
+                                                 skip=skip,
+                                                 limit=limit,
+                                                 status=status,
+                                                 category_id=category_id,
+                                                 authopr_id=author_id)
