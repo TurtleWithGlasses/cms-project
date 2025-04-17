@@ -1,15 +1,19 @@
 from pydantic import BaseSettings
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
 
 class Settings(BaseSettings):
-    app_name: str = "CMS API"
-    app_version: str = "1.0.0"
-    debug: bool = True
+    app_name: str = os.getenv("APP_NAME")
+    app_version: str = os.getenv("APP_VERSION")
+    debug: bool = os.getenv("DEBUG", "False").lower() == "true"
 
-    database_url: str = "postgresql+asyncpg://cms_admin:mehmetcms@localhost/cms_project"
-    secret_key: str = "default_secret_key_for_dev"
+    database_url: str = os.getenv("DATABASE_URL")
+    secret_key: str = os.getenv("SECRET_KEY")
 
-    access_token_expire_minutes: int = 30
-    environment: str = "development"
+    access_token_expire_minutes: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
+    environment: str = os.getenv("ENVIRONMENT")
 
     class Config:
         env_file = ".env"

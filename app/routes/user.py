@@ -9,7 +9,7 @@ from typing import List, Optional
 # from app.models.content import Content
 from app.models.notification import Notification, NotificationStatus
 from app.utils.activity_log import log_activity
-from app.utils.auth_helpers import get_current_user
+from app.auth import get_current_user
 # from app.permissions_config.permissions import ROLE_PERMISSIONS
 from app.models.user import Role
 # from app.models.activity_log import ActivityLog

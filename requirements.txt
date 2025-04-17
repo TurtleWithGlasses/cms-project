@@ -29,3 +29,4 @@ httpx  # HTTP client for testing
 
 email-validator
 apscheduler>=3.10.1
+itsdangerous

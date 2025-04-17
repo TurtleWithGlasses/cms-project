@@ -5,9 +5,11 @@ from fastapi.security import OAuth2PasswordBearer
 from passlib.context import CryptContext
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy.orm import selectinload
 from typing import Callable, List, Optional
 from app.models.user import User
 from app.database import get_db
+from app.permissions_config.permissions import ROLE_PERMISSIONS
 from .constants import SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
 import logging
 
@@ -103,6 +105,83 @@ async def verify_token(token: str, db: AsyncSession = Depends(get_db)):
 
     return user
 
+async def get_current_user(
+    token: str = Depends(oauth2_scheme),
+    db: AsyncSession = Depends(get_db),
+) -> Optional[User]:
+    """
+    Fetch the current user based on the provided token.
+
+    Args:
+        token (str): Bearer token.
+        db (AsyncSession): Database session.
+
+    Returns:
+        User: The authenticated user.
+
+    Raises:
+        HTTPException: If the user cannot be authenticated or does not exist.
+    """
+    # Define a reusable credentials exception for unauthorized access
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+    logger.debug(f"Received token: {token}")
+
+    # Decode the token and validate
+    try:
+        email = decode_access_token(token)  # Assuming this decodes and validates the token
+        logger.info(f"Decoded email: {email}")
+    except HTTPException as e:
+        logger.error(f"Error decoding token: {str(e)}")
+        raise credentials_exception
+    except jwt.ExpiredSignatureError:
+        logger.error("Token has expired")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has expired",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    except jwt.JWTError:
+        logger.error("Invalid token")
+        raise credentials_exception
+
+    # Query the database for the user
+    try:
+        result = await db.execute(select(User).options(selectinload(User.role)).where(User.email==email))
+        user = result.scalars().first()
+    except Exception as e:
+        logger.error(f"Error querying user from the database: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while retrieving the user.",
+        )
+
+    # If the user doesn't exist, raise an exception
+    if user is None:
+        logger.warning("User not found in the database")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    logger.info(f"Authenticated user: {user.email} (ID: {user.id})")
+
+    # Ensure role is preloaded and accessible
+    if not user.role:
+        logger.error(f"User {user.email} has no role associated")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User role not found",
+        )
+
+    logger.info(f"User role: {user.role.name}")
+    return user
+
 # Asynchronous function to get the current user with required roles
 def get_current_user_with_role(required_roles: List[str]) -> Callable[..., User]:
     async def _current_user_with_role(
@@ -165,3 +244,30 @@ def get_role_validator(required_roles: List[str]) -> Callable[[AsyncSession, str
         return user
 
     return role_validator
+
+def has_permission(role: str, permission: str) -> bool:
+    """
+    Validate if a role has the required permission.
+
+    Args:
+        role (str): The role to validate.
+        permission (str): The required permission.
+
+    Returns:
+        bool: True if the role has the permission, False otherwise.
+
+    Raises:
+        HTTPException: If the role lacks the required permission.
+    """
+    role_permissions = ROLE_PERMISSIONS.get(role, [])
+    if "*" in role_permissions or permission in role_permissions:
+        logger.debug(f"Permission '{permission}' granted for role '{role}'")
+        return True
+
+    logger.warning(
+        f"Permission denied for role '{role}'. Required: '{permission}'."
+    )
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail=f"Role '{role}' does not have permission '{permission}'",
+    )

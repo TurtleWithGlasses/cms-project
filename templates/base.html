@@ -1,0 +1,22 @@
+<!-- templates/base.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{% block title %}CMS{% endblock %}</title>
+</head>
+<body>
+    <nav>
+        <a href="/">Home</a>
+        {% if not request.cookies.get("access_token") %}
+            <a href="/login">Login</a>
+            <a href="/register">Register</a>
+        {% else %}
+            <a href="/admin/dashboard">Dashboard</a>
+            <a href="/logout">Logout</a>
+        {% endif %}
+    </nav>
+    <hr>
+    {% block content %}{% endblock %}
+</body>
+</html>

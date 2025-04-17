@@ -1,9 +1,10 @@
 from pydantic import ValidationError
 from sqlalchemy import select
 from fastapi import Request, HTTPException, Depends
+from fastapi.responses import RedirectResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.base import RequestResponseEndpoint
-from app.utils.auth_helpers import get_current_user
+from app.auth import get_current_user
 from app.database import AsyncSessionLocal
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.user import Role
@@ -41,9 +42,11 @@ class RBACMiddleware(BaseHTTPMiddleware):
         if request.url.path in self.public_paths:
             return await call_next(request)
 
-        token = request.headers.get("Authorization", "").replace("Bearer ", "")
-        if not token:
-            raise HTTPException(status_code=401, detail="Authentication token is required")
+        token = request.cookies.get("access_token")
+        #  or request.headers.get("Authorization", "").replace("Bearer ", "")
+        if not token and token.startswith("Bearer "):
+            token = token[len("Bearer "):]
+            return RedirectResponse(url="/login")
 
         # Manually create the DB session
         async with AsyncSessionLocal() as db:

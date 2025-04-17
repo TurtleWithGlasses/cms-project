@@ -5,6 +5,9 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+DATABASE_URL = settings.database_url
+SECRET_KEY = settings.secret_key
+
 # Environment-based configurations
 if settings.environment == "production":
     engine = create_async_engine(
@@ -30,6 +33,7 @@ AsyncSessionLocal = sessionmaker(
     class_=AsyncSession,
 )
 
+async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 Base = declarative_base()
 
 async def get_db():
@@ -46,3 +50,7 @@ async def get_db():
                 logging.info("Database session closed.")
             except Exception as close_error:
                 logger.warning(f"Error closing database session: {close_error}")
+
+async def get_async_session() -> AsyncSession:
+    async with async_session() as session:
+        yield session

@@ -12,8 +12,7 @@ from app.schemas.content import ContentCreate, ContentResponse, ContentUpdate
 from app.scheduler import schedule_content
 from app.database import get_db
 from app.utils.slugify import slugify
-from app.auth import get_current_user_with_role
-from app.utils.auth_helpers import get_current_user
+from app.auth import get_current_user, get_current_user_with_role
 from app.utils.activity_log import log_activity
 from app.services import content_version_service, content_service
 from app.schemas.content import ContentResponse
