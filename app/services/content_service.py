@@ -1,11 +1,13 @@
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy import select
+# from sqlalchemy import select
+from app.auth import hash_password
 from app.models.content import Content
 from app.models.user import User
 from app.schemas.content import ContentCreate, ContentUpdate
 from app.services import content_version_service
+from app.schemas.user import UserUpdate
 from app.scheduler import schedule_content
 from datetime import datetime
 from typing import Optional
@@ -96,3 +98,21 @@ async def get_all_content(
     query = query.offset(skip).limit(limit)
     result = await db.execute(query)
     return result.scalars().all()
+
+async def update_user_info(user_id, data: UserUpdate, db: AsyncSession):
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+
+    if not user:
+        raise HTTPException(status_code=404, detail="User to be updated not found")
+    
+    if data.username:
+        user.username = data.username
+    if data.email:
+        user.email = data.email
+    if data.password:
+        user.hashed_password = hash_password(data.password)
+    
+    await db.commit()
+    await db.refresh(user)
+    return user

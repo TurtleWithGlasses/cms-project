@@ -13,7 +13,8 @@ from app.routes import category
 from app.routes.content import router as content_router
 from app.config import settings
 from app.scheduler import scheduler
-from app.services.content_service import get_all_content
+from app.services.content_service import get_all_content, update_user_info
+from app.schemas.user import UserUpdate
 from app.services.auth_service import authenticate_user, register_user
 from app.models import User
 from app.auth import (
@@ -172,3 +173,25 @@ async def admin_dashboard(
 @app.get("/profile", response_class=HTMLResponse)
 async def get_profile(request: Request, current_user: User = Depends(get_current_user)):
     return templates.TemplateResponse("profile.html", {"request": request, "user": current_user})
+
+@app.get("/user/update", response_class=HTMLResponse)
+async def get_user_update_form(request: Request, current_user: User = Depends(get_current_user)):
+    return templates.TemplateResponse("edit_user.html", {"request": request, "user": current_user})
+
+
+@app.post("/user/update", response_class=HTMLResponse)
+async def update_user(
+    request: Request,
+    username: str = Form(...),
+    email: str = Form(...),
+    password: str = Form(None),
+    db: AsyncSession = Depends(get_async_session),
+    current_user: User = Depends(get_current_user),
+):
+    user_update = UserUpdate(username=username, email=email, password=password)
+    updated_user = await update_user_info(current_user.id, user_update, db)
+    
+    return templates.TemplateResponse(
+        "edit_user.html",
+        {"request": request, "user": updated_user, "success": "Profile updated successfully"}
+    )
