@@ -120,32 +120,39 @@ async def get_login(request: Request):
 async def post_login(
     response: Response,
     request: Request,
-    username: str = Form(...),
+    email: str = Form(...),
     password: str = Form(...),
     db: AsyncSession = Depends(get_async_session)
 ):
+    form = await request.form()
+    print("Received from data:", dict(form))
+    email = form.get("email")
+    password = form.get("password")
+
     try:
-        user = await authenticate_user(username, password, db)
+        user = await authenticate_user(email, password, db)
         if not user:
-            return templates.TemplateResponse("login.html", {"request": request, "error": "Invalid credentials"})
+            return templates.TemplateResponse("login.html", {
+                "request": request,
+                "error": "Invalid credentials during login"
+            })
         
-        access_token = create_access_token({"sub": user.username})
-        response = RedirectResponse("/profile", status_code=302)
-        response.set_cookie(
+        access_token = create_access_token({"sub": user.email})
+        redirect_response = RedirectResponse("/profile", status_code=302)
+        redirect_response.set_cookie(
             key="access_token",
             value=access_token,
             httponly=True,
             max_age=60 * 60 * 24,
         )
         print("Login successful, redirecting...")
+        return redirect_response
     except HTTPException as e:
+        print(f"Login failes due to HTTP error: {e.detail}")
         return templates.TemplateResponse("login.html", {
             "request": request,
             "error": e.detail
-            })
-
-
-    return response
+        })
 
 @app.get("/logout")
 async def logout(request: Request):

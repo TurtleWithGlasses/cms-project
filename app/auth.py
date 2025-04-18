@@ -1,7 +1,8 @@
 from datetime import datetime, timedelta
 from jose import JWTError, jwt, ExpiredSignatureError
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordBearer
+from fastapi.responses import RedirectResponse
 from passlib.context import CryptContext
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -105,82 +106,121 @@ async def verify_token(token: str, db: AsyncSession = Depends(get_db)):
 
     return user
 
+# async def get_current_user(
+#     token: str = Depends(oauth2_scheme),
+#     db: AsyncSession = Depends(get_db),
+#     **kwargs,
+# ) -> Optional[User]:
+#     """
+#     Fetch the current user based on the provided token.
+
+#     Args:
+#         token (str): Bearer token.
+#         db (AsyncSession): Database session.
+
+#     Returns:
+#         User: The authenticated user.
+
+#     Raises:
+#         HTTPException: If the user cannot be authenticated or does not exist.
+#     """
+#     # Define a reusable credentials exception for unauthorized access
+#     credentials_exception = HTTPException(
+#         status_code=status.HTTP_401_UNAUTHORIZED,
+#         detail="Could not validate credentials",
+#         headers={"WWW-Authenticate": "Bearer"},
+#     )
+
+#     logger.debug(f"Received token: {token}")
+
+#     # Decode the token and validate
+#     try:
+#         email = decode_access_token(token)  # Assuming this decodes and validates the token
+#         logger.info(f"Decoded email: {email}")
+#     except HTTPException as e:
+#         logger.error(f"Error decoding token: {str(e)}")
+#         raise credentials_exception
+#     except jwt.ExpiredSignatureError:
+#         logger.error("Token has expired")
+#         raise HTTPException(
+#             status_code=status.HTTP_401_UNAUTHORIZED,
+#             detail="Token has expired",
+#             headers={"WWW-Authenticate": "Bearer"},
+#         )
+#     except jwt.JWTError:
+#         logger.error("Invalid token")
+#         raise credentials_exception
+
+#     # Query the database for the user
+#     try:
+#         result = await db.execute(select(User).options(selectinload(User.role)).where(User.email==email))
+#         user = result.scalars().first()
+#     except Exception as e:
+#         logger.error(f"Error querying user from the database: {str(e)}")
+#         raise HTTPException(
+#             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+#             detail="An error occurred while retrieving the user.",
+#         )
+
+#     # If the user doesn't exist, raise an exception
+#     if user is None:
+#         logger.warning("User not found in the database")
+#         response = RedirectResponse(url="/login", status_code=302)
+#         request = kwargs.get("request")
+#         if request:
+#             request.session["error"] = "User not found. Please register first."
+        
+#         return response
+
+#     logger.info(f"Authenticated user: {user.email} (ID: {user.id})")
+
+#     # Ensure role is preloaded and accessible
+#     if not user.role:
+#         logger.error(f"User {user.email} has no role associated")
+#         raise HTTPException(
+#             status_code=status.HTTP_403_FORBIDDEN,
+#             detail="User role not found",
+#         )
+
+#     logger.info(f"User role: {user.role.name}")
+#     return user
+
 async def get_current_user(
-    token: str = Depends(oauth2_scheme),
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> Optional[User]:
-    """
-    Fetch the current user based on the provided token.
-
-    Args:
-        token (str): Bearer token.
-        db (AsyncSession): Database session.
-
-    Returns:
-        User: The authenticated user.
-
-    Raises:
-        HTTPException: If the user cannot be authenticated or does not exist.
-    """
-    # Define a reusable credentials exception for unauthorized access
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
 
-    logger.debug(f"Received token: {token}")
+    token = request.cookies.get("access_token")
+    if not token:
+        logger.warning("No token found in cookies")
+        raise credentials_exception
 
-    # Decode the token and validate
     try:
-        email = decode_access_token(token)  # Assuming this decodes and validates the token
+        email = decode_access_token(token)
         logger.info(f"Decoded email: {email}")
     except HTTPException as e:
         logger.error(f"Error decoding token: {str(e)}")
         raise credentials_exception
-    except jwt.ExpiredSignatureError:
-        logger.error("Token has expired")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token has expired",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    except jwt.JWTError:
-        logger.error("Invalid token")
-        raise credentials_exception
 
-    # Query the database for the user
     try:
-        result = await db.execute(select(User).options(selectinload(User.role)).where(User.email==email))
+        result = await db.execute(select(User).options(selectinload(User.role)).where(User.email == email))
         user = result.scalars().first()
+        if user is None:
+            raise credentials_exception
     except Exception as e:
-        logger.error(f"Error querying user from the database: {str(e)}")
+        logger.error(f"Database error: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An error occurred while retrieving the user.",
+            detail="Failed to retrieve user info",
         )
 
-    # If the user doesn't exist, raise an exception
-    if user is None:
-        logger.warning("User not found in the database")
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    logger.info(f"Authenticated user: {user.email} (ID: {user.id})")
-
-    # Ensure role is preloaded and accessible
-    if not user.role:
-        logger.error(f"User {user.email} has no role associated")
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="User role not found",
-        )
-
-    logger.info(f"User role: {user.role.name}")
     return user
+
 
 # Asynchronous function to get the current user with required roles
 def get_current_user_with_role(required_roles: List[str]) -> Callable[..., User]:

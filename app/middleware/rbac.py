@@ -51,7 +51,7 @@ class RBACMiddleware(BaseHTTPMiddleware):
         # Manually create the DB session
         async with AsyncSessionLocal() as db:
             try:
-                user = await get_current_user(token=token, db=db)
+                user = await get_current_user(request=request, db=db)
                 logger.info(f"Authenticated user: {user.username}, Role ID: {user.role_id}")
 
                 # Fetch the role name
