@@ -21,12 +21,13 @@ class RBACMiddleware(BaseHTTPMiddleware):
             "/docs",
             "/openapi.json",
             "/login",
+            "/logout",
             "/users/register",
             "/register",
             "/users/me",
             "/users/users/me",
             "/users/users",
-            "/users/users/admin"
+            "/users/users/admin",
             "/users/token",
             "/token",
             "/auth/token",
@@ -42,11 +43,12 @@ class RBACMiddleware(BaseHTTPMiddleware):
         if request.url.path in self.public_paths:
             return await call_next(request)
 
-        token = request.cookies.get("access_token")
-        #  or request.headers.get("Authorization", "").replace("Bearer ", "")
-        if not token and token.startswith("Bearer "):
-            token = token[len("Bearer "):]
+        token = request.cookies.get("access_token") or request.headers.get("Authorization", "").replace("Bearer ", "")
+        if not token:
             return RedirectResponse(url="/login")
+
+        if token.startswith("Bearer "):
+            token = token[len("Bearer "):]
 
         # Manually create the DB session
         async with AsyncSessionLocal() as db:

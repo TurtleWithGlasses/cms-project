@@ -99,20 +99,20 @@ async def get_all_content(
     result = await db.execute(query)
     return result.scalars().all()
 
-async def update_user_info(user_id, data: UserUpdate, db: AsyncSession):
+async def update_user_info(user_id: int, user_update: UserUpdate, db: AsyncSession):
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
 
-    if not user:
-        raise HTTPException(status_code=404, detail="User to be updated not found")
-    
-    if data.username:
-        user.username = data.username
-    if data.email:
-        user.email = data.email
-    if data.password:
-        user.hashed_password = hash_password(data.password)
-    
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Update fields
+    user.username = user_update.username
+    user.email = user_update.email
+
+    if user_update.password:
+        user.hashed_password = hash_password(user_update.password)  # 🔥 HASH it!
+
     await db.commit()
     await db.refresh(user)
     return user

@@ -1,5 +1,6 @@
 import logging
 import uvicorn
+from datetime import timedelta
 from starlette.middleware.sessions import SessionMiddleware
 from fastapi import FastAPI, Form, Request, Depends, Response, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -138,7 +139,7 @@ async def post_login(
                 "error": "Invalid credentials during login"
             })
         
-        access_token = create_access_token({"sub": user.email})
+        access_token = create_access_token({"sub": user.email}, expires_delta=timedelta(minutes=6000))
         redirect_response = RedirectResponse("/profile", status_code=302)
         redirect_response.set_cookie(
             key="access_token",
@@ -156,8 +157,8 @@ async def post_login(
         })
 
 @app.get("/logout")
-async def logout(request: Request):
-    request.session.clear()  # This clears the user session
+async def logout(response: Response):
+    # request.session.clear()  # This clears the user session
     response = RedirectResponse(url="/login", status_code=302)
     response.delete_cookie("access_token")
     return response
@@ -178,7 +179,6 @@ async def get_profile(request: Request, current_user: User = Depends(get_current
 async def get_user_update_form(request: Request, current_user: User = Depends(get_current_user)):
     return templates.TemplateResponse("edit_user.html", {"request": request, "user": current_user})
 
-
 @app.post("/user/update", response_class=HTMLResponse)
 async def update_user(
     request: Request,
@@ -189,9 +189,11 @@ async def update_user(
     current_user: User = Depends(get_current_user),
 ):
     user_update = UserUpdate(username=username, email=email, password=password)
-    updated_user = await update_user_info(current_user.id, user_update, db)
-    
-    return templates.TemplateResponse(
-        "edit_user.html",
-        {"request": request, "user": updated_user, "success": "Profile updated successfully"}
-    )
+    await update_user_info(current_user.id, user_update, db)
+
+    if user_update.email != current_user.email or user_update.password:
+        response = RedirectResponse(url="/login", status_code=302)
+        response.delete_cookie("access_token")
+        return response
+
+    return RedirectResponse(url="/profile", status_code=302)
