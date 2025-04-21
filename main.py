@@ -67,6 +67,7 @@ def create_app() -> FastAPI:
     app.include_router(roles.router, prefix="/api", tags=["roles"])
     app.include_router(content_router, prefix="/api/v1", tags=["Content"])
     app.include_router(category.router, prefix="/api", tags=["Categories"])
+    # app.include_router(user.admin_dashboard.router, prefix="/admin", tags)
 
     if settings.debug:
         logger.info(f"Running in {settings.environment} mode")
@@ -138,17 +139,22 @@ async def post_login(
                 "request": request,
                 "error": "Invalid credentials during login"
             })
-        
+
         access_token = create_access_token({"sub": user.email}, expires_delta=timedelta(minutes=6000))
-        redirect_response = RedirectResponse("/profile", status_code=302)
+
+        # Redirect based on role
+        redirect_url = "/users/admin/dashboard" if user.role.name in ["admin", "superadmin", "manager"] else "/profile"
+        redirect_response = RedirectResponse(redirect_url, status_code=302)
         redirect_response.set_cookie(
             key="access_token",
             value=access_token,
             httponly=True,
             max_age=60 * 60 * 24,
         )
+
         print("Login successful, redirecting...")
         return redirect_response
+
     except HTTPException as e:
         print(f"Login failes due to HTTP error: {e.detail}")
         return templates.TemplateResponse("login.html", {
@@ -163,13 +169,13 @@ async def logout(response: Response):
     response.delete_cookie("access_token")
     return response
 
-@app.get("/admin/dashboard", response_class=HTMLResponse)
-async def admin_dashboard(
-    request: Request,
-    db: AsyncSession = Depends(get_db)
-):
-    content_items = await get_all_content(db)
-    return templates.TemplateResponse("dashboard.html", {"request": request, "content": content_items})
+# @app.get("/admin/dashboard", response_class=HTMLResponse)
+# async def admin_dashboard(
+#     request: Request,
+#     db: AsyncSession = Depends(get_db)
+# ):
+#     content_items = await get_all_content(db)
+#     return templates.TemplateResponse("dashboard.html", {"request": request, "content": content_items})
 
 @app.get("/profile", response_class=HTMLResponse)
 async def get_profile(request: Request, current_user: User = Depends(get_current_user)):

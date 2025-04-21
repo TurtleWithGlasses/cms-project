@@ -1,12 +1,11 @@
 from pydantic import ValidationError
 from sqlalchemy import select
-from fastapi import Request, HTTPException, Depends
+from fastapi import Request, HTTPException
 from fastapi.responses import RedirectResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.base import RequestResponseEndpoint
 from app.auth import get_current_user
 from app.database import AsyncSessionLocal
-from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.user import Role
 import logging
 

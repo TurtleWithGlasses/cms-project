@@ -1,11 +1,12 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi.templating import Jinja2Templates
 import logging
 # from sqlalchemy.orm import Session, selectinload, joinedload
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import update, text
 from typing import List, Optional
-
+from starlette.responses import HTMLResponse
 # from app.models.content import Content
 from app.models.notification import Notification, NotificationStatus
 from app.utils.activity_log import log_activity
@@ -14,13 +15,13 @@ from app.auth import get_current_user
 from app.models.user import Role
 # from app.models.activity_log import ActivityLog
 from app.schemas.notifications import PaginatedNotifications
-
 from app.schemas.user import UserCreate, UserResponse, UserUpdate, RoleUpdate
 from app.models import User
 from app.database import get_db
 from app.auth import get_role_validator, hash_password
 
 router = APIRouter()
+templates = Jinja2Templates(directory="templates")
 
 async def get_role_name(role_id: int, db: AsyncSession) -> str:
     query = select(Role.name).where(Role.id == role_id)
@@ -529,3 +530,10 @@ async def admin_only_endpoint():
     This endpoint is restricted to admin users only.
     """
     return {"message": "This is restricted to admins only."}
+
+@router.get("/admin/dashboard", response_class=HTMLResponse)
+async def admin_dashboard(request: Request, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+    # RBAC check (handled by middleware already)
+    users = await db.execute(select(User))
+    all_users = users.scalars().all()
+    return templates.TemplateResponse("dashboard.html", {"request": request, "users": all_users})
