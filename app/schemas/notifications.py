@@ -13,7 +13,7 @@ class NotificationOut(BaseModel):
     created_at: datetime
 
     class Config:
-        orm_mode = True  # Ensures compatibility with ORM models
+        from_attributes = True  # Ensures compatibility with ORM models
 
 
 class PaginatedNotifications(BaseModel):

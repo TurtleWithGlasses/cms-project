@@ -54,9 +54,9 @@ class ContentResponse(BaseModel):
     author_id: int = Field(..., title="Author ID", description="The ID of the user who authored the content.")
 
     class Config:
-        orm_mode = True
+        from_attributes = True
         use_enum_values = True
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "id": 1,
                 "title": "Example Content Title",

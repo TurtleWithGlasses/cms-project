@@ -16,7 +16,7 @@ class UserCreate(BaseModel):
     email: EmailStr = Field(..., description="A valid email address.")
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class UserResponse(BaseModel):
@@ -26,7 +26,7 @@ class UserResponse(BaseModel):
     role: str
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class UserUpdate(BaseModel):
@@ -35,7 +35,7 @@ class UserUpdate(BaseModel):
     password: Optional[str] = Field(None, min_length=6, max_length=128, description="Password must be between 6 and 128 characters.")
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class RoleUpdate(BaseModel):
@@ -48,7 +48,7 @@ class RoleUpdate(BaseModel):
         return v
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class RoleResponse(BaseModel):
@@ -57,4 +57,4 @@ class RoleResponse(BaseModel):
     description: str | None
 
     class Config:
-        orm_mode = True
+        from_attributes = True
