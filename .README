@@ -1,0 +1,196 @@
+## **Handling Database Sessions, Logging, and Error Management**
+
+This section explains the best practices and approach for managing database sessions, logging user activity, and handling errors in the project.
+
+---
+
+### **1. Purpose**
+The purpose of this methodology is to:
+- Ensure robust handling of database operations.
+- Properly log user activity in the `activity_logs` table for auditing and debugging.
+- Decouple logging operations from primary operations to prevent cascading failures.
+- Avoid common pitfalls like `greenlet_spawn` errors and session lifecycle issues.
+
+---
+
+### **2. Database Session Management**
+#### **General Guidelines:**
+1. Use the `get_db` dependency for handling the primary database session in FastAPI endpoints.
+2. For operations like logging or secondary database actions:
+   - Use a separate `AsyncSession` explicitly to avoid session lifecycle issues.
+
+#### **Key Principles:**
+- Always close database sessions explicitly when they are not managed by FastAPI's dependency injection system.
+- Use `try-except-finally` blocks to gracefully handle session errors.
+
+#### **Example for Session Management:**
+Here is a reusable `log_activity` function for logging user actions:
+
+```python
+from sqlalchemy.ext.asyncio import AsyncSession
+from datetime import datetime, timezone
+import json
+
+async def log_activity(
+    db: AsyncSession,
+    action: str,
+    user_id: int,
+    description: str,
+    details: dict = None,
+):
+    try:
+        details_serialized = json.dumps(details) if details else None
+        new_log = ActivityLog(
+            action=action,
+            user_id=user_id,
+            timestamp=datetime.now(timezone.utc),
+            description=description,
+            details=details_serialized,
+        )
+        db.add(new_log)
+        await db.commit()
+    except Exception as e:
+        await db.rollback()
+        raise RuntimeError(f"Failed to log activity: {e}")
+```
+
+---
+
+### **3. Logging Guidelines**
+#### **Key Points:**
+- Log meaningful messages using Python's `logging` library to help trace and debug operations.
+- Include log entries for:
+  - Received requests.
+  - Key decision points (e.g., user not found, invalid role).
+  - Success and failure of database operations.
+
+#### **Logging Levels:**
+- Use `INFO` for general operations.
+- Use `ERROR` for exceptions or critical issues.
+
+#### **Example Logging Setup:**
+```python
+import logging
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+)
+
+logger = logging.getLogger(__name__)
+```
+
+#### **Sample Logs:**
+- **Info Logs:**
+  ```
+  2024-11-26 18:15:23 - INFO - Received request to update user_id: 8 to role: admin
+  2024-11-26 18:15:23 - INFO - User updated successfully: user_id=8, role_id=2
+  ```
+- **Error Logs:**
+  ```
+  2024-11-26 18:15:23 - ERROR - User not found: 8
+  2024-11-26 18:15:23 - ERROR - Failed to log activity: Database constraint error
+  ```
+
+---
+
+### **4. Error Management**
+#### **Key Principles:**
+- Always handle errors gracefully and return meaningful HTTP responses.
+- Use `HTTPException` for FastAPI endpoints to indicate user-facing errors.
+- Use `try-except-finally` for database and critical operations to ensure proper error handling and cleanup.
+
+#### **Common Scenarios and Responses:**
+| Scenario                   | HTTP Status Code | Message                     |
+|----------------------------|------------------|-----------------------------|
+| User not found             | 404              | "User not found"            |
+| Invalid role provided      | 400              | "Invalid role provided"     |
+| Database operation failure | 500              | "Internal server error"     |
+
+#### **Sample Error Handling:**
+```python
+if not user_to_update:
+    logger.error(f"User not found: {user_id}")
+    raise HTTPException(status_code=404, detail="User not found")
+```
+
+---
+
+### **5. Endpoint Implementation Example**
+Here is a fully implemented example of an endpoint for updating a user's role while handling sessions, logging, and errors.
+
+```python
+@router.put("/users/{user_id}/role", response_model=UserResponse, dependencies=[Depends(get_role_validator(["admin"]))])
+async def update_user_role(user_id: int, role_data: RoleUpdate, db: AsyncSession = Depends(get_db)):
+    logger.info(f"Received request to update user_id: {user_id} to role: {role_data.role}")
+
+    # Fetch user from the database
+    result = await db.execute(select(User).where(User.id == user_id))
+    user_to_update = result.scalar()
+
+    if not user_to_update:
+        logger.error(f"User not found: {user_id}")
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Validate role
+    result = await db.execute(text("SELECT id FROM roles WHERE name = :role_name"), {"role_name": role_data.role})
+    role_id = result.scalar()
+    if not role_id:
+        logger.error(f"Invalid role: {role_data.role}")
+        raise HTTPException(status_code=400, detail="Invalid role provided")
+
+    user_to_update.role_id = role_id
+
+    # Commit changes and handle errors
+    try:
+        await db.commit()
+        await db.refresh(user_to_update)
+        logger.info(f"User updated successfully: {user_to_update}")
+    except Exception as e:
+        logger.error(f"Failed to update role: {e}")
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to update role: {str(e)}")
+
+    # Log the activity
+    try:
+        async with AsyncSessionLocal() as log_db:
+            await log_activity(
+                db=log_db,
+                action="role_update",
+                user_id=user_to_update.id,
+                description=f"Updated role to {role_data.role}",
+            )
+    except Exception as e:
+        logger.error(f"Failed to log activity: {e}")
+
+    return {
+        "id": user_to_update.id,
+        "username": user_to_update.username,
+        "email": user_to_update.email,
+        "role": role_data.role,
+    }
+```
+
+---
+
+### **6. Testing the Endpoint**
+1. Use **Postman** or similar tools to test the endpoint with valid and invalid payloads.
+2. Verify the following:
+   - User's role is updated in the database.
+   - Logs are created in the `activity_logs` table.
+   - Proper error responses for invalid scenarios.
+
+---
+
+### **7. Future Enhancements**
+- Create utility functions to standardize logging and error handling across all endpoints.
+- Implement unit and integration tests to validate database session handling and logging functionality.
+
+---
+
+### **8. References**
+- [SQLAlchemy Documentation on Async Sessions](https://docs.sqlalchemy.org/en/14/orm/extensions/asyncio.html)
+- [FastAPI Error Handling](https://fastapi.tiangolo.com/tutorial/handling-errors/)
+- [Python Logging Best Practices](https://docs.python.org/3/howto/logging.html)
+
+---

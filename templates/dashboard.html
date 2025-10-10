@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Admin Dashboard</h2>
+<table>
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>Username</th>
+      <th>Email</th>
+      <th>Role</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for user in users %}
+    <tr>
+        <td>{{ user.id }}</td>
+        <td>{{ user.username }}</td>
+        <td>{{ user.email }}</td>
+        <td>{{ user.role.name }}</td>
+        <td>
+            {% if "edit_user" in permissions %}
+              <form action="/users/edit/{{ user.id }}" method="get" style="display:inline;">
+                <button type="submit" class="btn btn-danger">Edit</button>
+              </form>
+            {% endif %}
+            {% if "delete_user" in permissions %}
+              <form action="/users/delete/{{ user.id }}" method="post" style="display:inline;">
+                <button type="submit" class="btn btn-danger">Delete</button>
+              </form>
+            {% endif %}
+            {% if "change_user_role" in permissions %}
+                <a href="/users/change_user_role{{ user.id }}" class="btn">Change Role</a>
+            {% endif %}
+        </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>User Profile</title>
+</head>
+<body>
+    <h1>Welcome, {{ user.username }}!</h1>
+    <p>Your role: {{ user.role.name }}</p>
+    <p>Email: {{ user.email }}</p>
+
+    <a href="/">Back to Home</a>
+    <a href="/login">Back to Login</a>
+    <a href="/user/update">Edit User</a>
+</body>
+</html>

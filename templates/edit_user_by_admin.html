@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Edit User</h2>
+<form method="post" action="/users/edit/{{ user_to_edit.id }}">
+  <label>Username:</label>
+  <input type="text" name="username" value="{{ user_to_edit.username }}" required><br>
+  <label>Email:</label>
+  <input type="email" name="email" value="{{ user_to_edit.email }}" required><br>
+  <button type="submit">Save Changes</button>
+</form>
+{% endblock %}
