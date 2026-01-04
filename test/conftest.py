@@ -10,22 +10,44 @@ import pytest
 import asyncio
 from typing import AsyncGenerator
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
-from sqlalchemy.pool import StaticPool
 from fastapi.testclient import TestClient
+from decouple import config
 
 # Import Base first, before importing the app
 from app.database import Base
 from app.models.user import User, Role
 from app.auth import hash_password
 
-# Test database URL (SQLite in-memory for testing)
-TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
+# Test database URL - Use PostgreSQL for tests to match production
+# Can be overridden with TEST_DATABASE_URL environment variable
+# Default: appends '_test' to production database name
+def get_test_database_url():
+    """Get test database URL from environment or derive from production URL"""
+    test_url = config("TEST_DATABASE_URL", default=None)
+    if test_url:
+        return test_url
+
+    # Derive from production URL by changing database name
+    prod_url = config("DATABASE_URL")
+    # Change database name from 'cms' to 'cms_test' (or append _test to existing name)
+    if prod_url:
+        # Split URL to get database name and replace it
+        parts = prod_url.rsplit('/', 1)
+        if len(parts) == 2:
+            base_url, db_name = parts
+            test_db_name = f"{db_name}_test" if db_name else "cms_test"
+            return f"{base_url}/{test_db_name}"
+
+    # Fallback to a default test database
+    return "postgresql+asyncpg://postgres:postgres@localhost/cms_test"
+
+TEST_DATABASE_URL = get_test_database_url()
 
 # Create test engine and session maker BEFORE importing the app
 test_engine = create_async_engine(
     TEST_DATABASE_URL,
-    connect_args={"check_same_thread": False},
-    poolclass=StaticPool,
+    echo=False,  # Set to True for SQL debugging
+    pool_pre_ping=True,  # Verify connections before using
 )
 
 TestSessionLocal = async_sessionmaker(
