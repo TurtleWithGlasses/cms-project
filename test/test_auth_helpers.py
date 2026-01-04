@@ -4,10 +4,8 @@ Tests for authentication helper functions (get_current_user, has_permission)
 import pytest
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.utils.auth_helpers import get_current_user, has_permission
-from app.utils.auth_utils import create_access_token
+from app.auth import get_current_user_from_header as get_current_user, has_permission, create_access_token, hash_password
 from app.models.user import User, Role
-from app.auth import hash_password
 
 
 class TestGetCurrentUser:

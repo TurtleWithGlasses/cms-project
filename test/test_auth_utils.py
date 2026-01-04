@@ -5,7 +5,7 @@ import pytest
 from datetime import timedelta
 from jose import jwt
 from fastapi import HTTPException
-from app.utils.auth_utils import create_access_token, decode_access_token
+from app.auth import create_access_token, decode_access_token
 from app.constants import SECRET_KEY, ALGORITHM
 
 
