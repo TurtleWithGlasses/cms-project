@@ -73,6 +73,10 @@ def setup_test_db_sync():
     asyncio.set_event_loop(loop)
 
     async def _setup():
+        # Drop all tables first to ensure clean state
+        async with test_engine.begin() as conn:
+            await conn.run_sync(Base.metadata.drop_all)
+
         # Create all tables
         async with test_engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
@@ -93,8 +97,10 @@ def setup_test_db_sync():
 
             await session.commit()
 
-    loop.run_until_complete(_setup())
-    loop.close()
+    try:
+        loop.run_until_complete(_setup())
+    finally:
+        loop.close()
 
 
 def teardown_test_db_sync():
@@ -103,11 +109,18 @@ def teardown_test_db_sync():
     asyncio.set_event_loop(loop)
 
     async def _teardown():
-        async with test_engine.begin() as conn:
-            await conn.run_sync(Base.metadata.drop_all)
+        try:
+            async with test_engine.begin() as conn:
+                await conn.run_sync(Base.metadata.drop_all)
+        except Exception as e:
+            # Log but don't fail on cleanup errors
+            import logging
+            logging.warning(f"Error during test cleanup: {e}")
 
-    loop.run_until_complete(_teardown())
-    loop.close()
+    try:
+        loop.run_until_complete(_teardown())
+    finally:
+        loop.close()
 
 
 @pytest.fixture(scope="function", autouse=True)

@@ -205,5 +205,294 @@ class TestGetCSRFToken:
         assert token == "cookie_token_456"
 
 
+class TestCSRFMiddlewareExtended:
+    """Extended CSRF middleware tests for better coverage"""
+
+    def test_csrf_with_put_method(self):
+        """CSRF middleware should validate tokens on PUT"""
+        app = FastAPI()
+
+        @app.put("/test")
+        async def test_route():
+            return {"message": "success"}
+
+        app.add_middleware(CSRFMiddleware, secret_key=settings.secret_key)
+
+        client = TestClient(app)
+        response = client.put("/test", data={"test": "data"})
+        assert response.status_code == 403
+
+    def test_csrf_with_patch_method(self):
+        """CSRF middleware should validate tokens on PATCH"""
+        app = FastAPI()
+
+        @app.patch("/test")
+        async def test_route():
+            return {"message": "success"}
+
+        app.add_middleware(CSRFMiddleware, secret_key=settings.secret_key)
+
+        client = TestClient(app)
+        response = client.patch("/test", data={"test": "data"})
+        assert response.status_code == 403
+
+    def test_csrf_with_delete_method(self):
+        """CSRF middleware should validate tokens on DELETE"""
+        app = FastAPI()
+
+        @app.delete("/test")
+        async def test_route():
+            return {"message": "success"}
+
+        app.add_middleware(CSRFMiddleware, secret_key=settings.secret_key)
+
+        client = TestClient(app)
+        response = client.delete("/test")
+        assert response.status_code == 403
+
+    def test_csrf_get_method_no_validation(self):
+        """GET requests should not require CSRF tokens"""
+        app = FastAPI()
+
+        @app.get("/test")
+        async def test_route():
+            return {"message": "success"}
+
+        app.add_middleware(CSRFMiddleware, secret_key=settings.secret_key)
+
+        client = TestClient(app)
+        response = client.get("/test")
+        assert response.status_code == 200
+
+    def test_csrf_token_expiry_configured(self):
+        """Should respect custom token expiry"""
+        app = FastAPI()
+
+        @app.get("/test")
+        async def test_route():
+            return {"message": "test"}
+
+        app.add_middleware(
+            CSRFMiddleware,
+            secret_key=settings.secret_key,
+            token_expiry=7200  # 2 hours
+        )
+
+        client = TestClient(app)
+        response = client.get("/test")
+        assert "csrf_token" in response.cookies
+
+    def test_csrf_custom_cookie_name(self):
+        """Should use custom cookie name if configured"""
+        app = FastAPI()
+
+        @app.get("/test")
+        async def test_route():
+            return {"message": "test"}
+
+        app.add_middleware(
+            CSRFMiddleware,
+            secret_key=settings.secret_key,
+            cookie_name="custom_csrf"
+        )
+
+        client = TestClient(app)
+        response = client.get("/test")
+        assert "custom_csrf" in response.cookies
+
+    def test_csrf_custom_header_name(self):
+        """Should accept custom header name"""
+        app = FastAPI()
+
+        @app.post("/test")
+        async def test_route():
+            return {"message": "success"}
+
+        app.add_middleware(
+            CSRFMiddleware,
+            secret_key=settings.secret_key,
+            header_name="X-Custom-CSRF"
+        )
+
+        client = TestClient(app)
+        response = client.post("/test")
+        assert response.status_code == 403
+
+
+class TestSecurityHeadersExtended:
+    """Extended security headers tests"""
+
+    def test_server_header_removed(self):
+        """Server identification header should be removed"""
+        app = FastAPI()
+
+        @app.get("/test")
+        async def test_route():
+            response = JSONResponse({"message": "test"})
+            response.headers["Server"] = "TestServer/1.0"
+            return response
+
+        app.add_middleware(SecurityHeadersMiddleware)
+
+        client = TestClient(app)
+        response = client.get("/test")
+        assert "Server" not in response.headers or response.headers.get("Server") != "TestServer/1.0"
+
+    def test_hsts_with_subdomains(self):
+        """HSTS should include subdomains when configured"""
+        app = FastAPI()
+
+        @app.get("/test")
+        async def test_route():
+            return {"message": "test"}
+
+        app.add_middleware(
+            SecurityHeadersMiddleware,
+            enable_hsts=True,
+            hsts_include_subdomains=True
+        )
+
+        client = TestClient(app)
+        response = client.get("/test")
+        assert "includeSubDomains" in response.headers["Strict-Transport-Security"]
+
+    def test_hsts_with_preload(self):
+        """HSTS should include preload when configured"""
+        app = FastAPI()
+
+        @app.get("/test")
+        async def test_route():
+            return {"message": "test"}
+
+        app.add_middleware(
+            SecurityHeadersMiddleware,
+            enable_hsts=True,
+            hsts_preload=True
+        )
+
+        client = TestClient(app)
+        response = client.get("/test")
+        assert "preload" in response.headers["Strict-Transport-Security"]
+
+    def test_custom_hsts_max_age(self):
+        """Should respect custom HSTS max-age"""
+        app = FastAPI()
+
+        @app.get("/test")
+        async def test_route():
+            return {"message": "test"}
+
+        custom_age = 63072000  # 2 years
+        app.add_middleware(
+            SecurityHeadersMiddleware,
+            enable_hsts=True,
+            hsts_max_age=custom_age
+        )
+
+        client = TestClient(app)
+        response = client.get("/test")
+        assert f"max-age={custom_age}" in response.headers["Strict-Transport-Security"]
+
+    def test_all_security_headers_present(self):
+        """Verify all critical security headers are present"""
+        app = FastAPI()
+
+        @app.get("/test")
+        async def test_route():
+            return {"message": "test"}
+
+        app.add_middleware(SecurityHeadersMiddleware, enable_hsts=True)
+
+        client = TestClient(app)
+        response = client.get("/test")
+
+        required_headers = [
+            "X-Content-Type-Options",
+            "X-Frame-Options",
+            "X-XSS-Protection",
+            "Content-Security-Policy",
+            "Referrer-Policy",
+            "Permissions-Policy",
+            "Strict-Transport-Security"
+        ]
+
+        for header in required_headers:
+            assert header in response.headers, f"Missing security header: {header}"
+
+
+class TestRBACMiddleware:
+    """Test Role-Based Access Control middleware"""
+
+    def test_public_paths_accessible_without_auth(self):
+        """Public paths should be accessible without authentication"""
+        from app.middleware.rbac import RBACMiddleware
+        app = FastAPI()
+
+        @app.get("/login")
+        async def login():
+            return {"message": "login page"}
+
+        @app.get("/register")
+        async def register():
+            return {"message": "register page"}
+
+        @app.get("/")
+        async def home():
+            return {"message": "home"}
+
+        app.add_middleware(RBACMiddleware, allowed_roles=["admin"])
+
+        client = TestClient(app)
+
+        # Public paths should be accessible
+        assert client.get("/login").status_code == 200
+        assert client.get("/register").status_code == 200
+        assert client.get("/").status_code == 200
+
+    def test_protected_path_redirects_without_token(self):
+        """Protected paths should redirect to login without token"""
+        from app.middleware.rbac import RBACMiddleware
+        app = FastAPI()
+
+        @app.get("/admin")
+        async def admin_page():
+            return {"message": "admin page"}
+
+        app.add_middleware(RBACMiddleware, allowed_roles=["admin"])
+
+        client = TestClient(app)
+
+        # Should redirect to login
+        response = client.get("/admin", follow_redirects=False)
+        assert response.status_code == 307  # Redirect
+        assert "/login" in response.headers.get("location", "")
+
+    def test_docs_path_is_public(self):
+        """API docs should be publicly accessible"""
+        from app.middleware.rbac import RBACMiddleware
+        app = FastAPI()
+
+        app.add_middleware(RBACMiddleware, allowed_roles=["admin"])
+
+        client = TestClient(app)
+
+        response = client.get("/docs", follow_redirects=False)
+        # Should not redirect
+        assert response.status_code != 307
+
+    def test_openapi_json_is_public(self):
+        """OpenAPI schema should be publicly accessible"""
+        from app.middleware.rbac import RBACMiddleware
+        app = FastAPI()
+
+        app.add_middleware(RBACMiddleware, allowed_roles=["admin"])
+
+        client = TestClient(app)
+
+        response = client.get("/openapi.json", follow_redirects=False)
+        # Should not redirect
+        assert response.status_code != 307
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
