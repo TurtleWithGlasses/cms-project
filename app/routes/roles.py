@@ -7,7 +7,7 @@ from typing import List
 
 router = APIRouter()
 
-@router.get("/roles", response_model=List[str], tags=["Roles"])
+@router.get("/", response_model=List[str], tags=["Roles"])
 async def get_roles(db: AsyncSession = Depends(get_db)):
     """
     Fetch all available roles from the database.

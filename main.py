@@ -94,20 +94,28 @@ def create_app() -> FastAPI:
     app.add_middleware(
         CSRFMiddleware,
         secret_key=settings.secret_key,
-        exempt_paths=["/docs", "/redoc", "/openapi.json", "/api/v1", "/auth/token", "/"]
+        exempt_paths=[
+            "/docs", "/redoc", "/openapi.json",  # Documentation
+            "/api/v1",  # All v1 API endpoints
+            "/auth/token", "/auth",  # Authentication endpoints
+            "/"  # Root endpoint
+        ]
     )
     app.add_middleware(
         SecurityHeadersMiddleware,
         enable_hsts=not settings.debug,  # Only enable HSTS in production
     )
 
-    # Include routers
-    app.include_router(user.router, prefix="/users", tags=["Users"])
+    # Include routers with API versioning
+    # API v1 routes (standardized)
+    app.include_router(user.router, prefix="/api/v1/users", tags=["Users"])
+    app.include_router(roles.router, prefix="/api/v1/roles", tags=["Roles"])
+    app.include_router(content_router, prefix="/api/v1/content", tags=["Content"])
+    app.include_router(category.router, prefix="/api/v1/categories", tags=["Categories"])
+    app.include_router(password_reset.router, prefix="/api/v1/password-reset", tags=["Password Reset"])
+
+    # Auth routes (keep at /auth for OAuth2 compatibility)
     app.include_router(auth.router, prefix="/auth", tags=["Auth"])
-    app.include_router(roles.router, prefix="/api", tags=["roles"])
-    app.include_router(content_router, prefix="/api/v1", tags=["Content"])
-    app.include_router(category.router, prefix="/api", tags=["Categories"])
-    app.include_router(password_reset.router, tags=["Password Reset"])
 
     # Configure rate limiting
     configure_rate_limiting(app)
@@ -173,7 +181,7 @@ async def post_login(
         access_token = create_access_token({"sub": user.email}, expires_delta=timedelta(minutes=settings.access_token_expire_minutes))
 
         # Redirect based on role
-        redirect_url = "/users/admin/dashboard" if user.role.name in ["admin", "superadmin", "manager"] else "/profile"
+        redirect_url = "/api/v1/users/admin/dashboard" if user.role.name in ["admin", "superadmin", "manager"] else "/profile"
         redirect_response = RedirectResponse(redirect_url, status_code=302)
         redirect_response.set_cookie(
             key="access_token",

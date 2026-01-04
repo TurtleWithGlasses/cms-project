@@ -18,7 +18,7 @@ from app.schemas.password_reset import (
 from app.services.password_reset_service import PasswordResetService
 from app.middleware.rate_limit import limiter
 
-router = APIRouter(prefix="/password-reset", tags=["Password Reset"])
+router = APIRouter(tags=["Password Reset"])
 templates = Jinja2Templates(directory="templates")
 
 
@@ -52,7 +52,7 @@ async def request_password_reset(
         # In production, send email here
         # For now, we'll just log the token (DO NOT DO THIS IN PRODUCTION!)
         print(f"Password reset token for {email}: {reset_token.token}")
-        print(f"Reset link: http://localhost:8000/password-reset/reset?token={reset_token.token}")
+        print(f"Reset link: http://localhost:8000/api/v1/password-reset/reset?token={reset_token.token}")
 
         # TODO: Implement email service
         # await email_service.send_password_reset_email(email, reset_token.token)

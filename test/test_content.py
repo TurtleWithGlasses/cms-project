@@ -5,7 +5,7 @@ from app.main import app
 client = TestClient(app)
 
 def test_create_content():
-    response = client.post("/content", json={
+    response = client.post("/api/v1/content/", json={
         "title": "Sample Title",
         "body": "Sample body of the content.",
         "status": "draft"

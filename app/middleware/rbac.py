@@ -19,18 +19,12 @@ class RBACMiddleware(BaseHTTPMiddleware):
             "/",
             "/docs",
             "/openapi.json",
+            "/redoc",
             "/login",
             "/logout",
-            "/users/register",
             "/register",
-            "/users/me",
-            "/users/users/me",
-            "/users/users",
-            "/users/users/admin",
-            "/users/token",
-            "/token",
             "/auth/token",
-            "/admin/dashboard",
+            "/token",
             "/favicon.ico"
         }
 

@@ -46,7 +46,7 @@ def validate_content_status(content: Content, required_status: ContentStatus):
             detail=f"Content must be in {required_status.value} status."
         )
 
-@router.post("/content", response_model=ContentResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/", response_model=ContentResponse, status_code=status.HTTP_201_CREATED)
 async def create_draft(
     content: ContentCreate, 
     db: AsyncSession = Depends(get_db), 
@@ -97,7 +97,7 @@ async def create_draft(
         await db.rollback()
         raise HTTPException(status_code=500, detail=f"Failed to create content: {str(e)}")
 
-@router.patch("/content/{content_id}", response_model=ContentResponse)
+@router.patch("/{content_id}", response_model=ContentResponse)
 async def update_content(content_id: int,
                          content: ContentUpdate,
                          db: AsyncSession = Depends(get_db),
@@ -167,7 +167,7 @@ async def update_content(content_id: int,
 
     return existing_content
 
-@router.patch("/content/{content_id}/submit", response_model=ContentResponse)
+@router.patch("/{content_id}/submit", response_model=ContentResponse)
 async def submit_for_approval(
     content_id: int,
     db: AsyncSession = Depends(get_db),
@@ -210,7 +210,7 @@ async def submit_for_approval(
 
     return content
 
-@router.patch("/content/{content_id}/approve", response_model=ContentResponse)
+@router.patch("/{content_id}/approve", response_model=ContentResponse)
 async def approve_content(
     content_id: int,
     db: AsyncSession = Depends(get_db),
@@ -260,11 +260,11 @@ async def approve_content(
 
     return content
 
-@router.get("/content/{content_id}/versions", response_model=List[ContentVersionOut])
+@router.get("/{content_id}/versions", response_model=List[ContentVersionOut])
 async def get_content_versions(content_id: int, db: AsyncSession = Depends(get_db)):
     return await content_version_service.get_versions(content_id, db)
 
-@router.post("/content/{content_id}/rollback/{version_id}", response_model=ContentResponse)
+@router.post("/{content_id}/rollback/{version_id}", response_model=ContentResponse)
 async def rollback_content_version(
     content_id: int,
     version_id: int,
@@ -273,7 +273,7 @@ async def rollback_content_version(
 ):
     return await content_version_service.rollback_to_version(content_id, version_id, db, current_user)
 
-@router.get("/content", response_model=List[ContentResponse])
+@router.get("/", response_model=List[ContentResponse])
 async def get_all_content_route(
     skip: int = 0,
     limit: int = 10,

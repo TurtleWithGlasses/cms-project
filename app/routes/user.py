@@ -32,7 +32,7 @@ async def get_role_name(role_id: int, db: AsyncSession) -> str:
         raise HTTPException(status_code=500, detail="Role not found for the user")
     return role_name
 
-@router.get("/users/me", response_model=UserResponse)
+@router.get("/me", response_model=UserResponse)
 async def get_current_user_profile(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
@@ -45,7 +45,7 @@ async def get_current_user_profile(
         "role": role_name,
     }
 
-@router.get("/users", response_model=List[UserResponse], dependencies=[Depends(get_role_validator(["admin", "superadmin"]))])
+@router.get("/", response_model=List[UserResponse], dependencies=[Depends(get_role_validator(["admin", "superadmin"]))])
 async def list_users(db: AsyncSession = Depends(get_db)):
     query = select(User)
     result = await db.execute(query)
@@ -61,7 +61,7 @@ async def list_users(db: AsyncSession = Depends(get_db)):
     ]
     return response
 
-@router.put("/users/{user_id}/role", response_model=UserResponse, dependencies=[Depends(get_role_validator(["admin"]))])
+@router.put("/{user_id}/role", response_model=UserResponse, dependencies=[Depends(get_role_validator(["admin"]))])
 async def update_user_role(user_id: int, role_data: RoleUpdate, db: AsyncSession = Depends(get_db)):
     logging.info(f"Received request to update user_id: {user_id} to role: {role_data.role}")
 
@@ -118,7 +118,7 @@ async def update_user_role(user_id: int, role_data: RoleUpdate, db: AsyncSession
         "role": role_data.role,
     }
 
-@router.put("/users/{user_id}", response_model=UserResponse)
+@router.put("/{user_id}", response_model=UserResponse)
 async def update_user(
     user_id: int,
     user_update_data: UserUpdate,
@@ -159,7 +159,7 @@ async def update_user(
         "role": user.role.name,
     }
 
-@router.post("/users/admin", response_model=UserResponse, dependencies=[Depends(get_role_validator(["superadmin"]))])
+@router.post("/admin", response_model=UserResponse, dependencies=[Depends(get_role_validator(["superadmin"]))])
 async def create_admin(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
     # Wrap the raw SQL query with `text`
     query = text("SELECT id FROM roles WHERE name = :role_name")
@@ -318,7 +318,7 @@ async def get_user(user_id: int, db: AsyncSession = Depends(get_db)):
     }
 
 @router.delete(
-    "/users/delete/{user_id}",
+    "/delete/{user_id}",
     status_code=200,
     # dependencies=[Depends(permission_required("delete_user"))]
 )
@@ -349,12 +349,12 @@ async def delete_user(
         )
         await db.delete(user_to_delete)
         await db.commit()
-        return RedirectResponse(url="/users/admin/dashboard", status_code=303)
+        return RedirectResponse(url="/api/v1/users/admin/dashboard", status_code=303)
     except Exception as e:
         await db.rollback()
         raise HTTPException(status_code=500, detail=f"Failed to delete user: {str(e)}")
 
-@router.post("/users/delete/{user_id}")
+@router.post("/delete/{user_id}")
 async def delete_user_post_proxy(
     user_id: int,
     db: AsyncSession = Depends(get_db),
@@ -584,7 +584,7 @@ async def edit_user_form(
         }
     )
 
-@router.post("user/edit/{user_id}")
+@router.post("/user/edit/{user_id}")
 async def edit_user_submit(
     user_id: int,
     username: str = Form(...),
@@ -600,6 +600,6 @@ async def edit_user_submit(
     user_to_edit.username = username
     user_to_edit.email = email
     await db.commit()
-    return RedirectResponse(url="/users/admin/dashboard", status_code=302)
+    return RedirectResponse(url="/api/v1/users/admin/dashboard", status_code=302)
 
 

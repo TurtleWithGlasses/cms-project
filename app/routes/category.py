@@ -9,7 +9,7 @@ from typing import List
 
 router = APIRouter()
 
-@router.post("/categories", response_model=CategoryResponse)
+@router.post("/", response_model=CategoryResponse)
 async def create_category(category: CategoryCreate, db: AsyncSession = Depends(get_db)):
     slug = category.slug or slugify(category.name)
 
@@ -23,7 +23,7 @@ async def create_category(category: CategoryCreate, db: AsyncSession = Depends(g
     await db.refresh(new_category)
     return new_category
 
-@router.get("/categories", response_model=List[CategoryResponse])
+@router.get("/", response_model=List[CategoryResponse])
 async def get_categories(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Category))
     return result.scalars().all()
