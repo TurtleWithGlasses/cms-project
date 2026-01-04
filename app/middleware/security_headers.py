@@ -96,6 +96,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             response.headers["Strict-Transport-Security"] = hsts_value
 
         # Remove server identification header (if present)
-        response.headers.pop("Server", None)
+        if "Server" in response.headers:
+            del response.headers["Server"]
 
         return response

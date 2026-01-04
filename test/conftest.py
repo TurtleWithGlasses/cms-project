@@ -154,7 +154,7 @@ async def test_editor(test_db: AsyncSession) -> User:
 
 
 @pytest.fixture(scope="function", autouse=True)
-def override_get_db(test_db: AsyncSession):
+async def override_get_db(test_db: AsyncSession):
     """Override the get_db dependency for testing"""
     async def _override_get_db():
         yield test_db
