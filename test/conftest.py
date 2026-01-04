@@ -13,14 +13,33 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sess
 from sqlalchemy.pool import StaticPool
 from fastapi.testclient import TestClient
 
-from app.database import Base, get_db
+# Import Base first, before importing the app
+from app.database import Base
 from app.models.user import User, Role
 from app.auth import hash_password
-from main import app
-
 
 # Test database URL (SQLite in-memory for testing)
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
+
+# Create test engine and session maker BEFORE importing the app
+test_engine = create_async_engine(
+    TEST_DATABASE_URL,
+    connect_args={"check_same_thread": False},
+    poolclass=StaticPool,
+)
+
+TestSessionLocal = async_sessionmaker(
+    test_engine, class_=AsyncSession, expire_on_commit=False
+)
+
+# Now import and patch the app's database components
+import app.database as database_module
+from main import app
+
+# Replace the app's engine and session maker with test versions
+database_module.engine = test_engine
+database_module.AsyncSessionLocal = TestSessionLocal
+database_module.async_session = TestSessionLocal
 
 
 @pytest.fixture(scope="session")
@@ -31,29 +50,17 @@ def event_loop():
     loop.close()
 
 
-@pytest.fixture(scope="function")
-async def test_db() -> AsyncGenerator[AsyncSession, None]:
+@pytest.fixture(scope="function", autouse=True)
+async def setup_test_database():
     """
     Create a fresh database for each test function.
     """
-    # Create async engine
-    engine = create_async_engine(
-        TEST_DATABASE_URL,
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-
     # Create all tables
-    async with engine.begin() as conn:
+    async with test_engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
-    # Create async session
-    async_session_maker = async_sessionmaker(
-        engine, class_=AsyncSession, expire_on_commit=False
-    )
-
-    async with async_session_maker() as session:
-        # Create default roles
+    # Create default roles
+    async with TestSessionLocal() as session:
         roles_data = [
             {"name": "user", "permissions": []},
             {"name": "editor", "permissions": ["view_content", "edit_content"]},
@@ -68,19 +75,26 @@ async def test_db() -> AsyncGenerator[AsyncSession, None]:
 
         await session.commit()
 
-        yield session
+    yield
 
     # Drop all tables after test
-    async with engine.begin() as conn:
+    async with test_engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
 
-    await engine.dispose()
+
+@pytest.fixture(scope="function")
+async def test_db() -> AsyncGenerator[AsyncSession, None]:
+    """
+    Provide a database session for tests that need it.
+    """
+    async with TestSessionLocal() as session:
+        yield session
 
 
 @pytest.fixture
-def client(override_get_db):
+def client():
     """Create a test client for the FastAPI application with test database"""
-    # The override_get_db fixture will set up the database override
+    # Database is already patched at module level
     return TestClient(app)
 
 
@@ -153,12 +167,3 @@ async def test_editor(test_db: AsyncSession) -> User:
     return editor
 
 
-@pytest.fixture(scope="function", autouse=True)
-async def override_get_db(test_db: AsyncSession):
-    """Override the get_db dependency for testing"""
-    async def _override_get_db():
-        yield test_db
-
-    app.dependency_overrides[get_db] = _override_get_db
-    yield
-    app.dependency_overrides.clear()
