@@ -155,7 +155,6 @@ alembic/versions/__pycache__/
 notez.txt
 .qodo
 .claude/
-test_*.py
 
 # Logs
 *.log
