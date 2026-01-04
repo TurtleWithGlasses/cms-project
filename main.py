@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.routes import user, auth, roles
+from app.routes import user, auth, roles, password_reset
 from app.database import Base, engine, get_db
 from app.middleware.rbac import RBACMiddleware
 from app.middleware.csrf import CSRFMiddleware, get_csrf_token
@@ -107,6 +107,7 @@ def create_app() -> FastAPI:
     app.include_router(roles.router, prefix="/api", tags=["roles"])
     app.include_router(content_router, prefix="/api/v1", tags=["Content"])
     app.include_router(category.router, prefix="/api", tags=["Categories"])
+    app.include_router(password_reset.router, tags=["Password Reset"])
 
     # Configure rate limiting
     configure_rate_limiting(app)

@@ -40,3 +40,4 @@ class User(Base):
     contents = relationship("Content", back_populates="author")
     activity_logs = relationship("ActivityLog", back_populates="user", foreign_keys="ActivityLog.user_id")
     target_activity_logs = relationship("ActivityLog", foreign_keys="ActivityLog.target_user_id", overlaps="activity_logs")
+    password_reset_tokens = relationship("PasswordResetToken", back_populates="user", cascade="all, delete-orphan")
