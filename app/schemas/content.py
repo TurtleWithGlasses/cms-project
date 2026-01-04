@@ -32,7 +32,7 @@ class ContentUpdate(BaseModel):
     publish_at: Optional[datetime] = Field(None, description="When the content should be published")
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "title": "Updated Content Title",
                 "body": "Updated content body text.",

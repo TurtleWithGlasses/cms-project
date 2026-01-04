@@ -23,7 +23,7 @@ class PaginatedNotifications(BaseModel):
     notifications: List[NotificationOut]  # List of notifications for the current page
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "total": 100,
                 "page": 1,
@@ -46,7 +46,7 @@ class MarkAllNotificationsReadRequest(BaseModel):
     unread_notification_ids: List[int]  # List of notification IDs to mark as read
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "unread_notification_ids": [1, 2, 3, 4],
             }
