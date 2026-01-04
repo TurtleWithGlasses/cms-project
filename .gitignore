@@ -154,6 +154,7 @@ alembic/versions/__pycache__/
 # Project specific
 notez.txt
 .qodo
+.claude/
 test_*.py
 
 # Logs
