@@ -42,44 +42,69 @@ database_module.AsyncSessionLocal = TestSessionLocal
 database_module.async_session = TestSessionLocal
 
 
+def setup_test_db_sync():
+    """
+    Synchronously set up the test database with tables and roles.
+    This runs in the same event loop as TestClient.
+    """
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+
+    async def _setup():
+        # Create all tables
+        async with test_engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+
+        # Create default roles
+        async with TestSessionLocal() as session:
+            roles_data = [
+                {"name": "user", "permissions": []},
+                {"name": "editor", "permissions": ["view_content", "edit_content"]},
+                {"name": "manager", "permissions": ["view_content", "edit_content", "approve_content"]},
+                {"name": "admin", "permissions": ["*"]},
+                {"name": "superadmin", "permissions": ["*"]},
+            ]
+
+            for role_data in roles_data:
+                role = Role(**role_data)
+                session.add(role)
+
+            await session.commit()
+
+    loop.run_until_complete(_setup())
+    loop.close()
+
+
+def teardown_test_db_sync():
+    """Synchronously drop all tables after test"""
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+
+    async def _teardown():
+        async with test_engine.begin() as conn:
+            await conn.run_sync(Base.metadata.drop_all)
+
+    loop.run_until_complete(_teardown())
+    loop.close()
+
+
+@pytest.fixture(scope="function", autouse=True)
+def setup_test_database():
+    """
+    Create a fresh database for each test function.
+    Runs synchronously to work with TestClient.
+    """
+    setup_test_db_sync()
+    yield
+    teardown_test_db_sync()
+
+
 @pytest.fixture(scope="session")
 def event_loop():
     """Create an event loop for async tests"""
     loop = asyncio.get_event_loop_policy().new_event_loop()
     yield loop
     loop.close()
-
-
-@pytest.fixture(scope="function", autouse=True)
-async def setup_test_database():
-    """
-    Create a fresh database for each test function.
-    """
-    # Create all tables
-    async with test_engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-
-    # Create default roles
-    async with TestSessionLocal() as session:
-        roles_data = [
-            {"name": "user", "permissions": []},
-            {"name": "editor", "permissions": ["view_content", "edit_content"]},
-            {"name": "manager", "permissions": ["view_content", "edit_content", "approve_content"]},
-            {"name": "admin", "permissions": ["*"]},
-            {"name": "superadmin", "permissions": ["*"]},
-        ]
-
-        for role_data in roles_data:
-            role = Role(**role_data)
-            session.add(role)
-
-        await session.commit()
-
-    yield
-
-    # Drop all tables after test
-    async with test_engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
 
 
 @pytest.fixture(scope="function")
