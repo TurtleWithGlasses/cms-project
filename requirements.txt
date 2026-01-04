@@ -30,6 +30,7 @@ httpx==0.28.1
 email-validator==2.2.0
 apscheduler==3.10.4
 itsdangerous==2.2.0
+slowapi==0.1.9
 
 # Template engine
 jinja2==3.1.4

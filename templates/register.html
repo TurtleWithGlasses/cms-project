@@ -4,6 +4,7 @@
 {% block content %}
 <h2>Register</h2>
 <form action="/register" method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
     <input name="username" placeholder="Username" required>
     <input name="email" type="email" placeholder="Email" required>
     <input name="password" type="password" placeholder="Password" required>

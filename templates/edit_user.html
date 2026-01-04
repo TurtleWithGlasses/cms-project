@@ -1,4 +1,5 @@
 <form method="post" action="/user/update">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
     <input type="text" name="username" placeholder="New Username">
     <input type="email" name="email" placeholder="New Email">
     <input type="password" name="password" placeholder="New Password">

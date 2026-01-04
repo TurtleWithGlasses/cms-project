@@ -2,6 +2,7 @@
 {% block content %}
 <h2>Edit User</h2>
 <form method="post" action="/users/edit/{{ user_to_edit.id }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
   <label>Username:</label>
   <input type="text" name="username" value="{{ user_to_edit.username }}" required><br>
   <label>Email:</label>

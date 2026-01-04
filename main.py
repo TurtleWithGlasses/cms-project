@@ -11,6 +11,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.routes import user, auth, roles
 from app.database import Base, engine, get_db
 from app.middleware.rbac import RBACMiddleware
+from app.middleware.csrf import CSRFMiddleware, get_csrf_token
+from app.middleware.rate_limit import configure_rate_limiting, limiter
+from app.middleware.security_headers import SecurityHeadersMiddleware
 from app.routes import category
 from app.routes.content import router as content_router
 from app.config import settings
@@ -33,6 +36,14 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 
 templates = Jinja2Templates(directory="templates")
+
+# Add CSRF token helper to template context
+def csrf_token_context(request: Request):
+    """Add CSRF token to template context."""
+    return {"csrf_token": get_csrf_token(request)}
+
+# Add context processor to templates
+templates.env.globals["csrf_token"] = get_csrf_token
 
 
 @asynccontextmanager
@@ -74,12 +85,21 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    # Add middleware
+    # Add middleware (order matters: Security Headers -> CSRF -> RBAC -> Session)
+    app.add_middleware(SessionMiddleware, secret_key=settings.secret_key)
     app.add_middleware(
         RBACMiddleware,
         allowed_roles=["user", "admin", "superadmin"]
     )
-    app.add_middleware(SessionMiddleware, secret_key=settings.secret_key)
+    app.add_middleware(
+        CSRFMiddleware,
+        secret_key=settings.secret_key,
+        exempt_paths=["/docs", "/redoc", "/openapi.json", "/api/v1", "/auth/token", "/"]
+    )
+    app.add_middleware(
+        SecurityHeadersMiddleware,
+        enable_hsts=not settings.debug,  # Only enable HSTS in production
+    )
 
     # Include routers
     app.include_router(user.router, prefix="/users", tags=["Users"])
@@ -88,12 +108,15 @@ def create_app() -> FastAPI:
     app.include_router(content_router, prefix="/api/v1", tags=["Content"])
     app.include_router(category.router, prefix="/api", tags=["Categories"])
 
+    # Configure rate limiting
+    configure_rate_limiting(app)
+
     if settings.debug:
         logger.info(f"Running in {settings.environment} mode")
         logging.getLogger("sqlalchemy.engine").setLevel(logging.INFO)
         logging.getLogger("sqlalchemy.pool").setLevel(logging.INFO)
         logging.getLogger("sqlalchemy.dialects").setLevel(logging.DEBUG)
-        logging.getLogger("sqlalchemy.orm").setLevel(logging.DEBUG) 
+        logging.getLogger("sqlalchemy.orm").setLevel(logging.DEBUG)
 
     return app
 
@@ -109,6 +132,7 @@ async def get_register(request: Request):
     return templates.TemplateResponse("register.html", {"request": request})
 
 @app.post("/register")
+@limiter.limit("3/hour")  # Strict rate limit for registration
 async def post_register(
     request: Request,
     username: str = Form(...),
@@ -124,6 +148,7 @@ async def get_login(request: Request):
     return templates.TemplateResponse("login.html", {"request": request})
 
 @app.post("/login")
+@limiter.limit("5/minute")  # Strict rate limit for login attempts
 async def post_login(
     response: Response,
     request: Request,
