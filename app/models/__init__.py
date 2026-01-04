@@ -3,9 +3,10 @@ from .content import Content
 from .content_tags import content_tags
 from .notification import Notification
 from .tag import Tag
-from .user import User
+from .user import User, Role
 from .category import Category
 from .content_version import ContentVersion
+from .password_reset import PasswordResetToken
 
 __all__ = [
     "ActivityLog",
@@ -17,4 +18,5 @@ __all__ = [
     "Role",
     "Category",
     "ContentVersion",
+    "PasswordResetToken",
 ]

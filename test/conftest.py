@@ -78,8 +78,9 @@ async def test_db() -> AsyncGenerator[AsyncSession, None]:
 
 
 @pytest.fixture
-def client():
-    """Create a test client for the FastAPI application"""
+def client(override_get_db):
+    """Create a test client for the FastAPI application with test database"""
+    # The override_get_db fixture will set up the database override
     return TestClient(app)
 
 
@@ -152,7 +153,7 @@ async def test_editor(test_db: AsyncSession) -> User:
     return editor
 
 
-@pytest.fixture
+@pytest.fixture(scope="function", autouse=True)
 def override_get_db(test_db: AsyncSession):
     """Override the get_db dependency for testing"""
     async def _override_get_db():

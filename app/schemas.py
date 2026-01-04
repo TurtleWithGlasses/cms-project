@@ -7,7 +7,7 @@ class Token(BaseModel):
     expires_in: Optional[int] = Field(None, description="Time in seconds until the token expires")
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyQGV4YW1wbGUuY29tIiwiZXhwIjoxNjMwNTk3NzUyfQ.tjK_JEPhV24vA",
                 "token_type": "bearer",
