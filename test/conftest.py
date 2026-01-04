@@ -11,25 +11,25 @@ import asyncio
 from typing import AsyncGenerator
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from fastapi.testclient import TestClient
-from decouple import config
 
 # Import Base first, before importing the app
 from app.database import Base
 from app.models.user import User, Role
 from app.auth import hash_password
+from app.config import settings
 
 # Test database URL - Use PostgreSQL for tests to match production
 # Can be overridden with TEST_DATABASE_URL environment variable
 # Default: appends '_test' to production database name
 def get_test_database_url():
     """Get test database URL from environment or derive from production URL"""
-    test_url = config("TEST_DATABASE_URL", default=None)
+    test_url = os.getenv("TEST_DATABASE_URL")
     if test_url:
         return test_url
 
     # Derive from production URL by changing database name
-    prod_url = config("DATABASE_URL")
-    # Change database name from 'cms' to 'cms_test' (or append _test to existing name)
+    prod_url = settings.database_url
+    # Change database name from 'cms_project' to 'cms_project_test' (or append _test to existing name)
     if prod_url:
         # Split URL to get database name and replace it
         parts = prod_url.rsplit('/', 1)
