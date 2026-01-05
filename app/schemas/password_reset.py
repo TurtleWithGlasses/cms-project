@@ -4,7 +4,7 @@ Password Reset Schemas
 Pydantic models for password reset requests and responses.
 """
 
-from pydantic import BaseModel, EmailStr, Field, validator
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 
 class PasswordResetRequest(BaseModel):
@@ -18,10 +18,11 @@ class PasswordResetConfirm(BaseModel):
     new_password: str = Field(..., min_length=8, max_length=100, description="New password")
     confirm_password: str = Field(..., min_length=8, max_length=100, description="Confirm new password")
 
-    @validator('confirm_password')
-    def passwords_match(cls, v, values):
+    @field_validator('confirm_password')
+    @classmethod
+    def passwords_match(cls, v, info):
         """Validate that passwords match"""
-        if 'new_password' in values and v != values['new_password']:
+        if 'new_password' in info.data and v != info.data['new_password']:
             raise ValueError('Passwords do not match')
         return v
 

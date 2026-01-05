@@ -15,7 +15,7 @@ async def create_category(category: CategoryCreate, db: AsyncSession = Depends(g
 
     result = await db.execute(select(Category).where(Category.slug == slug))
     if result.scalars().first():
-        raise HTTPException(status_code=400, detial="Slug already exists.")
+        raise HTTPException(status_code=400, detail="Slug already exists.")
     
     new_category = Category(name=category.name, slug=slug, parent_id=category.parent_id)
     db.add(new_category)

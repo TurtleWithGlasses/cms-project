@@ -1,7 +1,9 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from datetime import datetime
 
 class ContentVersionOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     content_id: int
     title: str
@@ -13,6 +15,3 @@ class ContentVersionOut(BaseModel):
     status: str
     author_id: int | None
     created_at: datetime
-
-    class Config:
-        from_attributes = True

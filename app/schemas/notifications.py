@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from datetime import datetime
 from typing import List
 from app.models.notification import NotificationStatus
@@ -12,8 +12,7 @@ class NotificationOut(BaseModel):
     status: NotificationStatus
     created_at: datetime
 
-    class Config:
-        from_attributes = True  # Ensures compatibility with ORM models
+    model_config = ConfigDict(from_attributes=True)  # Ensures compatibility with ORM models
 
 
 class PaginatedNotifications(BaseModel):
@@ -22,12 +21,11 @@ class PaginatedNotifications(BaseModel):
     size: int  # Number of notifications per page
     notifications: List[NotificationOut]  # List of notifications for the current page
 
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "total": 100,
-                "page": 1,
-                "size": 10,
+    model_config = ConfigDict(json_schema_extra={
+        "example": {
+            "total": 100,
+            "page": 1,
+            "size": 10,
                 "notifications": [
                     {
                         "id": 1,
@@ -40,14 +38,15 @@ class PaginatedNotifications(BaseModel):
                 ],
             }
         }
+    )
 
 
 class MarkAllNotificationsReadRequest(BaseModel):
     unread_notification_ids: List[int]  # List of notification IDs to mark as read
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(json_schema_extra={
             "example": {
                 "unread_notification_ids": [1, 2, 3, 4],
             }
         }
+    )

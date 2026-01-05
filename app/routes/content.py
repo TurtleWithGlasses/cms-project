@@ -18,7 +18,6 @@ from app.services import content_version_service, content_service
 from app.schemas.content import ContentResponse
 from app.schemas.content_version import ContentVersionOut
 from datetime import datetime, timezone
-# from functools import partial
 import logging
 
 

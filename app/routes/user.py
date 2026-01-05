@@ -1,19 +1,16 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Form
 from fastapi.templating import Jinja2Templates
 import logging
-# from sqlalchemy.orm import Session, selectinload, joinedload
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import update, text
 from typing import List, Optional
 from starlette.responses import HTMLResponse, RedirectResponse
-# from app.models.content import Content
 from app.models.notification import Notification, NotificationStatus
 from app.utils.activity_log import log_activity
 from app.auth import get_current_user
 from app.permissions_config.permission_dependencies import permission_required
 from app.models.user import Role
-# from app.models.activity_log import ActivityLog
 from app.schemas.notifications import PaginatedNotifications
 from app.schemas.user import UserCreate, UserResponse, UserUpdate, RoleUpdate
 from app.models import User

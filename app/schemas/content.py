@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Optional
 from datetime import datetime
 from enum import Enum
@@ -31,18 +31,17 @@ class ContentUpdate(BaseModel):
     status: Optional[ContentStatus] = Field(None, title="Content Status", description="The updated status of the content.")
     publish_at: Optional[datetime] = Field(None, description="When the content should be published")
 
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "title": "Updated Content Title",
-                "body": "Updated content body text.",
-                "slug": "updated-content-title",
-                "meta_title": "Updated Meta Title",
-                "meta_description": "Updated meta description for the content.",
-                "meta_keywords": "updated, content, keywords",
-                "status": "published",
-            }
+    model_config = ConfigDict(json_schema_extra={
+        "example": {
+            "title": "Updated Content Title",
+            "body": "Updated content body text.",
+            "slug": "updated-content-title",
+            "meta_title": "Updated Meta Title",
+            "meta_description": "Updated meta description for the content.",
+            "meta_keywords": "updated, content, keywords",
+            "status": "published",
         }
+    })
 
 class ContentResponse(BaseModel):
     id: int = Field(..., title="Content ID", description="The unique identifier for the content.")
@@ -53,10 +52,10 @@ class ContentResponse(BaseModel):
     updated_at: datetime = Field(..., title="Updated At", description="The timestamp when the content was last updated.")
     author_id: int = Field(..., title="Author ID", description="The ID of the user who authored the content.")
 
-    class Config:
-        from_attributes = True
-        use_enum_values = True
-        json_schema_extra = {
+    model_config = ConfigDict(
+        from_attributes=True,
+        use_enum_values=True,
+        json_schema_extra={
             "example": {
                 "id": 1,
                 "title": "Example Content Title",
@@ -67,3 +66,4 @@ class ContentResponse(BaseModel):
                 "author_id": 42,
             }
         }
+    )
