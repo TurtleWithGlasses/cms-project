@@ -1,15 +1,45 @@
 import logging
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from app.routes import user, auth, roles, category, password_reset
 from app.routes.content import router as content_router
 from app.database import engine, Base
 from app.middleware.rbac import RBACMiddleware
 from app.exception_handlers import register_exception_handlers
+from app.utils.session import session_manager
 
 logging.basicConfig()
 # logging.getLogger("sqlalchemy.engine").setLevel(logging.INFO)
 
-app = FastAPI()
+logger = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Application lifespan manager - handles startup and shutdown events.
+    """
+    # Startup: Connect to Redis
+    logger.info("Starting up application...")
+    try:
+        await session_manager.connect()
+        logger.info("Redis session manager connected")
+    except Exception as e:
+        logger.error(f"Failed to connect to Redis: {e}")
+        logger.warning("Application will run without session management")
+
+    yield
+
+    # Shutdown: Disconnect from Redis
+    logger.info("Shutting down application...")
+    try:
+        await session_manager.disconnect()
+        logger.info("Redis session manager disconnected")
+    except Exception as e:
+        logger.error(f"Error during Redis disconnect: {e}")
+
+
+app = FastAPI(lifespan=lifespan)
 
 app.add_middleware(
     RBACMiddleware,

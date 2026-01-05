@@ -19,6 +19,14 @@ class Settings(BaseSettings):
     secret_key: str
     access_token_expire_minutes: int = 30
 
+    # Redis settings
+    redis_host: str = "localhost"
+    redis_port: int = 6379
+    redis_db: int = 0
+    redis_password: Optional[str] = None
+    redis_url: Optional[str] = None
+    session_expire_seconds: int = 3600  # 1 hour
+
     # CORS settings
     allowed_origins: list[str] = ["http://localhost:3000", "http://localhost:8000"]
 
