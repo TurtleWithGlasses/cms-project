@@ -20,6 +20,14 @@ from app.models import User
 from app.database import get_db
 from app.auth import get_role_validator, hash_password
 from app.permissions_config.permissions import get_role_permissions
+from app.exceptions import (
+    UserNotFoundError,
+    RoleNotFoundError,
+    ValidationError,
+    DuplicateResourceError,
+    AuthorizationError,
+    DatabaseError
+)
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
@@ -29,7 +37,7 @@ async def get_role_name(role_id: int, db: AsyncSession) -> str:
     result = await db.execute(query)
     role_name = result.scalar()
     if not role_name:
-        raise HTTPException(status_code=500, detail="Role not found for the user")
+        raise RoleNotFoundError(role_id)
     return role_name
 
 @router.get("/me", response_model=UserResponse)
@@ -71,7 +79,7 @@ async def update_user_role(user_id: int, role_data: RoleUpdate, db: AsyncSession
 
     if not user_to_update:
         logging.error(f"User not found: {user_id}")
-        raise HTTPException(status_code=404, detail="User not found")
+        raise UserNotFoundError(user_id)
 
     # Step 2: Validate the role
     result = await db.execute(
@@ -80,7 +88,7 @@ async def update_user_role(user_id: int, role_data: RoleUpdate, db: AsyncSession
     role_id = result.scalar()
     if not role_id:
         logging.error(f"Invalid role: {role_data.role}")
-        raise HTTPException(status_code=400, detail="Invalid role provided")
+        raise RoleNotFoundError(role_data.role)
 
     # Step 3: Update the user's role
     logging.info(f"Updating user_id: {user_id} to role_id: {role_id}")
@@ -93,7 +101,7 @@ async def update_user_role(user_id: int, role_data: RoleUpdate, db: AsyncSession
     except Exception as e:
         logging.error(f"Failed to update role: {e}")
         await db.rollback()
-        raise HTTPException(status_code=500, detail=f"Failed to update role: {str(e)}")
+        raise DatabaseError(message="Failed to update user role", operation="update_user_role")
 
     # Step 4: Log the activity with a new session
     try:

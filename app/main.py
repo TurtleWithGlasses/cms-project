@@ -4,6 +4,7 @@ from app.routes import user, auth, roles, category, password_reset
 from app.routes.content import router as content_router
 from app.database import engine, Base
 from app.middleware.rbac import RBACMiddleware
+from app.exception_handlers import register_exception_handlers
 
 logging.basicConfig()
 # logging.getLogger("sqlalchemy.engine").setLevel(logging.INFO)
@@ -25,6 +26,9 @@ app.include_router(password_reset.router, prefix="/api/v1/password-reset", tags=
 
 # Auth routes (keep at /auth for OAuth2 compatibility)
 app.include_router(auth.router, prefix="/auth", tags=["Auth"])
+
+# Register exception handlers
+register_exception_handlers(app)
 
 # Base.metadata.create_all(bind=engine)
 

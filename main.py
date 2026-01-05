@@ -30,6 +30,7 @@ from app.auth import (
     get_current_user_with_role,
     oauth2_scheme
 )
+from app.exception_handlers import register_exception_handlers
 
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -119,6 +120,9 @@ def create_app() -> FastAPI:
 
     # Configure rate limiting
     configure_rate_limiting(app)
+
+    # Register exception handlers
+    register_exception_handlers(app)
 
     if settings.debug:
         logger.info(f"Running in {settings.environment} mode")

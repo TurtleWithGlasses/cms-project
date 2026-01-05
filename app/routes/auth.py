@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -8,6 +8,7 @@ from ..auth import create_access_token, verify_password
 from ..models import User
 from ..database import get_db
 from ..schemas import Token
+from ..exceptions import InvalidCredentialsError, DatabaseError
 import logging
 
 # Initialize logger
@@ -32,28 +33,20 @@ async def login_for_access_token(
         user = result.scalars().first()
     except Exception as e:
         logger.error(f"Database query failed: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Internal server error",
+        raise DatabaseError(
+            message="Failed to authenticate user",
+            operation="user_login"
         )
 
     # Check if user exists
     if not user:
         logger.warning(f"Login failed for email: {form_data.username}")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid email or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+        raise InvalidCredentialsError()
 
     # Verify password
     if not verify_password(form_data.password, user.hashed_password):
         logger.warning(f"Invalid password attempt for email: {form_data.username}")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid email or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+        raise InvalidCredentialsError()
 
     # Create an access token
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
