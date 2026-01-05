@@ -1,13 +1,14 @@
-from typing import Optional, Dict
-from app.database import AsyncSessionLocal
-from app.models.activity_log import ActivityLog
-from datetime import datetime, timezone
 import json
 import logging
+from datetime import datetime, timezone
+
+from app.database import AsyncSessionLocal
+from app.models.activity_log import ActivityLog
 
 logger = logging.getLogger(__name__)
 
-def validate_details(details: Optional[Dict]) -> None:
+
+def validate_details(details: dict | None) -> None:
     """
     Validate that the details are JSON-serializable.
     Raise an exception if invalid.
@@ -23,11 +24,11 @@ def validate_details(details: Optional[Dict]) -> None:
 
 async def log_activity(
     action: str,
-    user_id: Optional[int],
+    user_id: int | None,
     description: str,
-    content_id: Optional[int] = None,
-    target_user_id: Optional[int] = None,
-    details: Optional[Dict] = None,
+    content_id: int | None = None,
+    target_user_id: int | None = None,
+    details: dict | None = None,
 ):
     """
     Logs an activity in the database using a separate session.

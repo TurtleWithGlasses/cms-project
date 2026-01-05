@@ -1,8 +1,10 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, Enum, DateTime
-from sqlalchemy.orm import relationship
 from datetime import datetime
-from app.database import Base
 from enum import Enum as PyEnum
+
+from sqlalchemy import Column, DateTime, Enum, ForeignKey, Integer, String
+from sqlalchemy.orm import relationship
+
+from app.database import Base
 
 
 class NotificationStatus(str, PyEnum):

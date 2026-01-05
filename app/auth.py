@@ -9,21 +9,22 @@ This module provides all authentication and authorization functionality includin
 - Permission validation
 """
 
+import logging
+from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
-from jose import JWTError, jwt, ExpiredSignatureError
-from fastapi import Depends, HTTPException, status, Request
+
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
+from jose import ExpiredSignatureError, JWTError, jwt
 from passlib.context import CryptContext
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
-from typing import Callable, List, Optional
-import logging
 
-from app.models.user import User
+from app.constants import ACCESS_TOKEN_EXPIRE_MINUTES, ALGORITHM, SECRET_KEY
 from app.database import get_db
+from app.models.user import User
 from app.permissions_config.permissions import ROLE_PERMISSIONS
-from app.constants import SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
 
 # Initialize logging
 logger = logging.getLogger(__name__)
@@ -38,6 +39,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
 # ============================================================================
 # Password Hashing & Verification
 # ============================================================================
+
 
 def hash_password(password: str) -> str:
     """
@@ -70,7 +72,8 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 # JWT Token Management
 # ============================================================================
 
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
+
+def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
     """
     Create a JWT access token with expiration.
 
@@ -109,7 +112,7 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
         logger.error(f"Error encoding token: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An error occurred while creating the access token."
+            detail="An error occurred while creating the access token.",
         )
 
 
@@ -137,7 +140,7 @@ def decode_access_token(token: str) -> str:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid token: 'sub' claim missing.",
-                headers={"WWW-Authenticate": "Bearer"}
+                headers={"WWW-Authenticate": "Bearer"},
             )
 
         logger.debug(f"Token decoded successfully for email: {email}")
@@ -148,20 +151,19 @@ def decode_access_token(token: str) -> str:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token has expired.",
-            headers={"WWW-Authenticate": "Bearer"}
+            headers={"WWW-Authenticate": "Bearer"},
         )
     except JWTError as e:
         logger.error(f"JWT decoding error: {str(e)}")
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token.",
-            headers={"WWW-Authenticate": "Bearer"}
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token.", headers={"WWW-Authenticate": "Bearer"}
         )
 
 
 # ============================================================================
 # User Authentication
 # ============================================================================
+
 
 async def verify_token(token: str, db: AsyncSession) -> User:
     """
@@ -201,10 +203,7 @@ async def verify_token(token: str, db: AsyncSession) -> User:
             raise credentials_exception
     except Exception as e:
         logger.error(f"Database query failed: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to fetch user data."
-        )
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to fetch user data.")
 
     return user
 
@@ -246,9 +245,7 @@ async def get_current_user_from_cookie(
         raise credentials_exception
 
     try:
-        result = await db.execute(
-            select(User).options(selectinload(User.role)).where(User.email == email)
-        )
+        result = await db.execute(select(User).options(selectinload(User.role)).where(User.email == email))
         user = result.scalars().first()
         if user is None:
             raise credentials_exception
@@ -296,9 +293,7 @@ async def get_current_user_from_header(
         raise credentials_exception
 
     try:
-        result = await db.execute(
-            select(User).options(selectinload(User.role)).where(User.email == email)
-        )
+        result = await db.execute(select(User).options(selectinload(User.role)).where(User.email == email))
         user = result.scalars().first()
     except Exception as e:
         logger.error(f"Error querying user from database: {str(e)}")
@@ -334,7 +329,8 @@ get_current_user = get_current_user_from_cookie
 # Role-Based Access Control
 # ============================================================================
 
-def get_current_user_with_role(required_roles: List[str]) -> Callable:
+
+def get_current_user_with_role(required_roles: list[str]) -> Callable:
     """
     Create a dependency that validates user has one of the required roles.
     Uses Bearer token authentication.
@@ -345,6 +341,7 @@ def get_current_user_with_role(required_roles: List[str]) -> Callable:
     Returns:
         Async function that validates user role
     """
+
     async def _current_user_with_role(
         db: AsyncSession = Depends(get_db),
         token: str = Depends(oauth2_scheme),
@@ -375,7 +372,7 @@ def get_current_user_with_role(required_roles: List[str]) -> Callable:
     return _current_user_with_role
 
 
-def get_role_validator(required_roles: List[str]) -> Callable:
+def get_role_validator(required_roles: list[str]) -> Callable:
     """
     Create a dependency that validates user has one of the required roles.
     Uses Bearer token authentication.
@@ -386,6 +383,7 @@ def get_role_validator(required_roles: List[str]) -> Callable:
     Returns:
         Async function that validates user role
     """
+
     async def role_validator(
         db: AsyncSession = Depends(get_db),
         token: str = Depends(oauth2_scheme),
@@ -404,6 +402,7 @@ def get_role_validator(required_roles: List[str]) -> Callable:
 # ============================================================================
 # Permission Validation
 # ============================================================================
+
 
 def has_permission(role: str, permission: str) -> bool:
     """

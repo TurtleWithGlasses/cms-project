@@ -5,12 +5,14 @@ Provides Redis-based session storage for user authentication and session trackin
 """
 
 import json
-import uuid
-from typing import Optional, Dict, Any
-from datetime import datetime, timedelta
-import redis.asyncio as redis
-from app.config import settings
 import logging
+import uuid
+from datetime import datetime
+from typing import Any
+
+import redis.asyncio as redis
+
+from app.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -29,8 +31,8 @@ class RedisSessionManager:
 
     def __init__(self):
         """Initialize Redis connection pool"""
-        self._redis: Optional[redis.Redis] = None
-        self._pool: Optional[redis.ConnectionPool] = None
+        self._redis: redis.Redis | None = None
+        self._pool: redis.ConnectionPool | None = None
 
     async def connect(self):
         """Establish connection to Redis server"""
@@ -38,17 +40,14 @@ class RedisSessionManager:
             try:
                 # Use redis_url if provided, otherwise build from components
                 if settings.redis_url:
-                    self._pool = redis.ConnectionPool.from_url(
-                        settings.redis_url,
-                        decode_responses=True
-                    )
+                    self._pool = redis.ConnectionPool.from_url(settings.redis_url, decode_responses=True)
                 else:
                     self._pool = redis.ConnectionPool(
                         host=settings.redis_host,
                         port=settings.redis_port,
                         db=settings.redis_db,
                         password=settings.redis_password,
-                        decode_responses=True
+                        decode_responses=True,
                     )
 
                 self._redis = redis.Redis(connection_pool=self._pool)
@@ -71,11 +70,7 @@ class RedisSessionManager:
         logger.info("Disconnected from Redis")
 
     async def create_session(
-        self,
-        user_id: int,
-        user_email: str,
-        user_role: str,
-        additional_data: Optional[Dict[str, Any]] = None
+        self, user_id: int, user_email: str, user_role: str, additional_data: dict[str, Any] | None = None
     ) -> str:
         """
         Create a new session for a user.
@@ -101,7 +96,7 @@ class RedisSessionManager:
             "email": user_email,
             "role": user_role,
             "created_at": datetime.utcnow().isoformat(),
-            "last_activity": datetime.utcnow().isoformat()
+            "last_activity": datetime.utcnow().isoformat(),
         }
 
         # Add any additional data
@@ -110,11 +105,7 @@ class RedisSessionManager:
 
         # Store in Redis with expiration
         session_key = f"session:{session_id}"
-        await self._redis.setex(
-            session_key,
-            settings.session_expire_seconds,
-            json.dumps(session_data)
-        )
+        await self._redis.setex(session_key, settings.session_expire_seconds, json.dumps(session_data))
 
         # Track active sessions for this user
         user_sessions_key = f"user_sessions:{user_id}"
@@ -124,7 +115,7 @@ class RedisSessionManager:
         logger.info(f"Created session {session_id} for user {user_email}")
         return session_id
 
-    async def get_session(self, session_id: str) -> Optional[Dict[str, Any]]:
+    async def get_session(self, session_id: str) -> dict[str, Any] | None:
         """
         Retrieve session data by session ID.
 
@@ -149,11 +140,7 @@ class RedisSessionManager:
 
             # Update last activity timestamp
             data["last_activity"] = datetime.utcnow().isoformat()
-            await self._redis.setex(
-                session_key,
-                settings.session_expire_seconds,
-                json.dumps(data)
-            )
+            await self._redis.setex(session_key, settings.session_expire_seconds, json.dumps(data))
 
             return data
         except json.JSONDecodeError:
@@ -237,7 +224,7 @@ class RedisSessionManager:
         logger.info(f"Deleted {count} sessions for user {user_id}")
         return count
 
-    async def get_active_sessions(self, user_id: int) -> list[Dict[str, Any]]:
+    async def get_active_sessions(self, user_id: int) -> list[dict[str, Any]]:
         """
         Get all active sessions for a user.
 

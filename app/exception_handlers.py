@@ -7,23 +7,19 @@ error responses across the application.
 
 import logging
 from typing import Union
+
 from fastapi import Request, status
-from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
-from starlette.exceptions import HTTPException as StarletteHTTPException
+from fastapi.responses import JSONResponse
 from pydantic import ValidationError as PydanticValidationError
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.exceptions import CMSException
 
 logger = logging.getLogger(__name__)
 
 
-def create_error_response(
-    status_code: int,
-    message: str,
-    details: dict = None,
-    path: str = None
-) -> JSONResponse:
+def create_error_response(status_code: int, message: str, details: dict = None, path: str = None) -> JSONResponse:
     """
     Create a standardized error response
 
@@ -36,13 +32,7 @@ def create_error_response(
     Returns:
         JSONResponse with standardized error format
     """
-    error_response = {
-        "error": {
-            "status_code": status_code,
-            "message": message,
-            "type": get_error_type(status_code)
-        }
-    }
+    error_response = {"error": {"status_code": status_code, "message": message, "type": get_error_type(status_code)}}
 
     if details:
         error_response["error"]["details"] = details
@@ -50,10 +40,7 @@ def create_error_response(
     if path:
         error_response["error"]["path"] = path
 
-    return JSONResponse(
-        status_code=status_code,
-        content=error_response
-    )
+    return JSONResponse(status_code=status_code, content=error_response)
 
 
 def get_error_type(status_code: int) -> str:
@@ -68,7 +55,7 @@ def get_error_type(status_code: int) -> str:
         429: "Too Many Requests",
         500: "Internal Server Error",
         502: "Bad Gateway",
-        503: "Service Unavailable"
+        503: "Service Unavailable",
     }
     return error_types.get(status_code, "Error")
 
@@ -86,25 +73,18 @@ async def cms_exception_handler(request: Request, exc: CMSException) -> JSONResp
     """
     logger.error(
         f"CMSException: {exc.message}",
-        extra={
-            "status_code": exc.status_code,
-            "path": request.url.path,
-            "details": exc.details
-        }
+        extra={"status_code": exc.status_code, "path": request.url.path, "details": exc.details},
     )
 
     return create_error_response(
         status_code=exc.status_code,
         message=exc.message,
         details=exc.details if exc.details else None,
-        path=request.url.path
+        path=request.url.path,
     )
 
 
-async def http_exception_handler(
-    request: Request,
-    exc: StarletteHTTPException
-) -> JSONResponse:
+async def http_exception_handler(request: Request, exc: StarletteHTTPException) -> JSONResponse:
     """
     Handle standard HTTP exceptions
 
@@ -115,24 +95,13 @@ async def http_exception_handler(
     Returns:
         JSONResponse with error details
     """
-    logger.warning(
-        f"HTTPException: {exc.detail}",
-        extra={
-            "status_code": exc.status_code,
-            "path": request.url.path
-        }
-    )
+    logger.warning(f"HTTPException: {exc.detail}", extra={"status_code": exc.status_code, "path": request.url.path})
 
-    return create_error_response(
-        status_code=exc.status_code,
-        message=str(exc.detail),
-        path=request.url.path
-    )
+    return create_error_response(status_code=exc.status_code, message=str(exc.detail), path=request.url.path)
 
 
 async def validation_exception_handler(
-    request: Request,
-    exc: Union[RequestValidationError, PydanticValidationError]
+    request: Request, exc: Union[RequestValidationError, PydanticValidationError]
 ) -> JSONResponse:
     """
     Handle Pydantic validation errors
@@ -149,31 +118,20 @@ async def validation_exception_handler(
     if isinstance(exc, RequestValidationError):
         for error in exc.errors():
             field = ".".join(str(loc) for loc in error["loc"] if loc != "body")
-            errors.append({
-                "field": field,
-                "message": error["msg"],
-                "type": error["type"]
-            })
+            errors.append({"field": field, "message": error["msg"], "type": error["type"]})
     else:
         # PydanticValidationError
         for error in exc.errors():
             field = ".".join(str(loc) for loc in error["loc"])
-            errors.append({
-                "field": field,
-                "message": error["msg"],
-                "type": error["type"]
-            })
+            errors.append({"field": field, "message": error["msg"], "type": error["type"]})
 
-    logger.warning(
-        f"Validation error on {request.url.path}",
-        extra={"errors": errors}
-    )
+    logger.warning(f"Validation error on {request.url.path}", extra={"errors": errors})
 
     return create_error_response(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         message="Validation error",
         details={"validation_errors": errors},
-        path=request.url.path
+        path=request.url.path,
     )
 
 
@@ -189,19 +147,14 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
         JSONResponse with generic error message
     """
     logger.error(
-        f"Unhandled exception: {str(exc)}",
-        exc_info=True,
-        extra={
-            "path": request.url.path,
-            "method": request.method
-        }
+        f"Unhandled exception: {str(exc)}", exc_info=True, extra={"path": request.url.path, "method": request.method}
     )
 
     # Don't expose internal error details in production
     return create_error_response(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         message="An unexpected error occurred. Please try again later.",
-        path=request.url.path
+        path=request.url.path,
     )
 
 

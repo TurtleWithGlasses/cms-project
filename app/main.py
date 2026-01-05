@@ -1,11 +1,12 @@
 import logging
 from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
-from app.routes import user, auth, roles, category, password_reset
-from app.routes.content import router as content_router
-from app.database import engine, Base
-from app.middleware.rbac import RBACMiddleware
+
 from app.exception_handlers import register_exception_handlers
+from app.middleware.rbac import RBACMiddleware
+from app.routes import auth, category, password_reset, roles, user
+from app.routes.content import router as content_router
 from app.utils.session import session_manager
 
 logging.basicConfig()
@@ -41,10 +42,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
-app.add_middleware(
-    RBACMiddleware,
-    allowed_roles=["user", "admin", "superadmin"]
-)
+app.add_middleware(RBACMiddleware, allowed_roles=["user", "admin", "superadmin"])
 
 # Include routers with API versioning
 # API v1 routes (standardized)
@@ -61,6 +59,7 @@ app.include_router(auth.router, prefix="/auth", tags=["Auth"])
 register_exception_handlers(app)
 
 # Base.metadata.create_all(bind=engine)
+
 
 @app.get("/")
 def root():

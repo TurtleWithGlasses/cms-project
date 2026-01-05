@@ -10,6 +10,7 @@ from enum import Enum
 
 class RoleName(str, Enum):
     """Enumeration of role names in the system."""
+
     USER = "user"
     EDITOR = "editor"
     MANAGER = "manager"

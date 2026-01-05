@@ -1,15 +1,17 @@
+import logging
+
+from fastapi import HTTPException, Request
+from fastapi.responses import RedirectResponse
 from pydantic import ValidationError
 from sqlalchemy import select
-from fastapi import Request, HTTPException
-from fastapi.responses import RedirectResponse
-from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.middleware.base import RequestResponseEndpoint
+from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
+
 from app.auth import get_current_user
 from app.database import AsyncSessionLocal
 from app.models.user import Role
-import logging
 
 logger = logging.getLogger(__name__)
+
 
 class RBACMiddleware(BaseHTTPMiddleware):
     def __init__(self, app, allowed_roles=None):
@@ -25,7 +27,7 @@ class RBACMiddleware(BaseHTTPMiddleware):
             "/register",
             "/auth/token",
             "/token",
-            "/favicon.ico"
+            "/favicon.ico",
         }
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint):
@@ -41,7 +43,7 @@ class RBACMiddleware(BaseHTTPMiddleware):
             return RedirectResponse(url="/login")
 
         if token.startswith("Bearer "):
-            token = token[len("Bearer "):]
+            token = token[len("Bearer ") :]
 
         # Manually create the DB session
         async with AsyncSessionLocal() as db:
@@ -68,10 +70,7 @@ class RBACMiddleware(BaseHTTPMiddleware):
             except ValidationError as e:
                 logger.error(f"Validation error: {e.json()}")
                 raise HTTPException(status_code=422, detail=e.errors())
-            
+
             except Exception as e:
                 logger.error(f"Unhandled middleware exception: {str(e)}")
                 raise HTTPException(status_code=500, detail="Internal Server Error")
-
-
-

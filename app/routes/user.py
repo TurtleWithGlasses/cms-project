@@ -1,33 +1,30 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Request, Form
-from fastapi.templating import Jinja2Templates
 import logging
+
+from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
+from fastapi.templating import Jinja2Templates
+from sqlalchemy import text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy import update, text
-from typing import List, Optional
 from starlette.responses import HTMLResponse, RedirectResponse
-from app.models.notification import Notification, NotificationStatus
-from app.utils.activity_log import log_activity
-from app.auth import get_current_user
-from app.permissions_config.permission_dependencies import permission_required
-from app.models.user import Role
-from app.schemas.notifications import PaginatedNotifications
-from app.schemas.user import UserCreate, UserResponse, UserUpdate, RoleUpdate
-from app.models import User
+
+from app.auth import get_current_user, get_role_validator, hash_password
 from app.database import get_db
-from app.auth import get_role_validator, hash_password
-from app.permissions_config.permissions import get_role_permissions
 from app.exceptions import (
-    UserNotFoundError,
+    DatabaseError,
     RoleNotFoundError,
-    ValidationError,
-    DuplicateResourceError,
-    AuthorizationError,
-    DatabaseError
+    UserNotFoundError,
 )
+from app.models import User
+from app.models.notification import Notification, NotificationStatus
+from app.models.user import Role
+from app.permissions_config.permissions import get_role_permissions
+from app.schemas.notifications import PaginatedNotifications
+from app.schemas.user import RoleUpdate, UserCreate, UserResponse, UserUpdate
+from app.utils.activity_log import log_activity
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
+
 
 async def get_role_name(role_id: int, db: AsyncSession) -> str:
     query = select(Role.name).where(Role.id == role_id)
@@ -37,11 +34,9 @@ async def get_role_name(role_id: int, db: AsyncSession) -> str:
         raise RoleNotFoundError(role_id)
     return role_name
 
+
 @router.get("/me", response_model=UserResponse)
-async def get_current_user_profile(
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
-):
+async def get_current_user_profile(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     role_name = await get_role_name(current_user.role_id, db)
     return {
         "id": current_user.id,
@@ -50,7 +45,8 @@ async def get_current_user_profile(
         "role": role_name,
     }
 
-@router.get("/", response_model=List[UserResponse], dependencies=[Depends(get_role_validator(["admin", "superadmin"]))])
+
+@router.get("/", response_model=list[UserResponse], dependencies=[Depends(get_role_validator(["admin", "superadmin"]))])
 async def list_users(db: AsyncSession = Depends(get_db)):
     query = select(User)
     result = await db.execute(query)
@@ -66,6 +62,7 @@ async def list_users(db: AsyncSession = Depends(get_db)):
     ]
     return response
 
+
 @router.put("/{user_id}/role", response_model=UserResponse, dependencies=[Depends(get_role_validator(["admin"]))])
 async def update_user_role(user_id: int, role_data: RoleUpdate, db: AsyncSession = Depends(get_db)):
     logging.info(f"Received request to update user_id: {user_id} to role: {role_data.role}")
@@ -79,9 +76,7 @@ async def update_user_role(user_id: int, role_data: RoleUpdate, db: AsyncSession
         raise UserNotFoundError(user_id)
 
     # Step 2: Validate the role
-    result = await db.execute(
-        text("SELECT id FROM roles WHERE name = :role_name"), {"role_name": role_data.role}
-    )
+    result = await db.execute(text("SELECT id FROM roles WHERE name = :role_name"), {"role_name": role_data.role})
     role_id = result.scalar()
     if not role_id:
         logging.error(f"Invalid role: {role_data.role}")
@@ -123,6 +118,7 @@ async def update_user_role(user_id: int, role_data: RoleUpdate, db: AsyncSession
         "role": role_data.role,
     }
 
+
 @router.put("/{user_id}", response_model=UserResponse)
 async def update_user(
     user_id: int,
@@ -130,9 +126,7 @@ async def update_user(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    if current_user.role.name in ["admin", "superadmin"]:
-        pass
-    elif user_id == current_user.id:
+    if current_user.role.name in ["admin", "superadmin"] or user_id == current_user.id:
         pass
     else:
         raise HTTPException(status_code=403, detail="You can only update your own details")
@@ -164,16 +158,17 @@ async def update_user(
         "role": user.role.name,
     }
 
+
 @router.post("/admin", response_model=UserResponse, dependencies=[Depends(get_role_validator(["superadmin"]))])
 async def create_admin(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
     # Wrap the raw SQL query with `text`
     query = text("SELECT id FROM roles WHERE name = :role_name")
     result = await db.execute(query, {"role_name": "admin"})
     admin_role_id = result.scalar()
-    
+
     if not admin_role_id:
         raise HTTPException(status_code=500, detail="Admin role not found")
-    
+
     new_admin = User(
         email=user_data.email,
         username=user_data.username,
@@ -187,7 +182,7 @@ async def create_admin(user_data: UserCreate, db: AsyncSession = Depends(get_db)
     except Exception as e:
         await db.rollback()
         raise HTTPException(status_code=500, detail=f"Failed to create admin: {str(e)}")
-    
+
     return {
         "id": new_admin.id,
         "username": new_admin.username,
@@ -195,12 +190,11 @@ async def create_admin(user_data: UserCreate, db: AsyncSession = Depends(get_db)
         "role": "admin",
     }
 
+
 @router.post("/register", status_code=status.HTTP_201_CREATED, response_model=UserResponse)
 async def register_user(user: UserCreate, db: AsyncSession = Depends(get_db)):
     # Check for existing user
-    result = await db.execute(
-        select(User).where((User.username == user.username) | (User.email == user.email))
-    )
+    result = await db.execute(select(User).where((User.username == user.username) | (User.email == user.email)))
     existing_user = result.scalars().first()
     if existing_user:
         raise HTTPException(
@@ -251,11 +245,11 @@ async def register_user(user: UserCreate, db: AsyncSession = Depends(get_db)):
         "role": default_role.name,
     }
 
+
 @router.patch("/me", response_model=UserResponse)
-async def update_user_profile(user_data: UserUpdate,
-                              current_user: User = Depends(get_current_user),
-                              db: AsyncSession = Depends(get_db)
-                              ):
+async def update_user_profile(
+    user_data: UserUpdate, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)
+):
     result = await db.execute(text("SELECT id FROM roles WHERE name = :role_name"), {"role_name": "editor"})
     editor_role_id = result.scalar()
     if current_user.role_id == editor_role_id and (user_data.email or user_data.username):
@@ -269,7 +263,7 @@ async def update_user_profile(user_data: UserUpdate,
             user_id=current_user.id,
             description=f"User updated their email to {user_data.email}",
         )
-    
+
     if user_data.username:
         current_user.username = user_data.username
         await log_activity(
@@ -298,6 +292,7 @@ async def update_user_profile(user_data: UserUpdate,
         "role": await get_role_name(current_user.role_id, db),
     }
 
+
 @router.get("/user/{user_id}", response_model=UserResponse)
 async def get_user(user_id: int, db: AsyncSession = Depends(get_db)):
     # Specify the exact columns you need in the query
@@ -321,6 +316,7 @@ async def get_user(user_id: int, db: AsyncSession = Depends(get_db)):
         "email": email,
         "role": role_name,
     }
+
 
 @router.delete(
     "/delete/{user_id}",
@@ -359,6 +355,7 @@ async def delete_user(
         await db.rollback()
         raise HTTPException(status_code=500, detail=f"Failed to delete user: {str(e)}")
 
+
 @router.post("/delete/{user_id}")
 async def delete_user_post_proxy(
     user_id: int,
@@ -370,7 +367,7 @@ async def delete_user_post_proxy(
 
 @router.get("/notifications")
 async def get_notifications(
-    status: Optional[str] = None,
+    status: str | None = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -384,9 +381,10 @@ async def get_notifications(
 
     return notifications
 
+
 @router.get("/fetch_notifications", response_model=PaginatedNotifications)
 async def get_all_notifications(
-    status: Optional[str] = None,
+    status: str | None = None,
     page: int = 1,
     size: int = 10,
     db: AsyncSession = Depends(get_db),
@@ -416,15 +414,21 @@ async def get_all_notifications(
         "size": size,
         "notifications": notifications,
     }
+
+
 @router.put("/notifications/read_all", status_code=200)
 async def mark_all_notifications_as_read(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    query = update(Notification).where(
-        Notification.user_id == current_user.id,
-        Notification.status == NotificationStatus.UNREAD,
-    ).values(status=NotificationStatus.READ)
+    query = (
+        update(Notification)
+        .where(
+            Notification.user_id == current_user.id,
+            Notification.status == NotificationStatus.UNREAD,
+        )
+        .values(status=NotificationStatus.READ)
+    )
 
     result = await db.execute(query)
     await db.commit()
@@ -432,15 +436,20 @@ async def mark_all_notifications_as_read(
     affected_rows = result.rowcount
     return {"message": f"{affected_rows} notifications marked as read"}
 
+
 @router.put("/notifications/unread_all", status_code=200)
 async def mark_all_notifications_as_unread(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    query = update(Notification).where(
-        Notification.user_id == current_user.id,
-        Notification.status == NotificationStatus.READ,
-    ).values(status=NotificationStatus.UNREAD)
+    query = (
+        update(Notification)
+        .where(
+            Notification.user_id == current_user.id,
+            Notification.status == NotificationStatus.READ,
+        )
+        .values(status=NotificationStatus.UNREAD)
+    )
 
     result = await db.execute(query)
     await db.commit()
@@ -448,15 +457,14 @@ async def mark_all_notifications_as_unread(
     affected_rows = result.rowcount
     return {"message": f"{affected_rows} notifications marked as unread"}
 
+
 @router.put("/notifications/{id}")
 async def update_notification_status(
     id: int,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    query = select(Notification).where(
-        Notification.id == id, Notification.user_id == current_user.id
-    )
+    query = select(Notification).where(Notification.id == id, Notification.user_id == current_user.id)
     result = await db.execute(query)
     notification = result.scalar()
 
@@ -472,6 +480,7 @@ async def update_notification_status(
         raise HTTPException(status_code=500, detail=f"Failed to update notification: {str(e)}")
 
     return notification
+
 
 @router.put("/notifications/{notification_id}/read", status_code=200)
 async def mark_notification_as_read(
@@ -499,6 +508,7 @@ async def mark_notification_as_read(
 
     return {"message": "Notification marked as read", "notification": notification}
 
+
 @router.put("/notifications/{notification_id}/unread", status_code=200)
 async def mark_notification_as_unread(
     notification_id: int,
@@ -525,6 +535,7 @@ async def mark_notification_as_unread(
 
     return {"message": "Notification marked as unread", "notification": notification}
 
+
 @router.get("/logs", dependencies=[Depends(get_role_validator(["admin", "superadmin"]))])
 async def get_activity_logs(db: AsyncSession = Depends(get_db)):
     try:
@@ -532,14 +543,13 @@ async def get_activity_logs(db: AsyncSession = Depends(get_db)):
         logs = result.mappings().all()  # Use `.mappings()` to fetch as dictionaries if needed
         return logs
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"An error occurred while fetching logs: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"An error occurred while fetching logs: {str(e)}")
+
 
 @router.get("/secure-endpoint", dependencies=[Depends(get_role_validator(["admin", "editor"]))])
 async def secure_endpoint():
     return {"message": "You have permission to access this resource."}
+
 
 @router.get("/admin-only", dependencies=[Depends(get_role_validator(["admin"]))], status_code=status.HTTP_200_OK)
 async def admin_only_endpoint():
@@ -548,11 +558,10 @@ async def admin_only_endpoint():
     """
     return {"message": "This is restricted to admins only."}
 
+
 @router.get("/admin/dashboard", response_class=HTMLResponse)
 async def admin_dashboard(
-    request: Request,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    request: Request, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)
 ):
     # Get inherited & raw permissions
     permissions = get_role_permissions(current_user.role.name)
@@ -562,13 +571,10 @@ async def admin_dashboard(
     all_users = result.scalars().all()
 
     return templates.TemplateResponse(
-        "dashboard.html", {
-            "request": request,
-            "users": all_users,
-            "current_user": current_user,
-            "permissions": permissions
-            }
-        )
+        "dashboard.html",
+        {"request": request, "users": all_users, "current_user": current_user, "permissions": permissions},
+    )
+
 
 @router.get("/edit/{user_id}", response_class=HTMLResponse)
 async def edit_user_form(
@@ -582,12 +588,8 @@ async def edit_user_form(
     if not user_to_edit:
         raise HTTPException(status_code=404, detail="User not found")
 
-    return templates.TemplateResponse(
-        "edit_user_by_admin.html", {
-            "request": request,
-            "user_to_edit": user_to_edit
-        }
-    )
+    return templates.TemplateResponse("edit_user_by_admin.html", {"request": request, "user_to_edit": user_to_edit})
+
 
 @router.post("/user/edit/{user_id}")
 async def edit_user_submit(
@@ -601,10 +603,8 @@ async def edit_user_submit(
     user_to_edit = result.scalar_one_or_none()
     if not user_to_edit:
         raise HTTPException(status_code=404, detail="User to edit not found")
-    
+
     user_to_edit.username = username
     user_to_edit.email = email
     await db.commit()
     return RedirectResponse(url="/api/v1/users/admin/dashboard", status_code=302)
-
-

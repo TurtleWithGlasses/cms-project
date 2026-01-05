@@ -1,8 +1,11 @@
-from sqlalchemy import Column, Integer, String, Text, ForeignKey, DateTime, Index
+from datetime import datetime
+
+from sqlalchemy import Column, DateTime, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy.orm import relationship
-from datetime import datetime
+
 from ..database import Base
+
 
 class ActivityLog(Base):
     __tablename__ = "activity_logs"
@@ -18,7 +21,9 @@ class ActivityLog(Base):
 
     # Relationships
     user = relationship("User", back_populates="activity_logs", foreign_keys=[user_id], lazy="selectin")
-    target_user = relationship("User", back_populates="target_activity_logs", foreign_keys=[target_user_id], lazy="selectin")
+    target_user = relationship(
+        "User", back_populates="target_activity_logs", foreign_keys=[target_user_id], lazy="selectin"
+    )
     content = relationship("Content", back_populates="activity_logs", lazy="selectin")
 
     # Indexes for performance optimization

@@ -6,11 +6,13 @@ for form submissions and state-changing operations.
 """
 
 import secrets
-from typing import Callable
-from fastapi import Request, HTTPException, status
+from collections.abc import Callable
+
+from fastapi import HTTPException, Request, status
+from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
-from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
+
 from app.config import settings
 
 
@@ -123,30 +125,18 @@ class CSRFMiddleware(BaseHTTPMiddleware):
         submitted_token = token_from_header or token_from_form
 
         if not submitted_token:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="CSRF token missing"
-            )
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="CSRF token missing")
 
         if not token_from_cookie:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="CSRF cookie missing"
-            )
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="CSRF cookie missing")
 
         # Validate that submitted token matches cookie token
         if submitted_token != token_from_cookie:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="CSRF token mismatch"
-            )
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="CSRF token mismatch")
 
         # Validate token signature and expiry
         if not self._validate_token(submitted_token):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="CSRF token invalid or expired"
-            )
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="CSRF token invalid or expired")
 
         response = await call_next(request)
         return response

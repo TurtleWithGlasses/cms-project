@@ -1,7 +1,7 @@
-from .user import UserCreate, UserResponse, UserUpdate, RoleUpdate
+from .content import ContentCreate, ContentResponse, ContentUpdate
+from .notifications import MarkAllNotificationsReadRequest, NotificationOut, PaginatedNotifications
 from .token import Token
-from .notifications import NotificationOut, PaginatedNotifications, MarkAllNotificationsReadRequest
-from .content import ContentCreate, ContentUpdate, ContentResponse
+from .user import RoleUpdate, UserCreate, UserResponse, UserUpdate
 
 # Define the public API of this module
 __all__ = [

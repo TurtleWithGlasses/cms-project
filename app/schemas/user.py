@@ -1,7 +1,8 @@
-from pydantic import BaseModel, EmailStr, Field, field_validator, ConfigDict
-from typing import Optional
 from enum import Enum
-from app.utils.sanitize import sanitize_username, sanitize_email
+
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+
+from app.utils.sanitize import sanitize_email, sanitize_username
 
 
 class RoleEnum(str, Enum):
@@ -15,10 +16,12 @@ class UserCreate(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     username: str = Field(..., min_length=3, max_length=50, description="Username must be between 3 and 50 characters.")
-    password: str = Field(..., min_length=6, max_length=128, description="Password must be between 6 and 128 characters.")
+    password: str = Field(
+        ..., min_length=6, max_length=128, description="Password must be between 6 and 128 characters."
+    )
     email: EmailStr = Field(..., description="A valid email address.")
 
-    @field_validator('username')
+    @field_validator("username")
     @classmethod
     def sanitize_username_field(cls, v):
         """Sanitize username - remove HTML and special characters"""
@@ -27,7 +30,7 @@ class UserCreate(BaseModel):
             raise ValueError("Username must be at least 3 characters after sanitization")
         return sanitized
 
-    @field_validator('email')
+    @field_validator("email")
     @classmethod
     def sanitize_email_field(cls, v):
         """Sanitize email - basic cleanup"""
@@ -46,11 +49,15 @@ class UserResponse(BaseModel):
 class UserUpdate(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    username: Optional[str] = Field(None, min_length=3, max_length=50, description="Username must be between 3 and 50 characters.")
-    email: Optional[EmailStr] = Field(None, description="A valid email address.")
-    password: Optional[str] = Field(None, min_length=6, max_length=128, description="Password must be between 6 and 128 characters.")
+    username: str | None = Field(
+        None, min_length=3, max_length=50, description="Username must be between 3 and 50 characters."
+    )
+    email: EmailStr | None = Field(None, description="A valid email address.")
+    password: str | None = Field(
+        None, min_length=6, max_length=128, description="Password must be between 6 and 128 characters."
+    )
 
-    @field_validator('username')
+    @field_validator("username")
     @classmethod
     def sanitize_username_field(cls, v):
         """Sanitize username - remove HTML and special characters"""
@@ -61,7 +68,7 @@ class UserUpdate(BaseModel):
             raise ValueError("Username must be at least 3 characters after sanitization")
         return sanitized
 
-    @field_validator('email')
+    @field_validator("email")
     @classmethod
     def sanitize_email_field(cls, v):
         """Sanitize email - basic cleanup"""

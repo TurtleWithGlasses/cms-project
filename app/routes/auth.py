@@ -1,22 +1,24 @@
-from fastapi import APIRouter, Depends, status, Header
+import logging
+from datetime import timedelta
+
+from fastapi import APIRouter, Depends, Header, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from datetime import timedelta
-from typing import Optional
+
+from ..auth import create_access_token, get_current_user, verify_password
 from ..constants import ACCESS_TOKEN_EXPIRE_MINUTES
-from ..auth import create_access_token, verify_password, get_current_user
-from ..models import User
 from ..database import get_db
+from ..exceptions import DatabaseError, InvalidCredentialsError
+from ..models import User
 from ..schemas import Token
-from ..exceptions import InvalidCredentialsError, DatabaseError
 from ..utils.session import get_session_manager
-import logging
 
 # Initialize logger
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
 
 @router.post("/token", response_model=Token)
 async def login_for_access_token(
@@ -36,10 +38,7 @@ async def login_for_access_token(
         user = result.scalars().first()
     except Exception as e:
         logger.error(f"Database query failed: {e}")
-        raise DatabaseError(
-            message="Failed to authenticate user",
-            operation="user_login"
-        )
+        raise DatabaseError(message="Failed to authenticate user", operation="user_login")
 
     # Check if user exists
     if not user:
@@ -53,11 +52,7 @@ async def login_for_access_token(
 
     # Create Redis session
     session_manager = await get_session_manager()
-    session_id = await session_manager.create_session(
-        user_id=user.id,
-        user_email=user.email,
-        user_role=user.role
-    )
+    session_id = await session_manager.create_session(user_id=user.id, user_email=user.email, user_role=user.role)
 
     # Create an access token with session ID embedded
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
@@ -72,8 +67,7 @@ async def login_for_access_token(
 
 @router.post("/logout", status_code=status.HTTP_200_OK)
 async def logout(
-    current_user: User = Depends(get_current_user),
-    x_session_id: Optional[str] = Header(None, alias="X-Session-ID")
+    current_user: User = Depends(get_current_user), x_session_id: str | None = Header(None, alias="X-Session-ID")
 ):
     """
     Logout endpoint - invalidates the current session.
@@ -91,9 +85,7 @@ async def logout(
 
 
 @router.post("/logout-all", status_code=status.HTTP_200_OK)
-async def logout_all_sessions(
-    current_user: User = Depends(get_current_user)
-):
+async def logout_all_sessions(current_user: User = Depends(get_current_user)):
     """
     Logout from all devices - invalidates all sessions for the current user.
     """
@@ -101,25 +93,15 @@ async def logout_all_sessions(
     count = await session_manager.delete_all_user_sessions(current_user.id)
 
     logger.info(f"User {current_user.email} logged out from all devices ({count} sessions)")
-    return {
-        "message": f"Successfully logged out from {count} device(s)",
-        "sessions_deleted": count,
-        "success": True
-    }
+    return {"message": f"Successfully logged out from {count} device(s)", "sessions_deleted": count, "success": True}
 
 
 @router.get("/sessions", status_code=status.HTTP_200_OK)
-async def get_active_sessions(
-    current_user: User = Depends(get_current_user)
-):
+async def get_active_sessions(current_user: User = Depends(get_current_user)):
     """
     Get all active sessions for the current user.
     """
     session_manager = await get_session_manager()
     sessions = await session_manager.get_active_sessions(current_user.id)
 
-    return {
-        "active_sessions": len(sessions),
-        "sessions": sessions,
-        "success": True
-    }
+    return {"active_sessions": len(sessions), "sessions": sessions, "success": True}

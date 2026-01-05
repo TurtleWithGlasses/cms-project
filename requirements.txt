@@ -30,6 +30,11 @@ pytest-cov==7.0.0
 httpx==0.28.1
 aiosqlite==0.20.0
 
+# Code Quality
+ruff==0.14.10
+mypy==1.19.1
+pre-commit==4.5.1
+
 # Optional (if used in your project)
 email-validator==2.2.0
 apscheduler==3.10.4

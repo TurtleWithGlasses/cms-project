@@ -1,7 +1,7 @@
 """Constants package for CMS Project."""
 
-from .roles import RoleName, DEFAULT_ROLE, ROLE_HIERARCHY, get_default_role_name, is_higher_role
-from .auth import SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
+from .auth import ACCESS_TOKEN_EXPIRE_MINUTES, ALGORITHM, SECRET_KEY
+from .roles import DEFAULT_ROLE, ROLE_HIERARCHY, RoleName, get_default_role_name, is_higher_role
 
 __all__ = [
     # Role constants

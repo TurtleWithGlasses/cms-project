@@ -1,5 +1,7 @@
 import re
+
 from unidecode import unidecode
+
 
 def slugify(text: str) -> str:
     """
@@ -13,12 +15,12 @@ def slugify(text: str) -> str:
     """
     if not text or not isinstance(text, str):
         raise ValueError("Input must be a non-empty string.")
-    
+
     # Convert non-ASCII characters to their closest ASCII equivalent
     text = unidecode(text).lower()
-    
+
     # Replace non-alphanumeric characters with a hyphen
-    text = re.sub(r'[^a-z0-9]+', '-', text).strip('-')
-    
+    text = re.sub(r"[^a-z0-9]+", "-", text).strip("-")
+
     # Handle edge case where resulting slug might be empty
     return text or "n-a"

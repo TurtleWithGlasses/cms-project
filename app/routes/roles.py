@@ -1,13 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from app.models.user import Role
+
 from app.database import get_db
-from typing import List
+from app.models.user import Role
 
 router = APIRouter()
 
-@router.get("/", response_model=List[str], tags=["Roles"])
+
+@router.get("/", response_model=list[str], tags=["Roles"])
 async def get_roles(db: AsyncSession = Depends(get_db)):
     """
     Fetch all available roles from the database.

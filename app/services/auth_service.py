@@ -1,9 +1,11 @@
+from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from fastapi import HTTPException, status
-from app.models.user import User, Role
-from app.auth import verify_password, hash_password
+
+from app.auth import hash_password, verify_password
 from app.constants.roles import get_default_role_name
+from app.models.user import Role, User
+
 
 async def authenticate_user(email: str, password: str, db: AsyncSession):
     result = await db.execute(select(User).where(User.email == email))
@@ -11,6 +13,7 @@ async def authenticate_user(email: str, password: str, db: AsyncSession):
     if user and verify_password(password, user.hashed_password):
         return user
     raise HTTPException(status_code=401, detail="Invalid credentials")
+
 
 async def register_user(email: str, username: str, password: str, db: AsyncSession):
     result = await db.execute(select(User).where(User.email == email))
@@ -25,15 +28,10 @@ async def register_user(email: str, username: str, password: str, db: AsyncSessi
     if not default_role:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Default role '{default_role_name}' not found in database"
+            detail=f"Default role '{default_role_name}' not found in database",
         )
 
-    new_user = User(
-        email=email,
-        username=username,
-        hashed_password=hash_password(password),
-        role_id=default_role.id
-    )
+    new_user = User(email=email, username=username, hashed_password=hash_password(password), role_id=default_role.id)
     db.add(new_user)
     await db.commit()
     await db.refresh(new_user)

@@ -5,10 +5,12 @@ This middleware adds security headers to all HTTP responses to protect
 against common web vulnerabilities.
 """
 
-from typing import Callable
+from collections.abc import Callable
+
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
+
 from app.config import settings
 
 

@@ -4,8 +4,9 @@ Authentication Constants
 Configuration constants for JWT authentication.
 """
 
-from decouple import config
 import logging
+
+from decouple import config
 
 logger = logging.getLogger(__name__)
 

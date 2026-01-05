@@ -6,7 +6,6 @@ This module provides centralized API version management for all routes.
 
 from fastapi import APIRouter
 
-
 # API Version prefix
 API_V1_PREFIX = "/api/v1"
 

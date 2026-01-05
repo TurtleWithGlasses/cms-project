@@ -1,27 +1,23 @@
+import logging
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import List
-
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
-from app.models.user import User
-from app.models.content import Content, ContentStatus
-from app.models.notification import Notification
-from app.models.content_version import ContentVersion
-from app.schemas.content import ContentCreate, ContentResponse, ContentUpdate
-from app.scheduler import schedule_content
-from app.database import get_db
-from app.utils.slugify import slugify
+
 from app.auth import get_current_user, get_current_user_with_role
-from app.utils.activity_log import log_activity
-from app.services import content_version_service, content_service
-from app.schemas.content import ContentResponse
-from app.schemas.content_version import ContentVersionOut
-from datetime import datetime, timezone
-import logging
-
-
+from app.database import get_db
 from app.models.activity_log import ActivityLog
+from app.models.content import Content, ContentStatus
+from app.models.content_version import ContentVersion
+from app.models.user import User
+from app.scheduler import schedule_content
+from app.schemas.content import ContentCreate, ContentResponse, ContentUpdate
+from app.schemas.content_version import ContentVersionOut
+from app.services import content_service, content_version_service
+from app.utils.activity_log import log_activity
+from app.utils.slugify import slugify
 
 logging.basicConfig(
     level=logging.INFO,  # Set the desired log level (INFO, DEBUG, etc.)
@@ -31,6 +27,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+
 async def fetch_content_by_id(content_id: int, db: AsyncSession) -> Content:
     result = await db.execute(select(Content).where(Content.id == content_id))
     content = result.scalars().first()
@@ -38,18 +35,15 @@ async def fetch_content_by_id(content_id: int, db: AsyncSession) -> Content:
         raise HTTPException(status_code=404, detail="Content not found")
     return content
 
+
 def validate_content_status(content: Content, required_status: ContentStatus):
     if content.status != required_status:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Content must be in {required_status.value} status."
-        )
+        raise HTTPException(status_code=400, detail=f"Content must be in {required_status.value} status.")
+
 
 @router.post("/", response_model=ContentResponse, status_code=status.HTTP_201_CREATED)
 async def create_draft(
-    content: ContentCreate, 
-    db: AsyncSession = Depends(get_db), 
-    current_user: User = Depends(get_current_user)
+    content: ContentCreate, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)
 ):
     try:
         slug = content.slug or slugify(content.title)
@@ -96,12 +90,14 @@ async def create_draft(
         await db.rollback()
         raise HTTPException(status_code=500, detail=f"Failed to create content: {str(e)}")
 
+
 @router.patch("/{content_id}", response_model=ContentResponse)
-async def update_content(content_id: int,
-                         content: ContentUpdate,
-                         db: AsyncSession = Depends(get_db),
-                         current_user: User = Depends(get_current_user)
-                         ):
+async def update_content(
+    content_id: int,
+    content: ContentUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     # Fetch content with eager loading
     existing_content = await db.execute(
         select(Content)
@@ -129,7 +125,7 @@ async def update_content(content_id: int,
         title=existing_content.title,
         body=existing_content.body,
         slug=existing_content.slug,
-        editor_id=current_user.id
+        editor_id=current_user.id,
     )
     db.add(version)
 
@@ -140,7 +136,6 @@ async def update_content(content_id: int,
     existing_content.meta_description = content.meta_description or existing_content.meta_description
     existing_content.meta_keywords = content.meta_keywords or existing_content.meta_keywords
     existing_content.updated_at = datetime.now(timezone.utc)
-
 
     try:
         # Commit updates
@@ -165,6 +160,7 @@ async def update_content(content_id: int,
         raise HTTPException(status_code=500, detail=f"Failed to update content: {str(e)}")
 
     return existing_content
+
 
 @router.patch("/{content_id}/submit", response_model=ContentResponse)
 async def submit_for_approval(
@@ -208,6 +204,7 @@ async def submit_for_approval(
         raise HTTPException(status_code=500, detail=f"Failed to submit content: {str(e)}")
 
     return content
+
 
 @router.patch("/{content_id}/approve", response_model=ContentResponse)
 async def approve_content(
@@ -259,9 +256,11 @@ async def approve_content(
 
     return content
 
-@router.get("/{content_id}/versions", response_model=List[ContentVersionOut])
+
+@router.get("/{content_id}/versions", response_model=list[ContentVersionOut])
 async def get_content_versions(content_id: int, db: AsyncSession = Depends(get_db)):
     return await content_version_service.get_versions(content_id, db)
+
 
 @router.post("/{content_id}/rollback/{version_id}", response_model=ContentResponse)
 async def rollback_content_version(
@@ -272,18 +271,16 @@ async def rollback_content_version(
 ):
     return await content_version_service.rollback_to_version(content_id, version_id, db, current_user)
 
-@router.get("/", response_model=List[ContentResponse])
+
+@router.get("/", response_model=list[ContentResponse])
 async def get_all_content_route(
     skip: int = 0,
     limit: int = 10,
     status: str | None = None,
     category_id: int | None = None,
     author_id: int | None = None,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
-    return await content_service.get_all_content(db,
-                                                 skip=skip,
-                                                 limit=limit,
-                                                 status=status,
-                                                 category_id=category_id,
-                                                 author_id=author_id)
+    return await content_service.get_all_content(
+        db, skip=skip, limit=limit, status=status, category_id=category_id, author_id=author_id
+    )

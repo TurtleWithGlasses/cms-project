@@ -1,7 +1,9 @@
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.orm import sessionmaker, declarative_base
-from app.config import settings
 import logging
+
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.orm import declarative_base, sessionmaker
+
+from app.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +38,7 @@ AsyncSessionLocal = sessionmaker(
 async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 Base = declarative_base()
 
+
 async def get_db():
     logging.info("Opening database session...")
     async with AsyncSessionLocal() as db:
@@ -50,6 +53,7 @@ async def get_db():
                 logging.info("Database session closed.")
             except Exception as close_error:
                 logger.warning(f"Error closing database session: {close_error}")
+
 
 # async def get_async_session() -> AsyncSession:
 #     async with async_session() as session:

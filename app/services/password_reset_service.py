@@ -5,14 +5,14 @@ Handles password reset token generation, validation, and password updates.
 """
 
 import secrets
-from datetime import datetime
+
+from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from fastapi import HTTPException, status
 
-from app.models.user import User
-from app.models.password_reset import PasswordResetToken
 from app.auth import hash_password
+from app.models.password_reset import PasswordResetToken
+from app.models.user import User
 from app.utils.activity_log import log_activity
 
 
@@ -47,15 +47,12 @@ class PasswordResetService:
             # Don't reveal if email exists (security best practice)
             raise HTTPException(
                 status_code=status.HTTP_200_OK,
-                detail="If an account exists with this email, a password reset link has been sent."
+                detail="If an account exists with this email, a password reset link has been sent.",
             )
 
         # Invalidate any existing unused tokens for this user
         existing_tokens_result = await db.execute(
-            select(PasswordResetToken).where(
-                PasswordResetToken.user_id == user.id,
-                PasswordResetToken.used == False
-            )
+            select(PasswordResetToken).where(PasswordResetToken.user_id == user.id, PasswordResetToken.used.is_(False))
         )
         existing_tokens = existing_tokens_result.scalars().all()
         for token in existing_tokens:
@@ -65,7 +62,7 @@ class PasswordResetService:
         reset_token = PasswordResetToken(
             user_id=user.id,
             token=PasswordResetService.generate_reset_token(),
-            expires_at=PasswordResetToken.get_expiry_time(hours=1)
+            expires_at=PasswordResetToken.get_expiry_time(hours=1),
         )
 
         db.add(reset_token)
@@ -77,7 +74,7 @@ class PasswordResetService:
             db=db,
             action="password_reset_requested",
             user_id=user.id,
-            description=f"Password reset requested for {email}"
+            description=f"Password reset requested for {email}",
         )
 
         return reset_token
@@ -97,27 +94,21 @@ class PasswordResetService:
         Raises:
             HTTPException: If token is invalid, expired, or used
         """
-        result = await db.execute(
-            select(PasswordResetToken).where(PasswordResetToken.token == token)
-        )
+        result = await db.execute(select(PasswordResetToken).where(PasswordResetToken.token == token))
         reset_token = result.scalars().first()
 
         if not reset_token:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid password reset token"
-            )
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid password reset token")
 
         if reset_token.used:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="This password reset token has already been used"
+                status_code=status.HTTP_400_BAD_REQUEST, detail="This password reset token has already been used"
             )
 
         if reset_token.is_expired():
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Password reset token has expired. Please request a new one."
+                detail="Password reset token has expired. Please request a new one.",
             )
 
         return reset_token
@@ -142,16 +133,11 @@ class PasswordResetService:
         reset_token = await PasswordResetService.validate_reset_token(token, db)
 
         # Get user
-        result = await db.execute(
-            select(User).where(User.id == reset_token.user_id)
-        )
+        result = await db.execute(select(User).where(User.id == reset_token.user_id))
         user = result.scalars().first()
 
         if not user:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="User not found"
-            )
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
         # Update password
         user.hashed_password = hash_password(new_password)
@@ -167,7 +153,7 @@ class PasswordResetService:
             db=db,
             action="password_reset_completed",
             user_id=user.id,
-            description=f"Password successfully reset for {user.email}"
+            description=f"Password successfully reset for {user.email}",
         )
 
         return user
