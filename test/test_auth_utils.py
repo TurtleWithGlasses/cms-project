@@ -1,12 +1,74 @@
 """
 Tests for authentication utility functions (JWT token creation and validation)
 """
-import pytest
+
 from datetime import timedelta
-from jose import jwt
+
+import pytest
 from fastapi import HTTPException
-from app.auth import create_access_token, decode_access_token
-from app.constants import SECRET_KEY, ALGORITHM
+from jose import jwt
+
+from app.auth import create_access_token, decode_access_token, hash_password, verify_password
+from app.constants import ALGORITHM, SECRET_KEY
+
+
+class TestPasswordHashing:
+    """Test password hashing and verification"""
+
+    def test_hash_password_returns_hashed_value(self):
+        """Test that hash_password returns a hashed value"""
+        password = "testpassword123"  # nosec B106
+        hashed = hash_password(password)
+
+        assert hashed is not None
+        assert hashed != password
+        assert len(hashed) > 0
+
+    def test_hash_password_different_hashes_for_same_password(self):
+        """Test that hashing the same password twice produces different hashes due to salt"""
+        password = "testpassword123"  # nosec B106
+        hash1 = hash_password(password)
+        hash2 = hash_password(password)
+
+        # Due to salt, hashes should be different
+        assert hash1 != hash2
+
+    def test_verify_password_correct_password(self):
+        """Test that verify_password returns True for correct password"""
+        password = "testpassword123"  # nosec B106
+        hashed = hash_password(password)
+
+        assert verify_password(password, hashed) is True
+
+    def test_verify_password_incorrect_password(self):
+        """Test that verify_password returns False for incorrect password"""
+        password = "testpassword123"  # nosec B106
+        wrong_password = "wrongpassword"
+        hashed = hash_password(password)
+
+        assert verify_password(wrong_password, hashed) is False
+
+    def test_verify_password_empty_password(self):
+        """Test verification with empty password"""
+        password = "testpassword123"  # nosec B106
+        hashed = hash_password(password)
+
+        assert verify_password("", hashed) is False
+
+    def test_verify_password_with_spaces(self):
+        """Test that passwords with spaces are handled correctly"""
+        password = "my secure password"  # nosec B106
+        hashed = hash_password(password)
+
+        assert verify_password(password, hashed) is True
+        assert verify_password("my securepassword", hashed) is False
+
+    def test_hash_password_unicode_characters(self):
+        """Test hashing password with unicode characters"""
+        password = "pāsswørd123!"  # nosec B106
+        hashed = hash_password(password)
+
+        assert verify_password(password, hashed) is True
 
 
 class TestCreateAccessToken:
@@ -37,11 +99,7 @@ class TestCreateAccessToken:
 
     def test_create_token_with_additional_claims(self):
         """Test creating token with additional custom claims"""
-        data = {
-            "sub": "test@example.com",
-            "role": "admin",
-            "user_id": 123
-        }
+        data = {"sub": "test@example.com", "role": "admin", "user_id": 123}
         token = create_access_token(data)
 
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
@@ -50,13 +108,13 @@ class TestCreateAccessToken:
         assert payload["user_id"] == 123
 
     def test_create_token_with_empty_data(self):
-        """Test creating token with empty data dictionary"""
+        """Test creating token with empty data raises ValueError"""
         data = {}
-        token = create_access_token(data)
 
-        assert token is not None
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        assert "exp" in payload
+        with pytest.raises(ValueError) as exc_info:
+            create_access_token(data)
+
+        assert "sub" in str(exc_info.value).lower()
 
 
 class TestDecodeAccessToken:
@@ -72,8 +130,11 @@ class TestDecodeAccessToken:
 
     def test_decode_token_without_sub_claim(self):
         """Test decoding token without 'sub' claim raises exception"""
-        # Create token without 'sub' claim
-        to_encode = {"user_id": 123, "exp": None}
+        # Cannot create a token without 'sub' using create_access_token,
+        # so directly encode one for testing
+        from datetime import datetime, timezone
+
+        to_encode = {"user_id": 123, "exp": datetime.now(timezone.utc) + timedelta(minutes=15)}
         token = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
         with pytest.raises(HTTPException) as exc_info:
@@ -132,11 +193,7 @@ class TestTokenRoundTrip:
 
     def test_create_and_decode_roundtrip(self):
         """Test that created token can be decoded successfully"""
-        test_emails = [
-            "user@example.com",
-            "admin@test.com",
-            "editor@company.org"
-        ]
+        test_emails = ["user@example.com", "admin@test.com", "editor@company.org"]
 
         for email in test_emails:
             data = {"sub": email}
@@ -149,7 +206,7 @@ class TestTokenRoundTrip:
         users = [
             {"sub": "user1@example.com", "role": "user"},
             {"sub": "user2@example.com", "role": "admin"},
-            {"sub": "user3@example.com", "role": "editor"}
+            {"sub": "user3@example.com", "role": "editor"},
         ]
 
         tokens = []
