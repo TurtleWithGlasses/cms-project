@@ -23,7 +23,7 @@ repos:
           - pydantic>=2.0
           - types-redis
         args: [--config-file=pyproject.toml]
-        exclude: ^(tests/|migrations/)
+        exclude: ^(test/|tests/|migrations/)
 
   # General pre-commit hooks
   - repo: https://github.com/pre-commit/pre-commit-hooks
@@ -60,4 +60,4 @@ repos:
       - id: bandit
         args: [-c, pyproject.toml]
         additional_dependencies: ["bandit[toml]"]
-        exclude: ^tests/
+        exclude: ^(test/|tests/)
