@@ -1,7 +1,9 @@
 # Role permissions with inheritance support
 ROLE_PERMISSIONS = {
+    "user": [],
     "editor": ["view_content", "edit_content"],
-    "admin": ["edit_user", "delete_user", "assign_roles"],  # Admin extends editor permissions
+    "manager": ["view_content", "edit_content", "approve_content"],
+    "admin": ["*"],  # Admin has unrestricted access
     "superadmin": ["*"],  # Superadmin has unrestricted access
 }
 
@@ -16,8 +18,8 @@ def get_role_permissions(role: str) -> list:
     # Direct permissions for the role
     permissions = set(ROLE_PERMISSIONS[role])
 
-    # Handle inheritance for admin -> editor
-    if role == "admin":
-        permissions.update(ROLE_PERMISSIONS["editor"])
+    # Wildcard permissions grant everything
+    if "*" in permissions:
+        return ["*"]
 
     return list(permissions)

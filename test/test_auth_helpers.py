@@ -1,11 +1,18 @@
 """
 Tests for authentication helper functions (get_current_user, has_permission)
 """
+
 import pytest
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.auth import get_current_user_from_header as get_current_user, has_permission, create_access_token, hash_password
-from app.models.user import User, Role
+
+from app.auth import (
+    create_access_token,
+    get_current_user_from_header as get_current_user,
+    has_permission,
+    hash_password,
+)
+from app.models.user import Role, User
 
 
 class TestGetCurrentUser:
@@ -14,18 +21,18 @@ class TestGetCurrentUser:
     @pytest.mark.asyncio
     async def test_get_current_user_with_valid_token(self, test_db: AsyncSession):
         """Test retrieving current user with valid token"""
-        # Create a role
-        role = Role(name="user", permissions=[])
-        test_db.add(role)
-        await test_db.commit()
-        await test_db.refresh(role)
+        from sqlalchemy.future import select
+
+        # Get the existing user role from setup_test_database fixture
+        result = await test_db.execute(select(Role).where(Role.name == "user"))
+        role = result.scalars().first()
 
         # Create a user
         user = User(
             username="testuser",
             email="testuser@example.com",
             hashed_password=hash_password("password123"),
-            role_id=role.id
+            role_id=role.id,
         )
         test_db.add(user)
         await test_db.commit()
@@ -72,7 +79,7 @@ class TestGetCurrentUser:
             username="noroleuser",
             email="norole@example.com",
             hashed_password=hash_password("password123"),
-            role_id=None  # No role assigned
+            role_id=None,  # No role assigned
         )
         test_db.add(user)
         await test_db.commit()
@@ -90,26 +97,23 @@ class TestGetCurrentUser:
         """Test that expired token raises 401"""
         from datetime import timedelta
 
-        # Create a role and user
-        role = Role(name="user", permissions=[])
-        test_db.add(role)
-        await test_db.commit()
-        await test_db.refresh(role)
+        from sqlalchemy.future import select
+
+        # Get the existing user role from setup_test_database fixture
+        result = await test_db.execute(select(Role).where(Role.name == "user"))
+        role = result.scalars().first()
 
         user = User(
             username="testuser",
             email="testuser@example.com",
             hashed_password=hash_password("password123"),
-            role_id=role.id
+            role_id=role.id,
         )
         test_db.add(user)
         await test_db.commit()
 
         # Create already-expired token
-        token = create_access_token(
-            {"sub": user.email},
-            expires_delta=timedelta(seconds=-1)
-        )
+        token = create_access_token({"sub": user.email}, expires_delta=timedelta(seconds=-1))
 
         with pytest.raises(HTTPException) as exc_info:
             await get_current_user(token=token, db=test_db)
@@ -120,17 +124,9 @@ class TestGetCurrentUser:
     @pytest.mark.asyncio
     async def test_get_current_user_with_different_roles(self, test_db: AsyncSession):
         """Test retrieving users with different roles"""
-        # Create different roles
-        roles = [
-            Role(name="user", permissions=[]),
-            Role(name="admin", permissions=["*"]),
-            Role(name="editor", permissions=["view_content", "edit_content"])
-        ]
+        from sqlalchemy.future import select
 
-        for role in roles:
-            test_db.add(role)
-        await test_db.commit()
-
+        # Use existing roles from setup_test_database fixture
         # Create users with different roles
         users_data = [
             ("user1", "user1@example.com", "user"),
@@ -139,19 +135,11 @@ class TestGetCurrentUser:
         ]
 
         for username, email, role_name in users_data:
-            # Find role
-            from sqlalchemy.future import select
-            result = await test_db.execute(
-                select(Role).where(Role.name == role_name)
-            )
+            # Find existing role
+            result = await test_db.execute(select(Role).where(Role.name == role_name))
             role = result.scalars().first()
 
-            user = User(
-                username=username,
-                email=email,
-                hashed_password=hash_password("password123"),
-                role_id=role.id
-            )
+            user = User(username=username, email=email, hashed_password=hash_password("password123"), role_id=role.id)
             test_db.add(user)
 
         await test_db.commit()
