@@ -13,6 +13,7 @@ from app.utils.sanitize import (
 
 class ContentStatus(str, Enum):
     DRAFT = "draft"
+    PENDING = "pending"
     PUBLISHED = "published"
 
 

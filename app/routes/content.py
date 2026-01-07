@@ -65,8 +65,8 @@ async def create_draft(
         await db.commit()
         await db.refresh(new_content)
 
-        if content.publish_date:
-            schedule_content(new_content.id, content.publish_date)
+        if content.publish_at:
+            schedule_content(new_content.id, content.publish_at)
 
         # Log activity using a separate session
         try:
@@ -88,7 +88,7 @@ async def create_draft(
 
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=500, detail=f"Failed to create content: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to create content: {str(e)}") from e
 
 
 @router.patch("/{content_id}", response_model=ContentResponse)
@@ -116,7 +116,7 @@ async def update_content(
         if result.scalars().first():
             raise HTTPException(status_code=400, detail="Slug already exists. Choose a unique URL.")
         existing_content.slug = slug
-    else:
+    elif content.title:
         existing_content.slug = slugify(content.title)
 
     # Save current version before applying updates
@@ -150,14 +150,13 @@ async def update_content(
                 content_id=content_id,
                 description=f"Content with ID {content_id} updated.",
                 details={"updated_fields": list(content.dict(exclude_unset=True).keys())},
-                db=db,
             )
         except Exception as log_error:
             logger.warning(f"Failed to log activity for updated content {content_id}: {log_error}")
 
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=500, detail=f"Failed to update content: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to update content: {str(e)}") from e
 
     return existing_content
 
@@ -201,7 +200,7 @@ async def submit_for_approval(
     except Exception as e:
         logger.error(f"Failed to submit content {content_id}: {str(e)}")
         await db.rollback()
-        raise HTTPException(status_code=500, detail=f"Failed to submit content: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to submit content: {str(e)}") from e
 
     return content
 
@@ -248,7 +247,7 @@ async def approve_content(
 
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=500, detail=f"Failed to approve content: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to approve content: {str(e)}") from e
 
     finally:
         # Ensure session cleanup
