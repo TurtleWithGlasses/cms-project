@@ -251,15 +251,22 @@ class MockRedisSessionManager:
         self._redis = None  # Mock redis connection (not used but checked)
         self._pool = None  # Mock connection pool
 
-    async def connect(self):
-        """Mock connect - does nothing"""
+    def connect_sync(self):
+        """Mock connect - does nothing (sync version)"""
         self._redis = True  # Set to truthy value to indicate connected
-        pass
 
-    async def disconnect(self):
-        """Mock disconnect - clears all sessions"""
+    async def connect(self):
+        """Mock connect - async version for compatibility"""
+        self.connect_sync()
+
+    def disconnect_sync(self):
+        """Mock disconnect - clears all sessions (sync version)"""
         self._sessions.clear()
         self._user_sessions.clear()
+
+    async def disconnect(self):
+        """Mock disconnect - async version for compatibility"""
+        self.disconnect_sync()
 
     async def create_session(self, user_id: int, user_email: str, user_role: str, expires_in: int = 3600) -> str:
         """Create a new session and return session ID"""
@@ -339,16 +346,16 @@ class MockRedisSessionManager:
 
 
 @pytest.fixture(scope="function")
-async def mock_session_manager():
+def mock_session_manager():
     """Provide a mock Redis session manager for tests"""
     manager = MockRedisSessionManager()
-    await manager.connect()
+    manager.connect_sync()
     yield manager
-    await manager.disconnect()
+    manager.disconnect_sync()
 
 
 @pytest.fixture(autouse=True)
-async def mock_redis_session(monkeypatch, mock_session_manager):
+def mock_redis_session(monkeypatch, mock_session_manager):
     """
     Auto-mock Redis session manager for all tests.
     This prevents tests from trying to connect to actual Redis.
