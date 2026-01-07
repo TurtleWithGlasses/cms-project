@@ -4,7 +4,9 @@ Pytest configuration and fixtures for CMS project tests
 
 import os
 import sys
+import uuid
 from collections.abc import AsyncGenerator
+from datetime import datetime, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
@@ -234,3 +236,132 @@ def override_get_db():
             yield session
 
     return _override
+
+
+# Mock Redis Session Manager for testing
+class MockRedisSessionManager:
+    """
+    Mock Redis session manager for testing without actual Redis connection.
+    Stores sessions in memory using a dictionary.
+    """
+
+    def __init__(self):
+        self._sessions = {}  # session_id -> session_data
+        self._user_sessions = {}  # user_id -> set of session_ids
+        self._redis = None  # Mock redis connection (not used but checked)
+        self._pool = None  # Mock connection pool
+
+    async def connect(self):
+        """Mock connect - does nothing"""
+        self._redis = True  # Set to truthy value to indicate connected
+        pass
+
+    async def disconnect(self):
+        """Mock disconnect - clears all sessions"""
+        self._sessions.clear()
+        self._user_sessions.clear()
+
+    async def create_session(self, user_id: int, user_email: str, user_role: str, expires_in: int = 3600) -> str:
+        """Create a new session and return session ID"""
+        session_id = str(uuid.uuid4())
+        session_data = {
+            "user_id": user_id,
+            "user_email": user_email,
+            "user_role": user_role,
+            "created_at": datetime.utcnow().isoformat(),
+            "expires_at": (datetime.utcnow() + timedelta(seconds=expires_in)).isoformat(),
+        }
+
+        self._sessions[session_id] = session_data
+
+        # Track user sessions
+        if user_id not in self._user_sessions:
+            self._user_sessions[user_id] = set()
+        self._user_sessions[user_id].add(session_id)
+
+        return session_id
+
+    async def get_session(self, session_id: str) -> dict | None:
+        """Get session data by session ID"""
+        session_data = self._sessions.get(session_id)
+        if not session_data:
+            return None
+
+        # Check if expired
+        expires_at = datetime.fromisoformat(session_data["expires_at"])
+        if datetime.utcnow() > expires_at:
+            await self.delete_session(session_id)
+            return None
+
+        return session_data
+
+    async def delete_session(self, session_id: str) -> bool:
+        """Delete a session by session ID"""
+        if session_id in self._sessions:
+            session_data = self._sessions[session_id]
+            user_id = session_data["user_id"]
+
+            # Remove from user sessions
+            if user_id in self._user_sessions:
+                self._user_sessions[user_id].discard(session_id)
+                if not self._user_sessions[user_id]:
+                    del self._user_sessions[user_id]
+
+            del self._sessions[session_id]
+            return True
+        return False
+
+    async def delete_all_user_sessions(self, user_id: int) -> int:
+        """Delete all sessions for a user"""
+        if user_id not in self._user_sessions:
+            return 0
+
+        session_ids = list(self._user_sessions[user_id])
+        count = 0
+        for session_id in session_ids:
+            if await self.delete_session(session_id):
+                count += 1
+
+        return count
+
+    async def get_active_sessions(self, user_id: int) -> list[dict]:
+        """Get all active sessions for a user"""
+        if user_id not in self._user_sessions:
+            return []
+
+        sessions = []
+        for session_id in list(self._user_sessions[user_id]):
+            session_data = await self.get_session(session_id)
+            if session_data:
+                sessions.append({"session_id": session_id, **session_data})
+
+        return sessions
+
+
+@pytest.fixture(scope="function")
+async def mock_session_manager():
+    """Provide a mock Redis session manager for tests"""
+    manager = MockRedisSessionManager()
+    await manager.connect()
+    yield manager
+    await manager.disconnect()
+
+
+@pytest.fixture(autouse=True)
+async def mock_redis_session(monkeypatch, mock_session_manager):
+    """
+    Auto-mock Redis session manager for all tests.
+    This prevents tests from trying to connect to actual Redis.
+    """
+    from app.utils import session as session_module
+
+    # Replace the global session_manager instance
+    monkeypatch.setattr(session_module, "session_manager", mock_session_manager)
+
+    # Mock get_session_manager to return our mock
+    async def mock_get_session_manager():
+        return mock_session_manager
+
+    monkeypatch.setattr(session_module, "get_session_manager", mock_get_session_manager)
+
+    return mock_session_manager
