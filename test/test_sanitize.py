@@ -13,9 +13,11 @@ from app.utils.sanitize import (
     sanitize_email,
     sanitize_filename,
     sanitize_html,
+    sanitize_json_string,
     sanitize_meta_description,
     sanitize_plain_text,
     sanitize_rich_content,
+    sanitize_sql_like_pattern,
     sanitize_url,
     sanitize_username,
 )
@@ -255,6 +257,121 @@ class TestEmailSanitization:
     def test_handles_none_input(self):
         clean = sanitize_email(None)
         assert clean == ""
+
+
+class TestHtmlSanitizationEdgeCases:
+    """Test sanitize_html edge cases"""
+
+    def test_sanitize_html_with_none_input(self):
+        """Test that None input returns empty string"""
+        result = sanitize_html(None)
+        assert result == ""
+
+    def test_sanitize_html_with_strip_true(self):
+        """Test that strip=True removes all HTML tags"""
+        html = "<p>Hello <strong>World</strong></p>"
+        result = sanitize_html(html, strip=True)
+        assert "<p>" not in result
+        assert "<strong>" not in result
+        assert "Hello World" in result
+
+    def test_sanitize_html_strip_with_script(self):
+        """Test strip=True with script tags"""
+        html = "<script>alert('xss')</script>Safe text"
+        result = sanitize_html(html, strip=True)
+        assert "<script>" not in result
+        assert "Safe text" in result
+
+
+class TestJsonStringSanitization:
+    """Test JSON string sanitization"""
+
+    def test_sanitize_json_string_basic(self):
+        """Test basic JSON string sanitization"""
+        text = 'Hello "World"'
+        result = sanitize_json_string(text)
+        assert '\\"' in result  # Quotes should be escaped
+
+    def test_sanitize_json_string_with_backslash(self):
+        """Test escaping backslashes"""
+        text = "C:\\path\\to\\file"
+        result = sanitize_json_string(text)
+        assert "\\\\" in result  # Backslashes should be escaped
+
+    def test_sanitize_json_string_with_newlines(self):
+        """Test that newlines are normalized to spaces"""
+        text = "Line 1\nLine 2\r\nLine 3"
+        result = sanitize_json_string(text)
+        # sanitize_plain_text normalizes whitespace, so newlines become spaces
+        assert "Line 1" in result
+        assert "Line 2" in result
+        assert "Line 3" in result
+        assert "\n" not in result  # Newlines are normalized away
+
+    def test_sanitize_json_string_with_tabs(self):
+        """Test that tabs are normalized to spaces"""
+        text = "Column1\tColumn2"
+        result = sanitize_json_string(text)
+        # sanitize_plain_text normalizes whitespace, so tabs become spaces
+        assert "Column1" in result
+        assert "Column2" in result
+        assert "\t" not in result  # Tabs are normalized away
+
+    def test_sanitize_json_string_with_html(self):
+        """Test that HTML is stripped before JSON escaping"""
+        text = '<script>alert("xss")</script>Safe text'
+        result = sanitize_json_string(text)
+        assert "<script>" not in result
+        assert "Safe text" in result
+
+    def test_sanitize_json_string_with_none(self):
+        """Test None input returns empty string"""
+        result = sanitize_json_string(None)
+        assert result == ""
+
+    def test_sanitize_json_string_complex(self):
+        """Test complex JSON string with multiple special characters"""
+        text = 'Path: C:\\data\n"value"\ttab'
+        result = sanitize_json_string(text)
+        assert "\\\\" in result  # Escaped backslash
+        assert '\\"' in result  # Escaped quote
+        # Note: newlines and tabs are normalized to spaces by sanitize_plain_text
+        assert "Path:" in result
+        assert "value" in result
+        assert "tab" in result
+
+
+class TestSqlLikePatternSanitization:
+    """Test SQL LIKE pattern sanitization"""
+
+    def test_sanitize_sql_like_pattern_basic(self):
+        """Test basic pattern sanitization"""
+        pattern = "test%pattern"
+        result = sanitize_sql_like_pattern(pattern)
+        assert "%" in result  # Wildcards should be preserved
+
+    def test_sanitize_sql_like_pattern_escapes_backslash(self):
+        """Test escaping backslashes"""
+        pattern = "test\\pattern"
+        result = sanitize_sql_like_pattern(pattern)
+        assert "\\\\" in result  # Backslashes should be escaped
+
+    def test_sanitize_sql_like_pattern_with_none(self):
+        """Test None input returns empty string"""
+        result = sanitize_sql_like_pattern(None)
+        assert result == ""
+
+    def test_sanitize_sql_like_pattern_with_empty_string(self):
+        """Test empty string input"""
+        result = sanitize_sql_like_pattern("")
+        assert result == ""
+
+    def test_sanitize_sql_like_pattern_with_wildcards(self):
+        """Test that SQL wildcards are preserved"""
+        pattern = "test_%pattern%"
+        result = sanitize_sql_like_pattern(pattern)
+        assert "%" in result
+        assert "_" in result
 
 
 class TestContentSpecificSanitizers:
