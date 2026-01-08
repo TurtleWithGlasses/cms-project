@@ -38,7 +38,7 @@ async def login_for_access_token(
         user = result.scalars().first()
     except Exception as e:
         logger.error(f"Database query failed: {e}")
-        raise DatabaseError(message="Failed to authenticate user", operation="user_login")
+        raise DatabaseError(message="Failed to authenticate user", operation="user_login") from e
 
     # Check if user exists
     if not user:

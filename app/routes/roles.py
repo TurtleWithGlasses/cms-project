@@ -19,4 +19,4 @@ async def get_roles(db: AsyncSession = Depends(get_db)):
         roles = result.scalars().all()
         return roles
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error fetching roles: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error fetching roles: {str(e)}") from e

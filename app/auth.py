@@ -113,7 +113,7 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None) -> s
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An error occurred while creating the access token.",
-        )
+        ) from e
 
 
 def decode_access_token(token: str) -> str:
@@ -146,18 +146,18 @@ def decode_access_token(token: str) -> str:
         logger.debug(f"Token decoded successfully for email: {email}")
         return email
 
-    except ExpiredSignatureError:
+    except ExpiredSignatureError as e:
         logger.error("Token has expired")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token has expired.",
             headers={"WWW-Authenticate": "Bearer"},
-        )
+        ) from e
     except JWTError as e:
         logger.error(f"JWT decoding error: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token.", headers={"WWW-Authenticate": "Bearer"}
-        )
+        ) from e
 
 
 # ============================================================================
@@ -193,7 +193,7 @@ async def verify_token(token: str, db: AsyncSession) -> User:
             raise credentials_exception
     except JWTError as e:
         logger.error(f"JWT verification failed: {str(e)}")
-        raise credentials_exception
+        raise credentials_exception from e
 
     try:
         result = await db.execute(select(User).where(User.email == email))
@@ -203,7 +203,9 @@ async def verify_token(token: str, db: AsyncSession) -> User:
             raise credentials_exception
     except Exception as e:
         logger.error(f"Database query failed: {e}")
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to fetch user data.")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to fetch user data."
+        ) from e
 
     return user
 
@@ -242,7 +244,7 @@ async def get_current_user_from_cookie(
         logger.info(f"Decoded email from cookie: {email}")
     except HTTPException as e:
         logger.error(f"Error decoding token: {str(e)}")
-        raise credentials_exception
+        raise credentials_exception from e
 
     try:
         result = await db.execute(select(User).options(selectinload(User.role)).where(User.email == email))
@@ -254,7 +256,7 @@ async def get_current_user_from_cookie(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve user info",
-        )
+        ) from e
 
     return user
 
@@ -290,7 +292,7 @@ async def get_current_user_from_header(
         logger.info(f"Decoded email from header: {email}")
     except HTTPException as e:
         logger.error(f"Error decoding token: {str(e)}")
-        raise credentials_exception
+        raise credentials_exception from e
 
     try:
         result = await db.execute(select(User).options(selectinload(User.role)).where(User.email == email))
@@ -300,7 +302,7 @@ async def get_current_user_from_header(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An error occurred while retrieving the user.",
-        )
+        ) from e
 
     if user is None:
         logger.warning("User not found in database")

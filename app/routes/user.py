@@ -93,7 +93,7 @@ async def update_user_role(user_id: int, role_data: RoleUpdate, db: AsyncSession
     except Exception as e:
         logging.error(f"Failed to update role: {e}")
         await db.rollback()
-        raise DatabaseError(message="Failed to update user role", operation="update_user_role")
+        raise DatabaseError(message="Failed to update user role", operation="update_user_role") from e
 
     # Step 4: Log the activity with a new session
     try:
@@ -149,7 +149,7 @@ async def update_user(
         await db.refresh(user)
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=500, detail="Failed to update user: " + str(e))
+        raise HTTPException(status_code=500, detail="Failed to update user: " + str(e)) from e
 
     return {
         "id": user.id,
@@ -181,7 +181,7 @@ async def create_admin(user_data: UserCreate, db: AsyncSession = Depends(get_db)
         await db.refresh(new_admin)
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=500, detail=f"Failed to create admin: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to create admin: {str(e)}") from e
 
     return {
         "id": new_admin.id,
@@ -236,7 +236,7 @@ async def register_user(user: UserCreate, db: AsyncSession = Depends(get_db)):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"An error occurred while saving the user: {str(e)}",
-        )
+        ) from e
 
     return {
         "id": new_user.id,
@@ -353,7 +353,7 @@ async def delete_user(
         return RedirectResponse(url="/api/v1/users/admin/dashboard", status_code=303)
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=500, detail=f"Failed to delete user: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to delete user: {str(e)}") from e
 
 
 @router.post("/delete/{user_id}")
@@ -399,7 +399,7 @@ async def get_all_notifications(
         try:
             query = query.where(Notification.status == NotificationStatus[status.upper()])
         except KeyError:
-            raise HTTPException(status_code=400, detail=f"Invalid status: {status}")
+            raise HTTPException(status_code=400, detail=f"Invalid status: {status}") from None
 
     total_notifications_result = await db.execute(query)
     total_notifications = len(total_notifications_result.scalars().all())
@@ -477,7 +477,7 @@ async def update_notification_status(
         await db.refresh(notification)
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=500, detail=f"Failed to update notification: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to update notification: {str(e)}") from e
 
     return notification
 
@@ -504,7 +504,7 @@ async def mark_notification_as_read(
         await db.refresh(notification)
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=500, detail=f"Failed to mark notification as read: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to mark notification as read: {str(e)}") from e
 
     return {"message": "Notification marked as read", "notification": notification}
 
@@ -531,7 +531,7 @@ async def mark_notification_as_unread(
         await db.refresh(notification)
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=500, detail=f"Failed to mark notification as unread: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to mark notification as unread: {str(e)}") from e
 
     return {"message": "Notification marked as unread", "notification": notification}
 
@@ -543,7 +543,7 @@ async def get_activity_logs(db: AsyncSession = Depends(get_db)):
         logs = result.mappings().all()  # Use `.mappings()` to fetch as dictionaries if needed
         return logs
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"An error occurred while fetching logs: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"An error occurred while fetching logs: {str(e)}") from e
 
 
 @router.get("/secure-endpoint", dependencies=[Depends(get_role_validator(["admin", "editor"]))])

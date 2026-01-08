@@ -121,7 +121,7 @@ async def api_request_password_reset(
 ):
     """API endpoint for password reset request"""
     try:
-        reset_token = await PasswordResetService.create_reset_token(reset_request.email, db)
+        await PasswordResetService.create_reset_token(reset_request.email, db)
 
         # TODO: Send email with reset link
         # await email_service.send_password_reset_email(reset_request.email, reset_token.token)
