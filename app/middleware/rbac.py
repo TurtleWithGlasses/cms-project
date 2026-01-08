@@ -1,10 +1,10 @@
 import logging
 
 from fastapi import HTTPException, Request
-from fastapi.responses import RedirectResponse
 from pydantic import ValidationError
 from sqlalchemy import select
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
+from starlette.responses import JSONResponse, RedirectResponse
 
 from app.auth import get_current_user
 from app.database import AsyncSessionLocal
@@ -57,21 +57,24 @@ class RBACMiddleware(BaseHTTPMiddleware):
                 role_name = result.scalar()
 
                 if not role_name or role_name not in self.allowed_roles:
-                    raise HTTPException(
+                    logger.error(f"Role '{role_name if role_name else 'None'}' not authorized for this resource")
+                    return JSONResponse(
                         status_code=403,
-                        detail=f"Role '{role_name if role_name else 'None'}' not authorized for this resource",
+                        content={
+                            "detail": f"Role '{role_name if role_name else 'None'}' not authorized for this resource"
+                        },
                     )
 
                 return await call_next(request)
 
             except HTTPException as e:
                 logger.error(f"Authorization error: {e.detail}")
-                raise e
+                return JSONResponse(status_code=e.status_code, content={"detail": str(e.detail)})
 
             except ValidationError as e:
                 logger.error(f"Validation error: {e.json()}")
-                raise HTTPException(status_code=422, detail=e.errors()) from e
+                return JSONResponse(status_code=422, content={"detail": e.errors()})
 
             except Exception as e:
                 logger.error(f"Unhandled middleware exception: {str(e)}")
-                raise HTTPException(status_code=500, detail="Internal Server Error") from e
+                return JSONResponse(status_code=500, content={"detail": "Internal Server Error"})

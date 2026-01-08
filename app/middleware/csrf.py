@@ -8,10 +8,10 @@ for form submissions and state-changing operations.
 import secrets
 from collections.abc import Callable
 
-from fastapi import HTTPException, Request, status
+from fastapi import Request, status
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.responses import Response
+from starlette.responses import JSONResponse, Response
 
 from app.config import settings
 
@@ -26,7 +26,7 @@ class CSRFMiddleware(BaseHTTPMiddleware):
     - Exempts API endpoints that use Bearer token authentication
     """
 
-    def __init__(
+    def __init__(  # nosec B107 - csrf_token is a parameter name, not a password
         self,
         app,
         secret_key: str | None = None,
@@ -122,22 +122,26 @@ class CSRFMiddleware(BaseHTTPMiddleware):
         submitted_token = token_from_header or token_from_form
 
         if not submitted_token:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="CSRF token missing")
+            return JSONResponse(status_code=status.HTTP_403_FORBIDDEN, content={"detail": "CSRF token missing"})
 
         # Ensure submitted_token is a string (not UploadFile)
         if not isinstance(submitted_token, str):
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="CSRF token must be a string")
+            return JSONResponse(
+                status_code=status.HTTP_403_FORBIDDEN, content={"detail": "CSRF token must be a string"}
+            )
 
         if not token_from_cookie:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="CSRF cookie missing")
+            return JSONResponse(status_code=status.HTTP_403_FORBIDDEN, content={"detail": "CSRF cookie missing"})
 
         # Validate that submitted token matches cookie token
         if submitted_token != token_from_cookie:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="CSRF token mismatch")
+            return JSONResponse(status_code=status.HTTP_403_FORBIDDEN, content={"detail": "CSRF token mismatch"})
 
         # Validate token signature and expiry
         if not self._validate_token(submitted_token):
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="CSRF token invalid or expired")
+            return JSONResponse(
+                status_code=status.HTTP_403_FORBIDDEN, content={"detail": "CSRF token invalid or expired"}
+            )
 
         response = await call_next(request)
         return response
