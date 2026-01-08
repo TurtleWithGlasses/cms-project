@@ -1,6 +1,18 @@
 # CMS Project
 
+[![Tests](https://github.com/TurtleWithGlasses/cms-project/actions/workflows/tests.yml/badge.svg)](https://github.com/TurtleWithGlasses/cms-project/actions/workflows/tests.yml)
+[![Lint](https://github.com/TurtleWithGlasses/cms-project/actions/workflows/lint.yml/badge.svg)](https://github.com/TurtleWithGlasses/cms-project/actions/workflows/lint.yml)
+[![codecov](https://codecov.io/gh/TurtleWithGlasses/cms-project/branch/main/graph/badge.svg)](https://codecov.io/gh/TurtleWithGlasses/cms-project)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
+
 A powerful and flexible Content Management System built with FastAPI, SQLAlchemy, and PostgreSQL.
+
+## Test Suite Status
+
+- **Pass Rate**: 100% (482/482 runnable tests) 🎉
+- **Coverage**: ~67% (see [KNOWN_ISSUES.md](KNOWN_ISSUES.md))
+- **CI/CD**: Automated testing with GitHub Actions
 
 ## Features
 
@@ -148,9 +160,27 @@ The system supports the following roles:
 
 ### Running Tests
 
+Run the full test suite:
 ```bash
-pytest
+pytest test/ -v
 ```
+
+Run with coverage:
+```bash
+pytest test/ --cov=app --cov-report=term-missing
+```
+
+Run specific tests:
+```bash
+pytest test/test_auth_helpers.py -v
+```
+
+**Test Suite Documentation:**
+- [CONTRIBUTING.md](CONTRIBUTING.md) - Contributor guide with testing instructions
+- [KNOWN_ISSUES.md](KNOWN_ISSUES.md) - Known issues and skipped tests
+- [.github/workflows/README.md](.github/workflows/README.md) - CI/CD workflow documentation
+
+**Test Status**: 100% pass rate (482/482 runnable tests)
 
 ### Database Migrations
 
@@ -196,11 +226,24 @@ All important actions are logged to the `activity_logs` table:
 
 ## Contributing
 
+We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
+
+**Quick Start:**
 1. Fork the repository
 2. Create a feature branch: `git checkout -b feature-name`
-3. Commit your changes: `git commit -am 'Add feature'`
-4. Push to the branch: `git push origin feature-name`
-5. Submit a pull request
+3. Install pre-commit hooks: `pre-commit install`
+4. Make your changes and add tests
+5. Ensure all tests pass: `pytest test/ -v`
+6. Commit your changes: `git commit -am 'Add feature'`
+7. Push to the branch: `git push origin feature-name`
+8. Submit a pull request
+
+**Pre-commit Hooks:**
+The project uses pre-commit hooks for code quality:
+- Ruff linter and formatter
+- Mypy static type checking
+- Security scanning with Bandit
+- YAML/JSON/TOML validation
 
 ## License
 
@@ -222,4 +265,3 @@ For issues and questions:
 - Notification system
 - Activity logging
 - Content scheduling
-
