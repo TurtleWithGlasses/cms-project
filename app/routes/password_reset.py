@@ -21,7 +21,7 @@ templates = Jinja2Templates(directory="templates")
 @router.get("/request", response_class=HTMLResponse)
 async def password_reset_request_form(request: Request):
     """Display password reset request form"""
-    return templates.TemplateResponse("password_reset_request.html", {"request": request})
+    return templates.TemplateResponse(request, "password_reset_request.html")
 
 
 @router.post("/request", response_model=PasswordResetResponse)
@@ -66,10 +66,10 @@ async def password_reset_form(request: Request, token: str, db: AsyncSession = D
         # Validate token
         await PasswordResetService.validate_reset_token(token, db)
 
-        return templates.TemplateResponse("password_reset_confirm.html", {"request": request, "token": token})
+        return templates.TemplateResponse(request, "password_reset_confirm.html", {"token": token})
     except HTTPException as e:
         return templates.TemplateResponse(
-            "password_reset_error.html", {"request": request, "error": e.detail}, status_code=e.status_code
+            request, "password_reset_error.html", {"error": e.detail}, status_code=e.status_code
         )
 
 
@@ -109,7 +109,7 @@ async def reset_password(
         return RedirectResponse(url="/login?message=Password successfully reset. Please login.", status_code=303)
     except HTTPException as e:
         return templates.TemplateResponse(
-            "password_reset_error.html", {"request": request, "error": e.detail}, status_code=e.status_code
+            request, "password_reset_error.html", {"error": e.detail}, status_code=e.status_code
         )
 
 

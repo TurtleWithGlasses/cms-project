@@ -68,7 +68,7 @@ async def update_content(content_id: int, data: ContentUpdate, db: AsyncSession,
     await content_version_service.create_version_from_content(existing_content, db, current_user)
 
     # Apply updates
-    for field, value in data.dict(exclude_unset=True).items():
+    for field, value in data.model_dump(exclude_unset=True).items():
         setattr(existing_content, field, value)
 
     await db.commit()

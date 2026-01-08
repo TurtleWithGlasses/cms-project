@@ -571,8 +571,9 @@ async def admin_dashboard(
     all_users = result.scalars().all()
 
     return templates.TemplateResponse(
+        request,
         "dashboard.html",
-        {"request": request, "users": all_users, "current_user": current_user, "permissions": permissions},
+        {"users": all_users, "current_user": current_user, "permissions": permissions},
     )
 
 
@@ -588,7 +589,7 @@ async def edit_user_form(
     if not user_to_edit:
         raise HTTPException(status_code=404, detail="User not found")
 
-    return templates.TemplateResponse("edit_user_by_admin.html", {"request": request, "user_to_edit": user_to_edit})
+    return templates.TemplateResponse(request, "edit_user_by_admin.html", {"user_to_edit": user_to_edit})
 
 
 @router.post("/user/edit/{user_id}")
