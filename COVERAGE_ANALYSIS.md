@@ -141,7 +141,11 @@ Routes represent 568 statements with 336 missed (59% of all gaps). Improving rou
 ### Phase 1: Quick Wins (Target: +3-4%)
 
 1. **Add session endpoint tests** to `test/test_auth.py`:
+   **Status:** ATTEMPTED - Authentication setup complexity prevents adding these tests
+   **Issue:** Session endpoints (/auth/logout, /auth/logout-all, /auth/sessions) exist but require complex FastAPI dependency injection setup that conflicts with current test fixtures
+   **Recommendation:** Re-architect test fixtures to support proper dependency overrides before attempting
    ```python
+   # Attempted but failed due to auth setup:
    class TestLogout:
        def test_logout_with_mock_session():
            # Test /auth/logout with mocked session manager
@@ -219,13 +223,36 @@ The 69 skipped tests should generally remain skipped because:
 
 **Recommendation:** Focus on improving the 482 passing tests rather than fixing 69 problematic skipped tests.
 
+## Session Progress (2026-01-08)
+
+### Completed ✅
+1. **RBAC Middleware Fix** - Added `/api/v1/users/register` to public paths (Commit: `6ecbe28`)
+2. **Skipped Test Analysis** - Comprehensive review of all 69 skipped tests
+3. **Coverage Analysis Document** - Created this roadmap with detailed findings
+4. **Auth Session Test Attempt** - Identified complexity issues with dependency injection
+
+### Key Findings
+- **Integration tests** (5) need complete database architecture rewrite
+- **Session management tests** (13) have routing/authentication issues
+- **Middleware tests** (11) require architecture review
+- **Auth module tests** (4) duplicate existing coverage
+- **Session endpoints** exist but are untestable with current fixture architecture
+
+### Recommendation
+Focus on **simpler improvements** rather than fixing complex skipped tests:
+- Add error handling tests to existing passing test suites
+- Target routes with good existing fixtures (user, content, category)
+- Add validation failure tests
+- Add edge case tests for existing endpoints
+
 ## Next Steps
 
 1. ✅ Document findings (this file)
-2. Implement Phase 1 quick wins
-3. Measure coverage after Phase 1
-4. If <80%, proceed to Phase 2
-5. Iterate until 80%+ achieved
+2. ⚠️ Phase 1 blocked by auth fixture complexity
+3. **Recommended:** Skip to Phase 2 (User routes error tests)
+4. **Alternative:** Fix test fixture architecture first
+5. Measure coverage after improvements
+6. Iterate until 80%+ achieved
 
 ## Conclusion
 
@@ -233,5 +260,8 @@ Reaching 80%+ coverage is achievable by:
 - Adding targeted tests to existing passing test suites
 - Focusing on routes (41% → 60%+ coverage)
 - NOT attempting to fix the 69 skipped tests (low ROI)
+- **Avoiding complex auth endpoints** until test fixtures are improved
 
 The highest leverage actions are adding error handling and edge case tests to the existing route test files, which already have good infrastructure and fixtures in place.
+
+**Current Blocker:** FastAPI dependency injection in test fixtures makes session endpoint testing complex. Recommend architectural review of test infrastructure before attempting these tests.
