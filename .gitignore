@@ -155,6 +155,7 @@ alembic/versions/__pycache__/
 notez.txt
 .qodo
 .claude/
+test_*.py  # Temporary test files in root directory
 
 # Logs
 *.log

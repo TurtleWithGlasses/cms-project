@@ -71,7 +71,6 @@ class PasswordResetService:
 
         # Log activity
         await log_activity(
-            db=db,
             action="password_reset_requested",
             user_id=user.id,
             description=f"Password reset requested for {email}",
@@ -150,7 +149,6 @@ class PasswordResetService:
 
         # Log activity
         await log_activity(
-            db=db,
             action="password_reset_completed",
             user_id=user.id,
             description=f"Password successfully reset for {user.email}",

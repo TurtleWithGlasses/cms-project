@@ -109,6 +109,9 @@ async def setup_test_database():
         import logging
 
         logging.warning(f"Error during test cleanup: {e}")
+    finally:
+        # Dispose engine connections to prevent event loop issues
+        await test_engine.dispose()
 
 
 @pytest.fixture(scope="function")
