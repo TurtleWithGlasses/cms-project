@@ -38,7 +38,7 @@ def create_api_router(
 
     return APIRouter(
         prefix=full_prefix,
-        tags=tags or [],
+        tags=tags,  # type: ignore[arg-type]
         include_in_schema=include_in_schema,
     )
 

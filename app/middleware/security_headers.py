@@ -31,11 +31,11 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     def __init__(
         self,
         app,
-        enable_hsts: bool = None,
+        enable_hsts: bool | None = None,
         hsts_max_age: int = 31536000,  # 1 year
         hsts_include_subdomains: bool = True,
         hsts_preload: bool = False,
-        csp_policy: str = None,
+        csp_policy: str | None = None,
     ):
         super().__init__(app)
         # HSTS should only be enabled in production over HTTPS

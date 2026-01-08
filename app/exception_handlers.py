@@ -6,7 +6,7 @@ error responses across the application.
 """
 
 import logging
-from typing import Union
+from typing import Any, Union
 
 from fastapi import Request, status
 from fastapi.exceptions import RequestValidationError
@@ -19,7 +19,9 @@ from app.exceptions import CMSException
 logger = logging.getLogger(__name__)
 
 
-def create_error_response(status_code: int, message: str, details: dict = None, path: str = None) -> JSONResponse:
+def create_error_response(
+    status_code: int, message: str, details: dict[str, Any] | None = None, path: str | None = None
+) -> JSONResponse:
     """
     Create a standardized error response
 

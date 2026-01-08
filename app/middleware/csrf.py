@@ -29,11 +29,11 @@ class CSRFMiddleware(BaseHTTPMiddleware):
     def __init__(
         self,
         app,
-        secret_key: str = None,
+        secret_key: str | None = None,
         token_name: str = "csrf_token",
         cookie_name: str = "csrf_token",
         header_name: str = "X-CSRF-Token",
-        exempt_paths: list = None,
+        exempt_paths: list[str] | None = None,
         token_expiry: int = 3600,  # 1 hour in seconds
     ):
         super().__init__(app)
@@ -55,10 +55,7 @@ class CSRFMiddleware(BaseHTTPMiddleware):
 
     def _is_exempt(self, path: str) -> bool:
         """Check if the path is exempt from CSRF protection."""
-        for exempt_path in self.exempt_paths:
-            if path.startswith(exempt_path):
-                return True
-        return False
+        return any(path.startswith(exempt_path) for exempt_path in self.exempt_paths)
 
     def _generate_token(self) -> str:
         """Generate a new CSRF token."""
@@ -126,6 +123,10 @@ class CSRFMiddleware(BaseHTTPMiddleware):
 
         if not submitted_token:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="CSRF token missing")
+
+        # Ensure submitted_token is a string (not UploadFile)
+        if not isinstance(submitted_token, str):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="CSRF token must be a string")
 
         if not token_from_cookie:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="CSRF cookie missing")

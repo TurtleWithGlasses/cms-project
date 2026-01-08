@@ -97,15 +97,11 @@ async def update_user_role(user_id: int, role_data: RoleUpdate, db: AsyncSession
 
     # Step 4: Log the activity with a new session
     try:
-        async with db.bind.connect() as connection:
-            new_session = AsyncSession(bind=connection)
-            await log_activity(
-                db=new_session,
-                action="role_update",
-                user_id=user_to_update.id,
-                description=f"Updated role to {role_data.role}",
-            )
-            await new_session.commit()  # Commit the log activity
+        await log_activity(
+            action="role_update",
+            user_id=user_to_update.id,
+            description=f"Updated role to {role_data.role}",
+        )
     except Exception as log_error:
         logging.error(f"Failed to log activity: {log_error}")
         # Proceed with the response, even if logging fails
@@ -258,7 +254,6 @@ async def update_user_profile(
     if user_data.email:
         current_user.email = user_data.email
         await log_activity(
-            db=db,
             action="email_update",
             user_id=current_user.id,
             description=f"User updated their email to {user_data.email}",
@@ -267,7 +262,6 @@ async def update_user_profile(
     if user_data.username:
         current_user.username = user_data.username
         await log_activity(
-            db=db,
             action="username_update",
             user_id=current_user.id,
             description=f"User updated their username to {user_data.username}",
@@ -276,7 +270,6 @@ async def update_user_profile(
     if user_data.password:
         current_user.hashed_password = hash_password(user_data.password)
         await log_activity(
-            db=db,
             action="password_update",
             user_id=current_user.id,
             description="User updated their password",
@@ -338,7 +331,6 @@ async def delete_user(
 
     try:
         await log_activity(
-            db=db,
             action="delete_user",
             user_id=current_user.id,
             description=f"Deleted user {user_to_delete.username} (ID: {user_to_delete.id})",

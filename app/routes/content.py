@@ -99,12 +99,12 @@ async def update_content(
     current_user: User = Depends(get_current_user),
 ):
     # Fetch content with eager loading
-    existing_content = await db.execute(
+    result = await db.execute(
         select(Content)
         .options(selectinload(Content.author))  # Add all necessary relationships
         .where(Content.id == content_id)
     )
-    existing_content = existing_content.scalars().first()
+    existing_content = result.scalars().first()
 
     if not existing_content:
         raise HTTPException(status_code=404, detail="Content not found.")

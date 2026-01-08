@@ -19,7 +19,9 @@ class Notification(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     content_id = Column(Integer, ForeignKey("content.id"), index=True)
     message = Column(String, nullable=False)
-    status = Column(Enum(NotificationStatus), default=NotificationStatus.UNREAD, nullable=False, index=True)
+    status: Column[NotificationStatus] = Column(
+        Enum(NotificationStatus), default=NotificationStatus.UNREAD, nullable=False, index=True
+    )
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     user = relationship(

@@ -55,7 +55,7 @@ RICH_CONTENT_ATTRS = {
 ALLOWED_PROTOCOLS = ["http", "https", "mailto"]
 
 # Simple text tags (for titles, descriptions, etc.)
-SIMPLE_TEXT_TAGS = []
+SIMPLE_TEXT_TAGS: list[str] = []
 
 # Allowed tags for user comments/messages
 COMMENT_TAGS = ["p", "br", "strong", "em", "u", "a", "code"]

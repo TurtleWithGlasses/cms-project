@@ -47,4 +47,18 @@ def is_higher_role(role1: str, role2: str) -> bool:
     Returns:
         bool: True if role1 > role2 in hierarchy
     """
-    return ROLE_HIERARCHY.get(role1, 0) > ROLE_HIERARCHY.get(role2, 0)
+    # Try to get hierarchy for role1
+    try:
+        role1_enum = RoleName(role1)
+        hierarchy1 = ROLE_HIERARCHY.get(role1_enum, 0)
+    except ValueError:
+        hierarchy1 = 0  # Unknown roles default to 0
+
+    # Try to get hierarchy for role2
+    try:
+        role2_enum = RoleName(role2)
+        hierarchy2 = ROLE_HIERARCHY.get(role2_enum, 0)
+    except ValueError:
+        hierarchy2 = 0  # Unknown roles default to 0
+
+    return hierarchy1 > hierarchy2
