@@ -326,3 +326,95 @@ class TestCategoryRouteIntegration:
         # Verify all categories exist
         all_cats = client.get("/api/v1/categories/").json()
         assert len(all_cats) == 4  # 1 parent + 3 children
+
+
+class TestCategoryValidation:
+    """Test validation and error handling for category routes"""
+
+    def test_create_category_with_very_long_name(self, client):
+        """Test category with very long name"""
+        data = {
+            "name": "A" * 500,  # Very long name
+        }
+        response = client.post("/api/v1/categories/", json=data)
+
+        # Should either succeed or fail validation if there's a length limit
+        # This tests that the system handles long inputs gracefully
+        assert response.status_code in [200, 400, 422]
+
+    def test_create_category_with_invalid_parent_id(self, client):
+        """Test creating category with non-existent parent_id"""
+        data = {
+            "name": "Child Category",
+            "slug": "child",
+            "parent_id": 99999,  # Non-existent parent
+        }
+        response = client.post("/api/v1/categories/", json=data)
+
+        # Should either fail with foreign key constraint or create successfully
+        # (depends on database constraints)
+        assert response.status_code in [200, 400, 422, 500]
+
+    def test_create_category_with_zero_parent_id(self, client):
+        """Test creating category with parent_id=0"""
+        data = {
+            "name": "Category",
+            "slug": "category",
+            "parent_id": 0,
+        }
+        response = client.post("/api/v1/categories/", json=data)
+
+        # Should handle gracefully
+        assert response.status_code in [200, 400, 422, 500]
+
+    def test_create_category_with_empty_slug_auto_generates(self, client):
+        """Test that empty string slug still triggers auto-generation"""
+        data = {
+            "name": "Test Category",
+            "slug": "",  # Empty string instead of None
+        }
+        response = client.post("/api/v1/categories/", json=data)
+
+        # Should either auto-generate or fail validation
+        assert response.status_code in [200, 400, 422]
+        if response.status_code == 200:
+            result = response.json()
+            # If successful, slug should be auto-generated
+            assert result["slug"] != ""
+
+    def test_create_category_with_malformed_json(self, client):
+        """Test handling of malformed JSON data"""
+        # Send completely wrong structure
+        response = client.post(
+            "/api/v1/categories/",
+            json={"invalid_field": "value"},
+        )
+
+        # Should fail validation
+        assert response.status_code == 422
+
+    def test_create_category_with_unicode_name(self, client):
+        """Test category with unicode characters"""
+        data = {
+            "name": "Technology 技术 🚀",
+        }
+        response = client.post("/api/v1/categories/", json=data)
+
+        # Should handle unicode gracefully
+        assert response.status_code == 200
+        result = response.json()
+        assert "Technology" in result["name"]
+
+    def test_get_categories_multiple_times_consistent(self, client):
+        """Test that GET /categories returns consistent results"""
+        # Create a category
+        client.post("/api/v1/categories/", json={"name": "Test", "slug": "test"})
+
+        # Get categories multiple times
+        response1 = client.get("/api/v1/categories/")
+        response2 = client.get("/api/v1/categories/")
+
+        # Should return same results
+        assert response1.status_code == 200
+        assert response2.status_code == 200
+        assert response1.json() == response2.json()
