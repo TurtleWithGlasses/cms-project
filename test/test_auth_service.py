@@ -25,7 +25,7 @@ class TestAuthenticateUser:
             id=1,
             email="test@example.com",
             username="testuser",
-            hashed_password=hash_password("password123"),  # nosec B106
+            hashed_password=hash_password("Password123"),  # nosec B106
             role_id=1,
         )
 
@@ -36,7 +36,7 @@ class TestAuthenticateUser:
         mock_db.execute = AsyncMock(return_value=mock_result)
 
         # Test authentication
-        result = await authenticate_user("test@example.com", "password123", mock_db)  # nosec B106
+        result = await authenticate_user("test@example.com", "Password123", mock_db)  # nosec B106
 
         assert result == mock_user
         assert result.email == "test@example.com"
@@ -49,7 +49,7 @@ class TestAuthenticateUser:
             id=1,
             email="test@example.com",
             username="testuser",
-            hashed_password=hash_password("password123"),  # nosec B106
+            hashed_password=hash_password("Password123"),  # nosec B106
             role_id=1,
         )
 
@@ -77,7 +77,7 @@ class TestAuthenticateUser:
 
         # Test authentication
         with pytest.raises(HTTPException) as exc_info:
-            await authenticate_user("nonexistent@example.com", "password123", mock_db)  # nosec B106
+            await authenticate_user("nonexistent@example.com", "Password123", mock_db)  # nosec B106
 
         assert exc_info.value.status_code == 401
 
@@ -89,7 +89,7 @@ class TestAuthenticateUser:
             id=1,
             email="test@example.com",
             username="testuser",
-            hashed_password=hash_password("password123"),  # nosec B106
+            hashed_password=hash_password("Password123"),  # nosec B106
             role_id=1,
         )
 
@@ -133,7 +133,7 @@ class TestRegisterUser:
         mock_db.refresh = AsyncMock()
 
         # Test registration
-        result = await register_user("new@example.com", "newuser", "password123", mock_db)  # nosec B106
+        result = await register_user("new@example.com", "newuser", "Password123", mock_db)  # nosec B106
 
         # Verify database operations were called
         mock_db.add.assert_called_once()
@@ -160,7 +160,7 @@ class TestRegisterUser:
 
         # Test registration
         with pytest.raises(HTTPException) as exc_info:
-            await register_user("existing@example.com", "newuser", "password123", mock_db)  # nosec B106
+            await register_user("existing@example.com", "newuser", "Password123", mock_db)  # nosec B106
 
         assert exc_info.value.status_code == 400
         assert "already registered" in exc_info.value.detail.lower()
@@ -183,7 +183,7 @@ class TestRegisterUser:
 
         # Test registration
         with pytest.raises(HTTPException) as exc_info:
-            await register_user("new@example.com", "newuser", "password123", mock_db)  # nosec B106
+            await register_user("new@example.com", "newuser", "Password123", mock_db)  # nosec B106
 
         assert exc_info.value.status_code == 500
         assert "default role" in exc_info.value.detail.lower()
@@ -239,7 +239,7 @@ class TestRegisterUser:
         mock_db.refresh = AsyncMock()
 
         # Test registration with special characters
-        await register_user("test+tag@example.com", "user_name-123", "password123", mock_db)  # nosec B106
+        await register_user("test+tag@example.com", "user_name-123", "Password123", mock_db)  # nosec B106
 
         # Verify user was created with special characters
         added_user = mock_db.add.call_args[0][0]
@@ -264,7 +264,7 @@ class TestAuthServiceIntegration:
 
         # Authentication should fail
         with pytest.raises(HTTPException):
-            await authenticate_user("new@example.com", "password123", mock_db)  # nosec B106
+            await authenticate_user("new@example.com", "Password123", mock_db)  # nosec B106
 
         # Reset mock for registration
         mock_role = Role(id=1, name="user", permissions=[])
@@ -279,7 +279,7 @@ class TestAuthServiceIntegration:
         mock_db.refresh = AsyncMock()
 
         # Registration should succeed
-        await register_user("new@example.com", "newuser", "password123", mock_db)  # nosec B106
+        await register_user("new@example.com", "newuser", "Password123", mock_db)  # nosec B106
 
         # Verify user was added
         assert mock_db.add.called

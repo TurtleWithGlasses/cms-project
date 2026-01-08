@@ -20,6 +20,18 @@ class PasswordResetConfirm(BaseModel):
     new_password: str = Field(..., min_length=8, max_length=100, description="New password")
     confirm_password: str = Field(..., min_length=8, max_length=100, description="Confirm new password")
 
+    @field_validator("new_password")
+    @classmethod
+    def validate_password_strength(cls, v):
+        """Validate password strength - requires uppercase, lowercase, and digit"""
+        if not any(c.isupper() for c in v):
+            raise ValueError("Password must contain at least one uppercase letter")
+        if not any(c.islower() for c in v):
+            raise ValueError("Password must contain at least one lowercase letter")
+        if not any(c.isdigit() for c in v):
+            raise ValueError("Password must contain at least one digit")
+        return v
+
     @field_validator("confirm_password")
     @classmethod
     def passwords_match(cls, v, info):

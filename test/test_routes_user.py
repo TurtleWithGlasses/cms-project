@@ -60,7 +60,7 @@ async def test_user_fixture():
         user = User(
             username="testuser",
             email="testuser@example.com",
-            hashed_password=hash_password("testpassword"),
+            hashed_password=hash_password("TestPassword123"),
             role_id=user_role.id,
         )
         session.add(user)
@@ -183,7 +183,7 @@ class TestUserRegistration:
         data = {
             "username": "newuser",
             "email": "newuser@example.com",
-            "password": "password123",
+            "password": "Password123",
         }
         response = user_client.post("/api/v1/users/register", json=data)
 
@@ -199,7 +199,7 @@ class TestUserRegistration:
         data = {
             "username": "anotheruser",
             "email": "testuser@example.com",  # Duplicate
-            "password": "password123",
+            "password": "Password123",
         }
         response = user_client.post("/api/v1/users/register", json=data)
 
@@ -213,7 +213,7 @@ class TestUserRegistration:
         data = {
             "username": "testuser",  # Duplicate
             "email": "different@example.com",
-            "password": "password123",
+            "password": "Password123",
         }
         response = user_client.post("/api/v1/users/register", json=data)
 
@@ -270,7 +270,7 @@ class TestUpdateUserProfile:
     def test_update_password_success(self, user_client, test_user_fixture):
         """Test updating password"""
         headers = get_auth_headers(test_user_fixture.email)
-        data = {"password": "newpassword123"}
+        data = {"password": "NewPassword123"}
         response = user_client.patch("/api/v1/users/me", json=data, headers=headers)
 
         assert response.status_code == 200
@@ -401,7 +401,7 @@ class TestCreateAdmin:
         data = {
             "username": "newadmin",
             "email": "newadmin@example.com",
-            "password": "adminpass123",
+            "password": "AdminPass123",
         }
         response = user_client.post("/api/v1/users/admin", json=data, headers=headers)
 
@@ -416,7 +416,7 @@ class TestCreateAdmin:
         data = {
             "username": "newadmin",
             "email": "newadmin@example.com",
-            "password": "adminpass123",
+            "password": "AdminPass123",
         }
         response = user_client.post("/api/v1/users/admin", json=data, headers=headers)
 

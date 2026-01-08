@@ -25,19 +25,19 @@ class TestUserCreate:
         data = {
             "username": "testuser",
             "email": "test@example.com",
-            "password": "password123",  # nosec B106
+            "password": "Password123",  # nosec B106
         }
         user = UserCreate(**data)
         assert user.username == "testuser"
         assert user.email == "test@example.com"
-        assert user.password == "password123"  # nosec B106
+        assert user.password == "Password123"  # nosec B106
 
     def test_user_create_sanitizes_username(self):
         """Test that username is sanitized"""
         data = {
             "username": "<script>testuser</script>",
             "email": "test@example.com",
-            "password": "password123",  # nosec B106
+            "password": "Password123",  # nosec B106
         }
         user = UserCreate(**data)
         # Username should be sanitized
@@ -48,7 +48,7 @@ class TestUserCreate:
         data = {
             "username": "testuser",
             "email": "  test@example.com  ",
-            "password": "password123",  # nosec B106
+            "password": "Password123",  # nosec B106
         }
         user = UserCreate(**data)
         # Email should be sanitized (trimmed)
@@ -59,7 +59,7 @@ class TestUserCreate:
         data = {
             "username": "<b>ab</b>",  # Only 2 chars after sanitization
             "email": "test@example.com",
-            "password": "password123",  # nosec B106
+            "password": "Password123",  # nosec B106
         }
         with pytest.raises(ValidationError) as exc_info:
             UserCreate(**data)
@@ -69,7 +69,7 @@ class TestUserCreate:
         """Test that username is required"""
         data = {
             "email": "test@example.com",
-            "password": "password123",  # nosec B106
+            "password": "Password123",  # nosec B106
         }
         with pytest.raises(ValidationError) as exc_info:
             UserCreate(**data)
@@ -79,7 +79,7 @@ class TestUserCreate:
         """Test that email is required"""
         data = {
             "username": "testuser",
-            "password": "password123",  # nosec B106
+            "password": "Password123",  # nosec B106
         }
         with pytest.raises(ValidationError) as exc_info:
             UserCreate(**data)
@@ -100,7 +100,7 @@ class TestUserCreate:
         data = {
             "username": "ab",  # Too short
             "email": "test@example.com",
-            "password": "password123",  # nosec B106
+            "password": "Password123",  # nosec B106
         }
         with pytest.raises(ValidationError):
             UserCreate(**data)
@@ -124,12 +124,12 @@ class TestUserUpdate:
         data = {
             "username": "newusername",
             "email": "newemail@example.com",
-            "password": "newpassword123",  # nosec B106
+            "password": "NewPassword123",  # nosec B106
         }
         user = UserUpdate(**data)
         assert user.username == "newusername"
         assert user.email == "newemail@example.com"
-        assert user.password == "newpassword123"  # nosec B106
+        assert user.password == "NewPassword123"  # nosec B106
 
     def test_user_update_with_no_fields(self):
         """Test updating user with no fields"""
@@ -306,7 +306,7 @@ class TestUserSchemaIntegration:
         create_data = {
             "username": "testuser",
             "email": "test@example.com",
-            "password": "password123",  # nosec B106
+            "password": "Password123",  # nosec B106
         }
         user = UserCreate(**create_data)
 
@@ -327,7 +327,7 @@ class TestUserSchemaIntegration:
         create = UserCreate(
             username=test_username,
             email="test@example.com",
-            password="password123",  # nosec B106
+            password="Password123",  # nosec B106
         )
         update = UserUpdate(username=test_username)
 

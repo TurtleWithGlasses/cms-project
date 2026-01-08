@@ -429,7 +429,7 @@ class TestSchemaIntegration:
 
         user = UserCreate(
             username="<script>user</script>testuser",
-            password="password123",  # nosec B106
+            password="Password123",  # nosec B106
             email="test@example.com",
         )
 

@@ -16,9 +16,7 @@ class UserCreate(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     username: str = Field(..., min_length=3, max_length=50, description="Username must be between 3 and 50 characters.")
-    password: str = Field(
-        ..., min_length=6, max_length=128, description="Password must be between 6 and 128 characters."
-    )
+    password: str = Field(..., min_length=8, max_length=128, description="Password must be at least 8 characters long.")
     email: EmailStr = Field(..., description="A valid email address.")
 
     @field_validator("username")
@@ -35,6 +33,18 @@ class UserCreate(BaseModel):
     def sanitize_email_field(cls, v):
         """Sanitize email - basic cleanup"""
         return sanitize_email(v)
+
+    @field_validator("password")
+    @classmethod
+    def validate_password_strength(cls, v):
+        """Validate password strength - requires uppercase, lowercase, and digit"""
+        if not any(c.isupper() for c in v):
+            raise ValueError("Password must contain at least one uppercase letter")
+        if not any(c.islower() for c in v):
+            raise ValueError("Password must contain at least one lowercase letter")
+        if not any(c.isdigit() for c in v):
+            raise ValueError("Password must contain at least one digit")
+        return v
 
 
 class UserResponse(BaseModel):
@@ -54,7 +64,7 @@ class UserUpdate(BaseModel):
     )
     email: EmailStr | None = Field(None, description="A valid email address.")
     password: str | None = Field(
-        None, min_length=6, max_length=128, description="Password must be between 6 and 128 characters."
+        None, min_length=8, max_length=128, description="Password must be at least 8 characters long."
     )
 
     @field_validator("username")
@@ -73,6 +83,20 @@ class UserUpdate(BaseModel):
     def sanitize_email_field(cls, v):
         """Sanitize email - basic cleanup"""
         return sanitize_email(v) if v else v
+
+    @field_validator("password")
+    @classmethod
+    def validate_password_strength(cls, v):
+        """Validate password strength - requires uppercase, lowercase, and digit"""
+        if v is None:
+            return v
+        if not any(c.isupper() for c in v):
+            raise ValueError("Password must contain at least one uppercase letter")
+        if not any(c.islower() for c in v):
+            raise ValueError("Password must contain at least one lowercase letter")
+        if not any(c.isdigit() for c in v):
+            raise ValueError("Password must contain at least one digit")
+        return v
 
 
 class RoleUpdate(BaseModel):

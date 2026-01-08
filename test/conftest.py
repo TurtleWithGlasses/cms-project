@@ -144,7 +144,7 @@ async def test_user(test_db: AsyncSession) -> User:
     user = User(
         username="testuser",
         email="testuser@example.com",
-        hashed_password=hash_password("testpassword"),
+        hashed_password=hash_password("TestPassword123"),
         role_id=user_role.id,
     )
     test_db.add(user)
@@ -167,7 +167,7 @@ async def test_admin(test_db: AsyncSession) -> User:
     admin = User(
         username="testadmin",
         email="admin@example.com",
-        hashed_password=hash_password("adminpassword"),
+        hashed_password=hash_password("AdminPassword123"),
         role_id=admin_role.id,
     )
     test_db.add(admin)
@@ -190,7 +190,7 @@ async def test_editor(test_db: AsyncSession) -> User:
     editor = User(
         username="testeditor",
         email="editor@example.com",
-        hashed_password=hash_password("editorpassword"),
+        hashed_password=hash_password("EditorPassword123"),
         role_id=editor_role.id,
     )
     test_db.add(editor)

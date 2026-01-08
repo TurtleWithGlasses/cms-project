@@ -88,7 +88,7 @@ class TestCreateResetToken:
         user = User(
             username="testuser",
             email="testuser@example.com",
-            hashed_password=hash_password("password123"),
+            hashed_password=hash_password("Password123"),
             role_id=role.id,
         )
         test_db.add(user)
@@ -123,7 +123,7 @@ class TestValidateResetToken:
         user = User(
             username="testuser",
             email="testuser@example.com",
-            hashed_password=hash_password("password123"),
+            hashed_password=hash_password("Password123"),
             role_id=role.id,
         )
         test_db.add(user)
@@ -157,7 +157,7 @@ class TestValidateResetToken:
         user = User(
             username="testuser",
             email="testuser@example.com",
-            hashed_password=hash_password("password123"),
+            hashed_password=hash_password("Password123"),
             role_id=role.id,
         )
         test_db.add(user)
@@ -187,7 +187,7 @@ class TestValidateResetToken:
         user = User(
             username="testuser",
             email="testuser@example.com",
-            hashed_password=hash_password("password123"),
+            hashed_password=hash_password("Password123"),
             role_id=role.id,
         )
         test_db.add(user)
@@ -235,7 +235,7 @@ class TestResetPassword:
         reset_token = await PasswordResetService.create_reset_token(email="testuser@example.com", db=test_db)
 
         # Reset password
-        new_password = "newpassword456"
+        new_password = "NewPassword456"
         updated_user = await PasswordResetService.reset_password(
             token=reset_token.token, new_password=new_password, db=test_db
         )
@@ -253,7 +253,7 @@ class TestResetPassword:
     async def test_reset_password_with_invalid_token(self, test_db: AsyncSession):
         """Test that resetting password with invalid token fails"""
         with pytest.raises(HTTPException) as exc_info:
-            await PasswordResetService.reset_password(token="invalid_token", new_password="newpassword", db=test_db)
+            await PasswordResetService.reset_password(token="invalid_token", new_password="NewPassword1", db=test_db)
 
         assert exc_info.value.status_code == 400
 
@@ -267,7 +267,7 @@ class TestResetPassword:
         user = User(
             username="testuser",
             email="testuser@example.com",
-            hashed_password=hash_password("password123"),
+            hashed_password=hash_password("Password123"),
             role_id=role.id,
         )
         test_db.add(user)
@@ -277,11 +277,11 @@ class TestResetPassword:
         reset_token = await PasswordResetService.create_reset_token(email="testuser@example.com", db=test_db)
 
         # Use token once
-        await PasswordResetService.reset_password(token=reset_token.token, new_password="newpassword1", db=test_db)
+        await PasswordResetService.reset_password(token=reset_token.token, new_password="NewPassword1", db=test_db)
 
         # Try to use the same token again
         with pytest.raises(HTTPException) as exc_info:
-            await PasswordResetService.reset_password(token=reset_token.token, new_password="newpassword2", db=test_db)
+            await PasswordResetService.reset_password(token=reset_token.token, new_password="NewPassword2", db=test_db)
 
         assert exc_info.value.status_code == 400
         assert "already been used" in exc_info.value.detail.lower()
@@ -296,7 +296,7 @@ class TestResetPassword:
         user = User(
             username="testuser",
             email="testuser@example.com",
-            hashed_password=hash_password("password123"),
+            hashed_password=hash_password("Password123"),
             role_id=role.id,
         )
         test_db.add(user)
@@ -314,7 +314,7 @@ class TestResetPassword:
 
         # Try to reset password with expired token
         with pytest.raises(HTTPException) as exc_info:
-            await PasswordResetService.reset_password(token=reset_token.token, new_password="newpassword", db=test_db)
+            await PasswordResetService.reset_password(token=reset_token.token, new_password="NewPassword1", db=test_db)
 
         assert exc_info.value.status_code == 400
         assert "expired" in exc_info.value.detail.lower()

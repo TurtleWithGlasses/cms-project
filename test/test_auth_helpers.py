@@ -31,7 +31,7 @@ class TestGetCurrentUser:
         user = User(
             username="testuser",
             email="testuser@example.com",
-            hashed_password=hash_password("password123"),
+            hashed_password=hash_password("Password123"),
             role_id=role.id,
         )
         test_db.add(user)
@@ -81,7 +81,7 @@ class TestGetCurrentUser:
         user = User(
             username="noroleuser",
             email="norole@example.com",
-            hashed_password=hash_password("password123"),
+            hashed_password=hash_password("Password123"),
             role_id=None,  # No role assigned
         )
         test_db.add(user)
@@ -109,7 +109,7 @@ class TestGetCurrentUser:
         user = User(
             username="testuser",
             email="testuser@example.com",
-            hashed_password=hash_password("password123"),
+            hashed_password=hash_password("Password123"),
             role_id=role.id,
         )
         test_db.add(user)
@@ -143,7 +143,7 @@ class TestGetCurrentUser:
             result = await test_db.execute(select(Role).where(Role.name == role_name))
             role = result.scalars().first()
 
-            user = User(username=username, email=email, hashed_password=hash_password("password123"), role_id=role.id)
+            user = User(username=username, email=email, hashed_password=hash_password("Password123"), role_id=role.id)
             test_db.add(user)
 
         await test_db.commit()

@@ -195,7 +195,7 @@ class TestMiddlewareOrder:
     def test_csrf_protection_active(self):
         """CSRF protection should be active for state-changing requests"""
         response = client.post(
-            "/register", data={"username": "newuser", "email": "newuser@example.com", "password": "password123"}
+            "/register", data={"username": "newuser", "email": "newuser@example.com", "password": "Password123"}
         )
         # Should fail with 403 (CSRF error) not 422 (validation error)
         assert response.status_code == 403

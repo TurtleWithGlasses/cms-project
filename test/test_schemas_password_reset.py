@@ -57,19 +57,19 @@ class TestPasswordResetConfirm:
         """Test password reset confirm with matching passwords"""
         data = {
             "token": "valid-token-string",
-            "new_password": "newpassword123",  # nosec B106
-            "confirm_password": "newpassword123",  # nosec B106
+            "new_password": "NewPassword123",  # nosec B106
+            "confirm_password": "NewPassword123",  # nosec B106
         }
         confirm = PasswordResetConfirm(**data)
         assert confirm.token == "valid-token-string"
-        assert confirm.new_password == "newpassword123"  # nosec B106
-        assert confirm.confirm_password == "newpassword123"  # nosec B106
+        assert confirm.new_password == "NewPassword123"  # nosec B106
+        assert confirm.confirm_password == "NewPassword123"  # nosec B106
 
     def test_password_reset_confirm_with_mismatched_passwords(self):
         """Test that mismatched passwords raise validation error"""
         data = {
             "token": "valid-token-string",
-            "new_password": "newpassword123",  # nosec B106
+            "new_password": "NewPassword123",  # nosec B106
             "confirm_password": "differentpassword",  # nosec B106
         }
         with pytest.raises(ValidationError) as exc_info:
@@ -79,8 +79,8 @@ class TestPasswordResetConfirm:
     def test_password_reset_confirm_requires_token(self):
         """Test that token is required"""
         data = {
-            "new_password": "newpassword123",  # nosec B106
-            "confirm_password": "newpassword123",  # nosec B106
+            "new_password": "NewPassword123",  # nosec B106
+            "confirm_password": "NewPassword123",  # nosec B106
         }
         with pytest.raises(ValidationError) as exc_info:
             PasswordResetConfirm(**data)
@@ -90,7 +90,7 @@ class TestPasswordResetConfirm:
         """Test that new_password is required"""
         data = {
             "token": "valid-token-string",
-            "confirm_password": "newpassword123",  # nosec B106
+            "confirm_password": "NewPassword123",  # nosec B106
         }
         with pytest.raises(ValidationError) as exc_info:
             PasswordResetConfirm(**data)
@@ -100,7 +100,7 @@ class TestPasswordResetConfirm:
         """Test that confirm_password is required"""
         data = {
             "token": "valid-token-string",
-            "new_password": "newpassword123",  # nosec B106
+            "new_password": "NewPassword123",  # nosec B106
         }
         with pytest.raises(ValidationError) as exc_info:
             PasswordResetConfirm(**data)
@@ -131,8 +131,8 @@ class TestPasswordResetConfirm:
         """Test that token cannot be empty string"""
         data = {
             "token": "",
-            "new_password": "newpassword123",  # nosec B106
-            "confirm_password": "newpassword123",  # nosec B106
+            "new_password": "NewPassword123",  # nosec B106
+            "confirm_password": "NewPassword123",  # nosec B106
         }
         with pytest.raises(ValidationError):
             PasswordResetConfirm(**data)
@@ -210,8 +210,8 @@ class TestPasswordResetSchemaIntegration:
         # Step 2: Confirm with token and new password
         confirm = PasswordResetConfirm(
             token="reset-token-123",
-            new_password="newsecurepassword",  # nosec B106
-            confirm_password="newsecurepassword",  # nosec B106
+            new_password="NewSecurePass123",  # nosec B106
+            confirm_password="NewSecurePass123",  # nosec B106
         )
         assert confirm.token == "reset-token-123"
 

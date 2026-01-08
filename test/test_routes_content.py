@@ -59,7 +59,7 @@ async def test_user_fixture():
         user = User(
             username="testuser",
             email="testuser@example.com",
-            hashed_password=hash_password("testpassword"),
+            hashed_password=hash_password("TestPassword123"),
             role_id=user_role.id,
         )
         session.add(user)

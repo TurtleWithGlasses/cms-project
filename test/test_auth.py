@@ -59,7 +59,7 @@ async def test_admin_user():
         admin = User(
             username="testadmin",
             email="admin@example.com",
-            hashed_password=hash_password("adminpassword"),
+            hashed_password=hash_password("AdminPassword123"),
             role_id=admin_role.id,
         )
         session.add(admin)
@@ -80,7 +80,7 @@ async def test_regular_user():
         user = User(
             username="testuser",
             email="testuser@example.com",
-            hashed_password=hash_password("testpassword"),
+            hashed_password=hash_password("TestPassword123"),
             role_id=user_role.id,
         )
         session.add(user)
@@ -118,7 +118,7 @@ class TestLogin:
         """Test successful login with admin credentials"""
         response = auth_client.post(
             "/auth/token",
-            data={"username": "admin@example.com", "password": "adminpassword"},
+            data={"username": "admin@example.com", "password": "AdminPassword123"},
         )
 
         assert response.status_code == 200
@@ -131,7 +131,7 @@ class TestLogin:
         """Test login with non-existent email"""
         response = auth_client.post(
             "/auth/token",
-            data={"username": "nonexistent@example.com", "password": "password"},
+            data={"username": "nonexistent@example.com", "password": "Password123"},
         )
 
         assert response.status_code == 401
@@ -144,7 +144,7 @@ class TestLogin:
         """Test login with wrong password"""
         response = auth_client.post(
             "/auth/token",
-            data={"username": "admin@example.com", "password": "wrongpassword"},
+            data={"username": "admin@example.com", "password": "WrongPassword1"},
         )
 
         assert response.status_code == 401
@@ -157,7 +157,7 @@ class TestLogin:
         """Test that login creates a Redis session"""
         response = auth_client.post(
             "/auth/token",
-            data={"username": "admin@example.com", "password": "adminpassword"},
+            data={"username": "admin@example.com", "password": "AdminPassword123"},
         )
 
         assert response.status_code == 200
@@ -188,7 +188,7 @@ class TestAuthentication:
         # Login
         response = auth_client.post(
             "/auth/token",
-            data={"username": "testuser@example.com", "password": "testpassword"},
+            data={"username": "testuser@example.com", "password": "TestPassword123"},
         )
 
         assert response.status_code == 200
@@ -205,14 +205,14 @@ class TestAuthentication:
         # Login as admin
         admin_response = auth_client.post(
             "/auth/token",
-            data={"username": "admin@example.com", "password": "adminpassword"},
+            data={"username": "admin@example.com", "password": "AdminPassword123"},
         )
         assert admin_response.status_code == 200
 
         # Login as regular user
         user_response = auth_client.post(
             "/auth/token",
-            data={"username": "testuser@example.com", "password": "testpassword"},
+            data={"username": "testuser@example.com", "password": "TestPassword123"},
         )
         assert user_response.status_code == 200
 

@@ -25,7 +25,7 @@ class TestPasswordHashing:
 
     def test_hash_password(self):
         """Test that password hashing works"""
-        password = "test_password_123"
+        password = "Test_Password_123"
         hashed = hash_password(password)
 
         assert hashed is not None
@@ -34,7 +34,7 @@ class TestPasswordHashing:
 
     def test_hash_password_different_hashes(self):
         """Test that same password produces different hashes (due to salt)"""
-        password = "test_password_123"
+        password = "Test_Password_123"
         hash1 = hash_password(password)
         hash2 = hash_password(password)
 
@@ -43,14 +43,14 @@ class TestPasswordHashing:
 
     def test_verify_password_correct(self):
         """Test verifying a correct password"""
-        password = "test_password_123"
+        password = "Test_Password_123"
         hashed = hash_password(password)
 
         assert verify_password(password, hashed) is True
 
     def test_verify_password_incorrect(self):
         """Test verifying an incorrect password"""
-        password = "test_password_123"
+        password = "Test_Password_123"
         wrong_password = "wrong_password"
         hashed = hash_password(password)
 
@@ -58,7 +58,7 @@ class TestPasswordHashing:
 
     def test_verify_password_empty(self):
         """Test verifying empty password"""
-        password = "test_password_123"
+        password = "Test_Password_123"
         hashed = hash_password(password)
 
         assert verify_password("", hashed) is False
@@ -189,7 +189,7 @@ class TestVerifyToken:
         user = User(
             username="testuser",
             email="testuser@example.com",
-            hashed_password=hash_password("password123"),
+            hashed_password=hash_password("Password123"),
             role_id=role.id,
         )
         test_db.add(user)
@@ -357,7 +357,7 @@ class TestTokenRoundTrip:
         users_data = [("user1", "user1@example.com"), ("user2", "user2@example.com"), ("user3", "user3@example.com")]
 
         for username, email in users_data:
-            user = User(username=username, email=email, hashed_password=hash_password("password123"), role_id=role.id)
+            user = User(username=username, email=email, hashed_password=hash_password("Password123"), role_id=role.id)
             test_db.add(user)
 
         await test_db.commit()

@@ -63,7 +63,7 @@ async def test_user():
         user = User(
             username="testuser",
             email="testuser@example.com",
-            hashed_password=hash_password("testpassword"),
+            hashed_password=hash_password("TestPassword123"),
             role_id=user_role.id,
         )
         session.add(user)
@@ -312,12 +312,12 @@ class TestUpdateUserInfo:
     async def test_update_user_password(self, test_user):
         """Test updating user password"""
         async with TestSessionLocal() as session:
-            update_data = UserUpdate(username=test_user.username, email=test_user.email, password="newpassword123")
+            update_data = UserUpdate(username=test_user.username, email=test_user.email, password="NewPassword123")
 
             result = await content_service.update_user_info(test_user.id, update_data, session)
 
             # Verify password was hashed (not stored as plaintext)
-            assert result.hashed_password != "newpassword123"
+            assert result.hashed_password != "NewPassword123"
             assert result.hashed_password.startswith("$2b$")  # bcrypt hash prefix
 
     @pytest.mark.asyncio

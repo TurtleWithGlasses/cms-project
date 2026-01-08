@@ -61,7 +61,7 @@ async def test_user_fixture():
         user = User(
             username="testuser",
             email="testuser@example.com",
-            hashed_password=hash_password("testpassword"),
+            hashed_password=hash_password("TestPassword123"),
             role_id=user_role.id,
         )
         session.add(user)
@@ -217,7 +217,7 @@ class TestPasswordResetConfirm:
                 # Test password reset service
                 from app.services.password_reset_service import PasswordResetService
 
-                user = await PasswordResetService.reset_password("direct-test-token", "newpassword123", session)
+                user = await PasswordResetService.reset_password("direct-test-token", "NewPassword123", session)
                 assert user is not None
                 assert user.id == test_user_fixture.id
 
@@ -232,7 +232,7 @@ class TestPasswordResetConfirm:
 
     def test_reset_password_with_invalid_token(self, password_reset_client):
         """Test resetting password with invalid token"""
-        data = {"token": "invalid-token", "new_password": "newpassword123", "confirm_password": "newpassword123"}
+        data = {"token": "invalid-token", "new_password": "NewPassword123", "confirm_password": "NewPassword123"}
         response = password_reset_client.post("/api/v1/password-reset/api/reset", json=data)
 
         assert response.status_code == 400
@@ -247,7 +247,7 @@ class TestPasswordResetConfirm:
         # Create used token
         token = asyncio.run(self.create_used_token(test_user_fixture))
 
-        data = {"token": token, "new_password": "newpassword123", "confirm_password": "newpassword123"}
+        data = {"token": token, "new_password": "NewPassword123", "confirm_password": "NewPassword123"}
         response = password_reset_client.post("/api/v1/password-reset/api/reset", json=data)
 
         assert response.status_code == 400
@@ -262,7 +262,7 @@ class TestPasswordResetConfirm:
         # Create expired token
         token = asyncio.run(self.create_expired_token(test_user_fixture))
 
-        data = {"token": token, "new_password": "newpassword123", "confirm_password": "newpassword123"}
+        data = {"token": token, "new_password": "NewPassword123", "confirm_password": "NewPassword123"}
         response = password_reset_client.post("/api/v1/password-reset/api/reset", json=data)
 
         assert response.status_code == 400
@@ -277,7 +277,7 @@ class TestPasswordResetConfirm:
         # Create reset token
         token = asyncio.run(self.create_reset_token(test_user_fixture))
 
-        data = {"token": token, "new_password": "newpassword123", "confirm_password": "differentpassword"}
+        data = {"token": token, "new_password": "NewPassword123", "confirm_password": "differentpassword"}
         response = password_reset_client.post("/api/v1/password-reset/api/reset", json=data)
 
         # Schema validation should catch this
