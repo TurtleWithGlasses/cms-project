@@ -25,6 +25,7 @@ class RBACMiddleware(BaseHTTPMiddleware):
             "/login",
             "/logout",
             "/register",
+            "/api/v1/users/register",
             "/auth/token",
             "/token",
             "/favicon.ico",
@@ -69,8 +70,8 @@ class RBACMiddleware(BaseHTTPMiddleware):
 
             except ValidationError as e:
                 logger.error(f"Validation error: {e.json()}")
-                raise HTTPException(status_code=422, detail=e.errors())
+                raise HTTPException(status_code=422, detail=e.errors()) from e
 
             except Exception as e:
                 logger.error(f"Unhandled middleware exception: {str(e)}")
-                raise HTTPException(status_code=500, detail="Internal Server Error")
+                raise HTTPException(status_code=500, detail="Internal Server Error") from e
