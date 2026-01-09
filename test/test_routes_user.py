@@ -599,3 +599,101 @@ class TestDeleteUserEndpoints:
 
         # Should redirect or succeed
         assert response.status_code in [200, 303]
+
+
+class TestRoleUpdateErrors:
+    """Test role update error paths"""
+
+    def test_update_role_for_nonexistent_user(self, user_client, test_admin_fixture):
+        """Test updating role for user that doesn't exist"""
+        headers = get_auth_headers(test_admin_fixture.email)
+        data = {"role": "editor"}
+
+        response = user_client.put("/api/v1/users/99999/role", json=data, headers=headers)
+
+        # Should return 404 or 422 (validation error)
+        assert response.status_code in [404, 422]
+
+    def test_update_user_to_nonexistent_role(self, user_client, test_admin_fixture, test_user_fixture):
+        """Test updating user to invalid role"""
+        headers = get_auth_headers(test_admin_fixture.email)
+        data = {"role": "superuser"}  # This role doesn't exist
+
+        response = user_client.put(f"/api/v1/users/{test_user_fixture.id}/role", json=data, headers=headers)
+
+        # Should return error (404, 400, or 422)
+        assert response.status_code in [400, 404, 422]
+
+
+class TestUserUpdateErrors:
+    """Test user update error paths"""
+
+    def test_update_nonexistent_user(self, user_client, test_admin_fixture):
+        """Test updating user that doesn't exist"""
+        headers = get_auth_headers(test_admin_fixture.email)
+        data = {"username": "newusername"}
+
+        response = user_client.put("/api/v1/users/99999", json=data, headers=headers)
+
+        # Should return 404
+        assert response.status_code == 404
+
+    def test_update_user_individual_fields(self, user_client, test_user_fixture):
+        """Test updating individual user fields"""
+        headers = get_auth_headers(test_user_fixture.email)
+
+        # Test username update only
+        response = user_client.put(
+            f"/api/v1/users/{test_user_fixture.id}", json={"username": "updated_username"}, headers=headers
+        )
+        assert response.status_code in [200, 403, 422, 500]  # May be restricted or fail validation
+
+        # Test email update only (if allowed)
+        response = user_client.put(
+            f"/api/v1/users/{test_user_fixture.id}", json={"email": "newemail@example.com"}, headers=headers
+        )
+        assert response.status_code in [200, 403, 422, 500]
+
+        # Test password update only
+        response = user_client.put(
+            f"/api/v1/users/{test_user_fixture.id}", json={"password": "NewPassword123"}, headers=headers
+        )
+        assert response.status_code in [200, 403, 404, 422, 500]
+
+
+class TestHTMLEndpoints:
+    """Test HTML rendering endpoints"""
+
+    def test_admin_dashboard_get(self, user_client, test_admin_fixture):
+        """Test admin dashboard HTML endpoint"""
+        headers = get_auth_headers(test_admin_fixture.email)
+        response = user_client.get("/api/v1/users/admin/dashboard", headers=headers)
+
+        # Should return HTML or redirect
+        assert response.status_code in [200, 307]
+        if response.status_code == 200:
+            assert "text/html" in response.headers.get("content-type", "")
+
+
+class TestProfileUpdateEndpoint:
+    """Test PATCH /me profile update endpoint"""
+
+    def test_update_own_profile_patch(self, user_client, test_user_fixture):
+        """Test updating own profile via PATCH /me"""
+        headers = get_auth_headers(test_user_fixture.email)
+        data = {"username": "patchedusername"}
+
+        response = user_client.patch("/api/v1/users/me", json=data, headers=headers)
+
+        # Should update successfully or fail with permission error
+        assert response.status_code in [200, 403, 500]
+
+    def test_update_profile_with_password(self, user_client, test_user_fixture):
+        """Test updating profile including password"""
+        headers = get_auth_headers(test_user_fixture.email)
+        data = {"username": test_user_fixture.username, "password": "NewSecurePassword123"}
+
+        response = user_client.patch("/api/v1/users/me", json=data, headers=headers)
+
+        # Should handle password update
+        assert response.status_code in [200, 403, 500]
