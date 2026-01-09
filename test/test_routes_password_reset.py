@@ -297,6 +297,55 @@ class TestPasswordResetConfirm:
         # Schema validation should catch this (min_length=8)
         assert response.status_code == 422
 
+    def test_reset_password_form_endpoint_password_mismatch(self, password_reset_client, test_user_fixture):
+        """Test form endpoint with mismatched passwords"""
+        import asyncio
+
+        token = asyncio.run(self.create_reset_token(test_user_fixture))
+
+        response = password_reset_client.post(
+            "/api/v1/password-reset/reset",
+            data={"token": token, "new_password": "NewPassword123", "confirm_password": "DifferentPassword123"},
+            follow_redirects=False,
+        )
+
+        # Should return 400 error
+        assert response.status_code == 400
+
+    def test_reset_password_form_endpoint_short_password(self, password_reset_client, test_user_fixture):
+        """Test form endpoint with password too short"""
+        import asyncio
+
+        token = asyncio.run(self.create_reset_token(test_user_fixture))
+
+        response = password_reset_client.post(
+            "/api/v1/password-reset/reset",
+            data={"token": token, "new_password": "short", "confirm_password": "short"},
+            follow_redirects=False,
+        )
+
+        # Should return 400 error
+        assert response.status_code == 400
+
+    def test_reset_password_form_endpoint_invalid_token(self, password_reset_client):
+        """Test form endpoint with invalid token"""
+        response = password_reset_client.post(
+            "/api/v1/password-reset/reset",
+            data={"token": "invalid-token", "new_password": "NewPassword123", "confirm_password": "NewPassword123"},
+            follow_redirects=False,
+        )
+
+        # Should return error page
+        assert response.status_code in [400, 500]
+
+    def test_get_reset_form_with_invalid_token(self, password_reset_client):
+        """Test GET reset form with invalid token"""
+        response = password_reset_client.get("/api/v1/password-reset/reset?token=invalid-token")
+
+        # Should return error page
+        assert response.status_code in [400, 500]
+        assert "text/html" in response.headers["content-type"]
+
 
 class TestPasswordResetService:
     """Test password reset service directly (avoiding rate limiter issues)"""
