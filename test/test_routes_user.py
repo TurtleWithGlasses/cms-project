@@ -542,3 +542,60 @@ class TestSecureEndpoints:
 
         assert response.status_code == 200
         assert isinstance(response.json(), list)
+
+    def test_editor_can_access_secure_endpoint(self, user_client, test_editor_fixture):
+        """Test editor accessing secure endpoint"""
+        headers = get_auth_headers(test_editor_fixture.email)
+        response = user_client.get("/api/v1/users/secure-endpoint", headers=headers)
+
+        assert response.status_code == 200
+        assert "permission" in response.json()["message"].lower()
+
+
+class TestIndividualNotifications:
+    """Test individual notification update endpoints"""
+
+    def test_mark_nonexistent_notification_as_read_fails(self, user_client, test_user_fixture):
+        """Test marking nonexistent notification as read fails"""
+        headers = get_auth_headers(test_user_fixture.email)
+        response = user_client.put("/api/v1/users/notifications/99999/read", headers=headers)
+
+        assert response.status_code == 404
+        response_json = response.json()
+        # Check if it's in the standardized error format or raw format
+        if "error" in response_json:
+            assert "not found" in response_json["error"]["message"].lower()
+        else:
+            assert "not found" in response_json.get("detail", "").lower()
+
+    def test_mark_nonexistent_notification_as_unread_fails(self, user_client, test_user_fixture):
+        """Test marking nonexistent notification as unread fails"""
+        headers = get_auth_headers(test_user_fixture.email)
+        response = user_client.put("/api/v1/users/notifications/99999/unread", headers=headers)
+
+        assert response.status_code == 404
+        response_json = response.json()
+        # Check if it's in the standardized error format or raw format
+        if "error" in response_json:
+            assert "not found" in response_json["error"]["message"].lower()
+        else:
+            assert "not found" in response_json.get("detail", "").lower()
+
+    def test_update_nonexistent_notification_fails(self, user_client, test_user_fixture):
+        """Test updating nonexistent notification fails"""
+        headers = get_auth_headers(test_user_fixture.email)
+        response = user_client.put("/api/v1/users/notifications/99999", headers=headers)
+
+        assert response.status_code == 404
+
+
+class TestDeleteUserEndpoints:
+    """Test delete user endpoints"""
+
+    def test_delete_user_post_proxy(self, user_client, test_admin_fixture, test_user_fixture):
+        """Test POST proxy endpoint for deleting user"""
+        headers = get_auth_headers(test_admin_fixture.email)
+        response = user_client.post(f"/api/v1/users/delete/{test_user_fixture.id}", headers=headers)
+
+        # Should redirect or succeed
+        assert response.status_code in [200, 303]
