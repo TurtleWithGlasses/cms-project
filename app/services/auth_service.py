@@ -5,6 +5,7 @@ from sqlalchemy.future import select
 from app.auth import hash_password, verify_password
 from app.constants.roles import get_default_role_name
 from app.models.user import Role, User
+from app.services.email_service import email_service
 
 
 async def authenticate_user(email: str, password: str, db: AsyncSession):
@@ -35,4 +36,12 @@ async def register_user(email: str, username: str, password: str, db: AsyncSessi
     db.add(new_user)
     await db.commit()
     await db.refresh(new_user)
+
+    # Send welcome email
+    try:
+        email_service.send_welcome_email(to_email=new_user.email, username=new_user.username)
+    except Exception as e:
+        # Log error but don't fail registration
+        print(f"Failed to send welcome email: {e}")
+
     return new_user

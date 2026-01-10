@@ -29,6 +29,14 @@ class Settings(BaseSettings):
     # CORS settings
     allowed_origins: list[str] = ["http://localhost:3000", "http://localhost:8000"]
 
+    # Email/SMTP settings
+    smtp_host: str = "smtp.gmail.com"
+    smtp_port: int = 587
+    smtp_user: str | None = None
+    smtp_password: str | None = None
+    smtp_from: str = "noreply@cms-project.com"
+    app_url: str = "http://localhost:8000"
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="ignore")
 
 

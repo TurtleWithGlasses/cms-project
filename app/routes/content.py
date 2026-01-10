@@ -283,3 +283,187 @@ async def get_all_content_route(
     return await content_service.get_all_content(
         db, skip=skip, limit=limit, status=status, category_id=category_id, author_id=author_id
     )
+
+
+# Search Endpoints
+
+
+@router.get("/search/", response_model=dict)
+async def search_content_endpoint(
+    query: str | None = None,
+    category_id: int | None = None,
+    tag_ids: str | None = None,  # Comma-separated tag IDs
+    status: str | None = None,
+    author_id: int | None = None,
+    sort_by: str = "created_at",
+    sort_order: str = "desc",
+    limit: int = 20,
+    offset: int = 0,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Search for content with comprehensive filtering.
+
+    - **query**: Search text (searches title, body, and slug)
+    - **category_id**: Filter by category
+    - **tag_ids**: Comma-separated tag IDs (e.g., "1,2,3")
+    - **status**: Filter by status (draft, pending, published)
+    - **author_id**: Filter by author
+    - **sort_by**: Field to sort by (created_at, updated_at, title, publish_at)
+    - **sort_order**: asc or desc
+    - **limit**: Maximum results (1-100)
+    - **offset**: Pagination offset
+    """
+    from app.services.search_service import search_service
+
+    # Parse tag IDs from comma-separated string
+    parsed_tag_ids = None
+    if tag_ids:
+        try:
+            parsed_tag_ids = [int(tid.strip()) for tid in tag_ids.split(",") if tid.strip()]
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid tag_ids format. Use comma-separated integers.")
+
+    # Validate limit
+    if limit < 1 or limit > 100:
+        raise HTTPException(status_code=400, detail="Limit must be between 1 and 100")
+
+    # Validate sort options
+    valid_sort_fields = ["created_at", "updated_at", "title", "publish_at"]
+    if sort_by not in valid_sort_fields:
+        raise HTTPException(status_code=400, detail=f"Invalid sort_by. Must be one of: {', '.join(valid_sort_fields)}")
+
+    if sort_order.lower() not in ["asc", "desc"]:
+        raise HTTPException(status_code=400, detail="Invalid sort_order. Must be 'asc' or 'desc'")
+
+    # Perform search
+    results, total = await search_service.search_content(
+        db=db,
+        query=query,
+        category_id=category_id,
+        tag_ids=parsed_tag_ids,
+        status=status,
+        author_id=author_id,
+        sort_by=sort_by,
+        sort_order=sort_order,
+        limit=limit,
+        offset=offset,
+    )
+
+    return {
+        "results": results,
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "has_more": (offset + limit) < total,
+    }
+
+
+@router.get("/search/by-tags/", response_model=dict)
+async def search_by_tags_endpoint(
+    tag_names: str,  # Comma-separated tag names
+    limit: int = 20,
+    offset: int = 0,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Search content by tag names.
+
+    - **tag_names**: Comma-separated tag names (e.g., "python,tutorial,beginner")
+    - **limit**: Maximum results (1-100)
+    - **offset**: Pagination offset
+    """
+    from app.services.search_service import search_service
+
+    if not tag_names:
+        raise HTTPException(status_code=400, detail="tag_names parameter is required")
+
+    # Parse tag names
+    parsed_tag_names = [name.strip() for name in tag_names.split(",") if name.strip()]
+
+    if not parsed_tag_names:
+        raise HTTPException(status_code=400, detail="No valid tag names provided")
+
+    # Perform search
+    results, total = await search_service.search_by_tags(
+        db=db,
+        tag_names=parsed_tag_names,
+        limit=limit,
+        offset=offset,
+    )
+
+    return {
+        "results": results,
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "has_more": (offset + limit) < total,
+        "searched_tags": parsed_tag_names,
+    }
+
+
+@router.get("/search/by-category/{category_name}", response_model=dict)
+async def search_by_category_endpoint(
+    category_name: str,
+    limit: int = 20,
+    offset: int = 0,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Search content by category name.
+
+    - **category_name**: Name of the category
+    - **limit**: Maximum results (1-100)
+    - **offset**: Pagination offset
+    """
+    from app.services.search_service import search_service
+
+    results, total = await search_service.search_by_category(
+        db=db,
+        category_name=category_name,
+        limit=limit,
+        offset=offset,
+    )
+
+    return {
+        "results": results,
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "has_more": (offset + limit) < total,
+        "category": category_name,
+    }
+
+
+@router.get("/search/popular-tags/", response_model=list)
+async def get_popular_tags_endpoint(
+    limit: int = 10,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Get most popular tags by usage count.
+
+    - **limit**: Maximum number of tags to return
+    """
+    from app.services.search_service import search_service
+
+    tags = await search_service.get_popular_tags(db=db, limit=limit)
+
+    return [{"name": name, "count": count} for name, count in tags]
+
+
+@router.get("/search/recent/", response_model=list[ContentResponse])
+async def get_recent_content_endpoint(
+    status: str = "published",
+    limit: int = 10,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Get most recent content.
+
+    - **status**: Content status filter (default: published)
+    - **limit**: Maximum number of results
+    """
+    from app.services.search_service import search_service
+
+    return await search_service.get_recent_content(db=db, status=status, limit=limit)

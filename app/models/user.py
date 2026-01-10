@@ -48,3 +48,4 @@ class User(Base):
         "ActivityLog", foreign_keys="ActivityLog.target_user_id", overlaps="activity_logs"
     )
     password_reset_tokens = relationship("PasswordResetToken", back_populates="user", cascade="all, delete-orphan")
+    uploaded_media = relationship("Media", back_populates="uploader", cascade="all, delete-orphan")

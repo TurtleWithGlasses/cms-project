@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .container {
+            background-color: #f9f9f9;
+            border-radius: 8px;
+            padding: 30px;
+            border: 1px solid #e0e0e0;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .header h1 {
+            color: #2c3e50;
+            margin: 0;
+        }
+        .content {
+            background-color: white;
+            padding: 25px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+        .button {
+            display: inline-block;
+            padding: 12px 30px;
+            background-color: #27ae60;
+            color: white !important;
+            text-decoration: none;
+            border-radius: 5px;
+            margin: 20px 0;
+            font-weight: bold;
+        }
+        .button:hover {
+            background-color: #229954;
+        }
+        .features {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+        .features ul {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        .footer {
+            text-align: center;
+            font-size: 12px;
+            color: #7f8c8d;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>{{ app_name }}</h1>
+        </div>
+
+        <div class="content">
+            <h2>Welcome to {{ app_name }}! 🎉</h2>
+            <p>Hello {{ username }},</p>
+
+            <p>Thank you for joining {{ app_name }}! Your account has been successfully created, and you're ready to get started.</p>
+
+            <center>
+                <a href="{{ login_url }}" class="button">Go to Login</a>
+            </center>
+
+            <div class="features">
+                <h3>What you can do:</h3>
+                <ul>
+                    <li>📝 Create and manage content</li>
+                    <li>🏷️ Organize with tags and categories</li>
+                    <li>🔄 Track content versions</li>
+                    <li>🔔 Receive notifications</li>
+                    <li>⏰ Schedule content publication</li>
+                </ul>
+            </div>
+
+            <p>If you have any questions or need help getting started, feel free to reach out to our support team.</p>
+
+            <p>We're excited to have you on board!</p>
+
+            <p>Best regards,<br>The {{ app_name }} Team</p>
+        </div>
+
+        <div class="footer">
+            <p>This is an automated message from {{ app_name }}. Please do not reply to this email.</p>
+            <p>&copy; 2026 {{ app_name }}. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>

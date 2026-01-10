@@ -112,6 +112,33 @@ uvicorn main:app --reload
 
 The application will be available at `http://localhost:8000`
 
+## Documentation
+
+Comprehensive documentation for deployment and operations:
+
+- **[DOCKER_SETUP.md](DOCKER_SETUP.md)** - Docker and docker-compose setup guide
+  - Quick start with Docker
+  - Service management commands
+  - Development workflow with hot reload
+  - Troubleshooting Docker issues
+
+- **[MIGRATIONS.md](MIGRATIONS.md)** - Database migration management
+  - Creating and applying migrations
+  - Migration best practices
+  - Common migration patterns
+  - Troubleshooting migration issues
+
+- **[DEPLOYMENT.md](DEPLOYMENT.md)** - Production deployment guide
+  - Cloud provider deployments (AWS, Azure, GCP)
+  - CI/CD pipeline setup
+  - Security hardening
+  - Monitoring and logging
+  - Backup and recovery
+  - Scaling strategies
+
+- **[CONTRIBUTING.md](CONTRIBUTING.md)** - Contributor guidelines
+- **[KNOWN_ISSUES.md](KNOWN_ISSUES.md)** - Known issues and limitations
+
 ## API Documentation
 
 Once the application is running, visit:

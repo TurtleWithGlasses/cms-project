@@ -164,3 +164,6 @@ logs/
 # Static files (if applicable)
 static/
 media/
+
+# Uploads directory
+uploads/

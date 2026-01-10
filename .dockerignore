@@ -1,0 +1,81 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+*.cover
+.hypothesis/
+.mypy_cache/
+.ruff_cache/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*.swn
+*.bak
+.DS_Store
+
+# Git
+.git/
+.gitignore
+.gitattributes
+.github/
+
+# Documentation
+*.md
+ROADMAP.md
+CONTRIBUTING.md
+KNOWN_ISSUES.md
+COVERAGE_ANALYSIS.md
+LINTING.md
+TESTABILITY_IMPROVEMENTS.md
+.README
+
+# CI/CD
+.gitlab-ci.yml
+.travis.yml
+codecov.yml
+
+# Logs
+logs/
+*.log
+
+# Development files
+.env
+.env.local
+.env.*.local
+notez.txt
+
+# Test files
+test/
+tests/
+
+# Pre-commit
+.pre-commit-config.yaml
+.qodo/
+.claude/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3

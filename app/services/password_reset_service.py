@@ -13,6 +13,7 @@ from sqlalchemy.future import select
 from app.auth import hash_password
 from app.models.password_reset import PasswordResetToken
 from app.models.user import User
+from app.services.email_service import email_service
 from app.utils.activity_log import log_activity
 
 
@@ -75,6 +76,17 @@ class PasswordResetService:
             user_id=user.id,
             description=f"Password reset requested for {email}",
         )
+
+        # Send password reset email
+        try:
+            email_service.send_password_reset_email(
+                to_email=user.email,
+                username=user.username,
+                reset_token=reset_token.token,
+            )
+        except Exception as e:
+            # Log error but don't fail the request
+            print(f"Failed to send password reset email: {e}")
 
         return reset_token
 

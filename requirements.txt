@@ -43,3 +43,6 @@ slowapi==0.1.9
 
 # Template engine
 jinja2==3.1.4
+
+# Image processing
+Pillow==11.0.0
