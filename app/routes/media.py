@@ -4,21 +4,25 @@ Media Routes
 API endpoints for file upload and media management.
 """
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import get_current_user
 from app.database import get_db
+from app.middleware.rate_limit import limiter
 from app.models.user import User
 from app.schemas.media import MediaListResponse, MediaResponse, MediaUploadResponse
-from app.services.upload_service import upload_service
+from app.services.upload_service import UPLOAD_DIR, upload_service
+from app.utils.security import validate_file_path
 
 router = APIRouter(prefix="/media", tags=["Media"])
 
 
 @router.post("/upload", response_model=MediaUploadResponse, status_code=status.HTTP_201_CREATED)
+@limiter.limit("10/hour")  # Rate limit: 10 uploads per hour per IP
 async def upload_file(
+    request: Request,
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -30,6 +34,7 @@ async def upload_file(
     Supported document formats: PDF, DOC, DOCX, XLS, XLSX, TXT, MD
 
     Maximum file size: 10MB
+    Rate limit: 10 uploads per hour
 
     Returns the uploaded media information including URLs.
     """
@@ -126,15 +131,14 @@ async def download_file(
     ]:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to access this file")
 
-    # Return file
-    from pathlib import Path
+    # Validate file path to prevent path traversal attacks
+    safe_file_path = validate_file_path(media.file_path, UPLOAD_DIR)
 
-    file_path = Path(media.file_path)
-    if not file_path.exists():
+    if not safe_file_path.exists():
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found on disk")
 
     return FileResponse(
-        path=str(file_path),
+        path=str(safe_file_path),
         media_type=media.mime_type,
         filename=media.original_filename,
     )
@@ -165,15 +169,14 @@ async def get_thumbnail(
     if not media.thumbnail_path:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No thumbnail available for this media")
 
-    # Return thumbnail
-    from pathlib import Path
+    # Validate thumbnail path to prevent path traversal attacks
+    safe_thumbnail_path = validate_file_path(media.thumbnail_path, UPLOAD_DIR.parent)
 
-    thumbnail_path = Path(media.thumbnail_path)
-    if not thumbnail_path.exists():
+    if not safe_thumbnail_path.exists():
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Thumbnail not found on disk")
 
     return FileResponse(
-        path=str(thumbnail_path),
+        path=str(safe_thumbnail_path),
         media_type=media.mime_type,
     )
 

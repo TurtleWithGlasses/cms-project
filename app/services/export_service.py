@@ -6,6 +6,7 @@ Provides data export functionality in multiple formats (JSON, CSV).
 
 import csv
 import json
+import logging
 from io import StringIO
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,6 +16,13 @@ from sqlalchemy.orm import joinedload
 from app.models.activity_log import ActivityLog
 from app.models.content import Content
 from app.models.user import User
+from app.utils.security import sanitize_csv_field
+
+logger = logging.getLogger(__name__)
+
+# Maximum export limits to prevent resource exhaustion
+MAX_EXPORT_LIMIT = 10000
+DEFAULT_EXPORT_LIMIT = 1000
 
 
 class ExportService:
@@ -33,12 +41,19 @@ class ExportService:
         Args:
             db: Database session
             status: Filter by status
-            status: Filter by author
-            limit: Maximum number of records
+            author_id: Filter by author
+            limit: Maximum number of records (capped at MAX_EXPORT_LIMIT)
 
         Returns:
             JSON string
         """
+        # Enforce export limits
+        if limit is None:
+            limit = DEFAULT_EXPORT_LIMIT
+        elif limit > MAX_EXPORT_LIMIT:
+            logger.warning(f"Export limit {limit} exceeds maximum {MAX_EXPORT_LIMIT}, capping")
+            limit = MAX_EXPORT_LIMIT
+
         stmt = select(Content).options(
             joinedload(Content.author),
             joinedload(Content.category),
@@ -49,8 +64,8 @@ class ExportService:
             stmt = stmt.where(Content.status == status)
         if author_id:
             stmt = stmt.where(Content.author_id == author_id)
-        if limit:
-            stmt = stmt.limit(limit)
+
+        stmt = stmt.limit(limit)
 
         result = await db.execute(stmt)
         content_list = result.unique().scalars().all()
@@ -91,17 +106,24 @@ class ExportService:
         limit: int | None = None,
     ) -> str:
         """
-        Export content as CSV.
+        Export content as CSV with injection protection.
 
         Args:
             db: Database session
             status: Filter by status
             author_id: Filter by author
-            limit: Maximum number of records
+            limit: Maximum number of records (capped at MAX_EXPORT_LIMIT)
 
         Returns:
-            CSV string
+            CSV string with sanitized fields
         """
+        # Enforce export limits
+        if limit is None:
+            limit = DEFAULT_EXPORT_LIMIT
+        elif limit > MAX_EXPORT_LIMIT:
+            logger.warning(f"Export limit {limit} exceeds maximum {MAX_EXPORT_LIMIT}, capping")
+            limit = MAX_EXPORT_LIMIT
+
         stmt = select(Content).options(
             joinedload(Content.author),
             joinedload(Content.category),
@@ -112,8 +134,8 @@ class ExportService:
             stmt = stmt.where(Content.status == status)
         if author_id:
             stmt = stmt.where(Content.author_id == author_id)
-        if limit:
-            stmt = stmt.limit(limit)
+
+        stmt = stmt.limit(limit)
 
         result = await db.execute(stmt)
         content_list = result.unique().scalars().all()
@@ -139,21 +161,21 @@ class ExportService:
             ]
         )
 
-        # Write data
+        # Write data with CSV injection protection
         for content in content_list:
             writer.writerow(
                 [
-                    content.id,
-                    content.title,
-                    content.slug,
-                    content.status.value,
-                    content.author.username,
-                    content.author.email,
-                    content.category.name if content.category else "",
-                    ", ".join([tag.name for tag in content.tags]),
-                    content.created_at.isoformat(),
-                    content.updated_at.isoformat() if content.updated_at else "",
-                    content.publish_at.isoformat() if content.publish_at else "",
+                    sanitize_csv_field(content.id),
+                    sanitize_csv_field(content.title),
+                    sanitize_csv_field(content.slug),
+                    sanitize_csv_field(content.status.value),
+                    sanitize_csv_field(content.author.username),
+                    sanitize_csv_field(content.author.email),
+                    sanitize_csv_field(content.category.name if content.category else ""),
+                    sanitize_csv_field(", ".join([tag.name for tag in content.tags])),
+                    sanitize_csv_field(content.created_at.isoformat()),
+                    sanitize_csv_field(content.updated_at.isoformat() if content.updated_at else ""),
+                    sanitize_csv_field(content.publish_at.isoformat() if content.publish_at else ""),
                 ]
             )
 
@@ -210,22 +232,29 @@ class ExportService:
         limit: int | None = None,
     ) -> str:
         """
-        Export users as CSV.
+        Export users as CSV with injection protection.
 
         Args:
             db: Database session
             role_id: Filter by role
-            limit: Maximum number of records
+            limit: Maximum number of records (capped at MAX_EXPORT_LIMIT)
 
         Returns:
-            CSV string
+            CSV string with sanitized fields
         """
+        # Enforce export limits
+        if limit is None:
+            limit = DEFAULT_EXPORT_LIMIT
+        elif limit > MAX_EXPORT_LIMIT:
+            logger.warning(f"Export limit {limit} exceeds maximum {MAX_EXPORT_LIMIT}, capping")
+            limit = MAX_EXPORT_LIMIT
+
         stmt = select(User).options(joinedload(User.role))
 
         if role_id:
             stmt = stmt.where(User.role_id == role_id)
-        if limit:
-            stmt = stmt.limit(limit)
+
+        stmt = stmt.limit(limit)
 
         result = await db.execute(stmt)
         users = result.unique().scalars().all()
@@ -237,14 +266,14 @@ class ExportService:
         # Write header
         writer.writerow(["ID", "Username", "Email", "Role"])
 
-        # Write data
+        # Write data with CSV injection protection
         for user in users:
             writer.writerow(
                 [
-                    user.id,
-                    user.username,
-                    user.email,
-                    user.role.name,
+                    sanitize_csv_field(user.id),
+                    sanitize_csv_field(user.username),
+                    sanitize_csv_field(user.email),
+                    sanitize_csv_field(user.role.name),
                 ]
             )
 
@@ -311,17 +340,22 @@ class ExportService:
         limit: int = 1000,
     ) -> str:
         """
-        Export activity logs as CSV.
+        Export activity logs as CSV with injection protection.
 
         Args:
             db: Database session
             user_id: Filter by user
             action: Filter by action
-            limit: Maximum number of records (default: 1000)
+            limit: Maximum number of records (default: 1000, capped at MAX_EXPORT_LIMIT)
 
         Returns:
-            CSV string
+            CSV string with sanitized fields
         """
+        # Enforce export limits
+        if limit > MAX_EXPORT_LIMIT:
+            logger.warning(f"Export limit {limit} exceeds maximum {MAX_EXPORT_LIMIT}, capping")
+            limit = MAX_EXPORT_LIMIT
+
         stmt = select(ActivityLog).options(joinedload(ActivityLog.user)).order_by(ActivityLog.timestamp.desc())
 
         if user_id:
@@ -352,18 +386,18 @@ class ExportService:
             ]
         )
 
-        # Write data
+        # Write data with CSV injection protection
         for log in logs:
             writer.writerow(
                 [
-                    log.id,
-                    log.action,
-                    log.description,
-                    log.user_id if log.user else "",
-                    log.user.username if log.user else "",
-                    log.content_id or "",
-                    log.target_user_id or "",
-                    log.timestamp.isoformat(),
+                    sanitize_csv_field(log.id),
+                    sanitize_csv_field(log.action),
+                    sanitize_csv_field(log.description),
+                    sanitize_csv_field(log.user_id if log.user else ""),
+                    sanitize_csv_field(log.user.username if log.user else ""),
+                    sanitize_csv_field(log.content_id or ""),
+                    sanitize_csv_field(log.target_user_id or ""),
+                    sanitize_csv_field(log.timestamp.isoformat()),
                 ]
             )
 

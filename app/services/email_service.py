@@ -5,6 +5,7 @@ Handles sending emails for password resets, notifications, and user communicatio
 """
 
 import smtplib
+import ssl
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from pathlib import Path
@@ -12,6 +13,7 @@ from pathlib import Path
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from app.config import settings
+from app.utils.security import sanitize_email_header
 
 
 class EmailService:
@@ -41,7 +43,7 @@ class EmailService:
         text_body: str | None = None,
     ) -> bool:
         """
-        Send an email using SMTP.
+        Send an email using SMTP with TLS certificate verification.
 
         Args:
             to_email: Recipient email address(es)
@@ -53,11 +55,19 @@ class EmailService:
             bool: True if email sent successfully, False otherwise
         """
         try:
+            # Sanitize email headers to prevent injection attacks
+            subject = sanitize_email_header(subject)
+
+            if isinstance(to_email, str):
+                to_email_str = sanitize_email_header(to_email)
+            else:
+                to_email_str = ", ".join(sanitize_email_header(e) for e in to_email)
+
             # Create message
             msg = MIMEMultipart("alternative")
             msg["Subject"] = subject
-            msg["From"] = self.smtp_from
-            msg["To"] = to_email if isinstance(to_email, str) else ", ".join(to_email)
+            msg["From"] = sanitize_email_header(self.smtp_from)
+            msg["To"] = to_email_str
 
             # Add plain text version if provided
             if text_body:
@@ -68,9 +78,14 @@ class EmailService:
             part2 = MIMEText(html_body, "html")
             msg.attach(part2)
 
-            # Send email
+            # Create secure SSL/TLS context with certificate verification
+            context = ssl.create_default_context()
+            context.check_hostname = True
+            context.verify_mode = ssl.CERT_REQUIRED
+
+            # Send email with TLS
             with smtplib.SMTP(self.smtp_host, self.smtp_port) as server:
-                server.starttls()
+                server.starttls(context=context)
                 if self.smtp_user and self.smtp_password:
                     server.login(self.smtp_user, self.smtp_password)
                 server.send_message(msg)
