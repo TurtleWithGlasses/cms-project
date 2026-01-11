@@ -96,8 +96,8 @@ async def get_media(
     from app.constants.roles import RoleEnum
 
     if media.uploaded_by != current_user.id and current_user.role.name not in [
-        RoleEnum.admin.value,
-        RoleEnum.superadmin.value,
+        RoleEnum.ADMIN.value,
+        RoleEnum.SUPERADMIN.value,
     ]:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to view this media")
 
@@ -121,8 +121,8 @@ async def download_file(
     from app.constants.roles import RoleEnum
 
     if media.uploaded_by != current_user.id and current_user.role.name not in [
-        RoleEnum.admin.value,
-        RoleEnum.superadmin.value,
+        RoleEnum.ADMIN.value,
+        RoleEnum.SUPERADMIN.value,
     ]:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to access this file")
 
@@ -157,8 +157,8 @@ async def get_thumbnail(
     from app.constants.roles import RoleEnum
 
     if media.uploaded_by != current_user.id and current_user.role.name not in [
-        RoleEnum.admin.value,
-        RoleEnum.superadmin.value,
+        RoleEnum.ADMIN.value,
+        RoleEnum.SUPERADMIN.value,
     ]:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to access this file")
 

@@ -125,10 +125,99 @@ async def test_db(setup_test_database) -> AsyncGenerator[AsyncSession, None]:
 
 
 @pytest.fixture
-def client():
-    """Create a test client for the FastAPI application with test database"""
-    # Database is already patched at module level
-    return TestClient(app)
+def mock_current_user_storage():
+    """Storage for the current user to be returned by auth mock"""
+    return {"user": None}
+
+
+@pytest.fixture
+def client(mock_current_user_storage, monkeypatch):
+    """Create a test client for the FastAPI application with mocked authentication"""
+    import app.auth as auth_module
+    from app.auth import get_current_user, oauth2_scheme
+    from app.database import get_db
+
+    async def override_get_db_for_client():
+        async with TestSessionLocal() as session:
+            yield session
+
+    def override_get_current_user():
+        """Mock authentication - returns user from storage"""
+        user = mock_current_user_storage.get("user")
+        if user is None:
+            from fastapi import HTTPException, status
+
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Not authenticated",
+            )
+        return user
+
+    def override_oauth2_scheme():
+        """Mock OAuth2 scheme - returns fake token"""
+        return "mock_token"
+
+    def mock_decode_access_token(token: str) -> str:
+        """Mock token decoding - returns email of current user"""
+        user = mock_current_user_storage.get("user")
+        if user:
+            return user.email
+        return "mock@example.com"
+
+    async def mock_verify_token(token: str, db):
+        """Mock token verification - returns current user from storage"""
+        return mock_current_user_storage.get("user")
+
+    # Mock the auth functions
+    monkeypatch.setattr(auth_module, "decode_access_token", mock_decode_access_token)
+    monkeypatch.setattr(auth_module, "verify_token", mock_verify_token)
+
+    # Mock the RBAC middleware to be a passthrough for tests
+    from app.middleware import rbac as rbac_module
+
+    async def mock_rbac_dispatch(self, request, call_next):
+        """Passthrough RBAC middleware for tests"""
+        return await call_next(request)
+
+    monkeypatch.setattr(rbac_module.RBACMiddleware, "dispatch", mock_rbac_dispatch)
+
+    app.dependency_overrides[get_db] = override_get_db_for_client
+    app.dependency_overrides[get_current_user] = override_get_current_user
+    app.dependency_overrides[oauth2_scheme] = override_oauth2_scheme
+
+    client = TestClient(app)
+    yield client
+
+    # Clean up overrides
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def authenticated_client(client, test_user, mock_current_user_storage):
+    """Client authenticated as regular user"""
+    mock_current_user_storage["user"] = test_user
+    return client
+
+
+@pytest.fixture
+def admin_client(client, test_admin, mock_current_user_storage):
+    """Client authenticated as admin"""
+    mock_current_user_storage["user"] = test_admin
+    return client
+
+
+@pytest.fixture
+def editor_client(client, test_editor, mock_current_user_storage):
+    """Client authenticated as editor"""
+    mock_current_user_storage["user"] = test_editor
+    return client
+
+
+@pytest.fixture
+def manager_client(client, test_manager, mock_current_user_storage):
+    """Client authenticated as manager"""
+    mock_current_user_storage["user"] = test_manager
+    return client
 
 
 @pytest.fixture
@@ -201,6 +290,77 @@ async def test_editor(test_db: AsyncSession) -> User:
 
 
 @pytest.fixture
+async def test_manager(test_db: AsyncSession) -> User:
+    """Create a test manager user"""
+    from sqlalchemy.future import select
+
+    # Get manager role
+    result = await test_db.execute(select(Role).where(Role.name == "manager"))
+    manager_role = result.scalars().first()
+
+    # Create manager
+    manager = User(
+        username="testmanager",
+        email="manager@example.com",
+        hashed_password=hash_password("ManagerPassword123"),
+        role_id=manager_role.id,
+    )
+    test_db.add(manager)
+    await test_db.commit()
+    await test_db.refresh(manager)
+
+    return manager
+
+
+@pytest.fixture
+async def test_superadmin(test_db: AsyncSession) -> User:
+    """Create a test superadmin user"""
+    from sqlalchemy.future import select
+
+    # Get superadmin role
+    result = await test_db.execute(select(Role).where(Role.name == "superadmin"))
+    superadmin_role = result.scalars().first()
+
+    # Create superadmin
+    superadmin = User(
+        username="testsuperadmin",
+        email="superadmin@example.com",
+        hashed_password=hash_password("SuperAdminPassword123"),
+        role_id=superadmin_role.id,
+    )
+    test_db.add(superadmin)
+    await test_db.commit()
+    await test_db.refresh(superadmin)
+
+    return superadmin
+
+
+# Aliases for compatibility with different test naming conventions
+@pytest.fixture
+async def admin_user(test_admin: User) -> User:
+    """Alias for test_admin"""
+    return test_admin
+
+
+@pytest.fixture
+async def editor_user(test_editor: User) -> User:
+    """Alias for test_editor"""
+    return test_editor
+
+
+@pytest.fixture
+async def manager_user(test_manager: User) -> User:
+    """Alias for test_manager"""
+    return test_manager
+
+
+@pytest.fixture
+async def superadmin_user(test_superadmin: User) -> User:
+    """Alias for test_superadmin"""
+    return test_superadmin
+
+
+@pytest.fixture
 def auth_headers(test_user: User) -> dict:
     """Generate authentication headers for test user"""
     from datetime import timedelta
@@ -221,6 +381,42 @@ def admin_auth_headers(test_admin: User) -> dict:
     from app.auth import create_access_token
 
     access_token = create_access_token(data={"sub": test_admin.email}, expires_delta=timedelta(minutes=30))
+
+    return {"Authorization": f"Bearer {access_token}"}
+
+
+@pytest.fixture
+def editor_auth_headers(test_editor: User) -> dict:
+    """Generate authentication headers for test editor"""
+    from datetime import timedelta
+
+    from app.auth import create_access_token
+
+    access_token = create_access_token(data={"sub": test_editor.email}, expires_delta=timedelta(minutes=30))
+
+    return {"Authorization": f"Bearer {access_token}"}
+
+
+@pytest.fixture
+def manager_auth_headers(test_manager: User) -> dict:
+    """Generate authentication headers for test manager"""
+    from datetime import timedelta
+
+    from app.auth import create_access_token
+
+    access_token = create_access_token(data={"sub": test_manager.email}, expires_delta=timedelta(minutes=30))
+
+    return {"Authorization": f"Bearer {access_token}"}
+
+
+@pytest.fixture
+def superadmin_auth_headers(test_superadmin: User) -> dict:
+    """Generate authentication headers for test superadmin"""
+    from datetime import timedelta
+
+    from app.auth import create_access_token
+
+    access_token = create_access_token(data={"sub": test_superadmin.email}, expires_delta=timedelta(minutes=30))
 
     return {"Authorization": f"Bearer {access_token}"}
 

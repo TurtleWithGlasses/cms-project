@@ -102,8 +102,10 @@ class BulkOperationsService:
         # Validate status
         try:
             status_enum = ContentStatus(new_status)
-        except ValueError:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid status: {new_status}")
+        except ValueError as err:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid status: {new_status}"
+            ) from err
 
         # Fetch content
         stmt = select(Content).where(Content.id.in_(content_ids))
@@ -282,7 +284,7 @@ class BulkOperationsService:
         result = await db.execute(stmt)
         await db.commit()
 
-        updated_count = result.rowcount
+        updated_count = result.rowcount  # type: ignore[attr-defined]
 
         # Log activity
         await log_activity(

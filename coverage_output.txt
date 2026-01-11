@@ -1,0 +1,207 @@
+FF..FFFFFFF..............................s..........................ssss [  8%]
+.........ss..........ssssssssssssssss.........................FF.F...... [ 16%]
+........................s............................................... [ 25%]
+..........FFFF.....F.F.FF............................................... [ 33%]
+......................FFFFFFFFFFFFFFFF.F.F.FFFFFFFFFFFFFF............... [ 42%]
+..........................................................F.FFFFFFFFFFFF [ 50%]
+FFFF.FFFFFFFFFFFFFFFssssss.......ss..................................... [ 59%]
+....................s.................................sss............... [ 67%]
+........................................................................ [ 76%]
+........................................................................ [ 84%]
+.............E...F...F..sssssssssssssss................................. [ 93%]
+..............................................FFFFFFFF.ssss              [100%]
+============================== warnings summary ===============================
+..\..\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.10_qbz5n2kfra8p0\LocalCache\local-packages\Python310\site-packages\starlette\formparsers.py:12
+  C:\Users\mhmts\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.10_qbz5n2kfra8p0\LocalCache\local-packages\Python310\site-packages\starlette\formparsers.py:12: PendingDeprecationWarning: Please use `import python_multipart` instead.
+    import multipart
+
+..\..\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.10_qbz5n2kfra8p0\LocalCache\local-packages\Python310\site-packages\pydantic\_internal\_config.py:295
+..\..\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.10_qbz5n2kfra8p0\LocalCache\local-packages\Python310\site-packages\pydantic\_internal\_config.py:295
+..\..\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.10_qbz5n2kfra8p0\LocalCache\local-packages\Python310\site-packages\pydantic\_internal\_config.py:295
+..\..\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.10_qbz5n2kfra8p0\LocalCache\local-packages\Python310\site-packages\pydantic\_internal\_config.py:295
+  C:\Users\mhmts\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.10_qbz5n2kfra8p0\LocalCache\local-packages\Python310\site-packages\pydantic\_internal\_config.py:295: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.10/migration/
+    warnings.warn(DEPRECATION_MESSAGE, DeprecationWarning)
+
+test/test_middleware.py::TestRBACMiddleware::test_token_in_cookie
+  C:\Users\mhmts\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.10_qbz5n2kfra8p0\LocalCache\local-packages\Python310\site-packages\starlette\testclient.py:488: DeprecationWarning: Setting per-request cookies=<...> is being deprecated, because the expected behaviour on cookie persistence is ambiguous. Set cookies directly on the client instance instead.
+    return super().request(
+
+test/test_routes_bulk.py::TestBulkOperationsRoutes::test_bulk_publish_content_unauthorized
+  C:\Users\mhmts\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.10_qbz5n2kfra8p0\LocalCache\local-packages\Python310\site-packages\_pytest\logging.py:389: RuntimeWarning: coroutine 'Connection._cancel' was never awaited
+    self.records = []
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=============================== tests coverage ================================
+______________ coverage: platform win32, python 3.10.11-final-0 _______________
+
+Name                                                Stmts   Miss  Cover
+-----------------------------------------------------------------------
+app\__init__.py                                         0      0   100%
+app\api\__init__.py                                     7      7     0%
+app\auth.py                                           144     36    75%
+app\config.py                                          26      0   100%
+app\constants\__init__.py                               3      0   100%
+app\constants\auth.py                                   9      0   100%
+app\constants\roles.py                                 24      0   100%
+app\database.py                                        26     13    50%
+app\exception_handlers.py                              46      5    89%
+app\exceptions.py                                      78      0   100%
+app\main.py                                            38     15    61%
+app\middleware\csrf.py                                 65     15    77%
+app\middleware\rate_limit.py                            9      0   100%
+app\middleware\rbac.py                                 45     14    69%
+app\middleware\security_headers.py                     31      0   100%
+app\models\__init__.py                                 10      0   100%
+app\models\activity_log.py                             19      0   100%
+app\models\category.py                                 10      0   100%
+app\models\content.py                                  33      0   100%
+app\models\content_tags.py                              3      0   100%
+app\models\content_version.py                          21      0   100%
+app\models\media.py                                    21      1    95%
+app\models\notification.py                             18      0   100%
+app\models\password_reset.py                           20      0   100%
+app\models\tag.py                                       9      0   100%
+app\models\user.py                                     30      0   100%
+app\permissions_config\__init__.py                      0      0   100%
+app\permissions_config\permission_dependencies.py      11     11     0%
+app\permissions_config\permissions.py                   8      2    75%
+app\routes\__init__.py                                  0      0   100%
+app\routes\analytics.py                                33     11    67%
+app\routes\auth.py                                     56     16    71%
+app\routes\bulk.py                                     33     11    67%
+app\routes\category.py                                 23      8    65%
+app\routes\content.py                                 168    104    38%
+app\routes\export.py                                   40     20    50%
+app\routes\media.py                                    55     34    38%
+app\routes\password_reset.py                           55     21    62%
+app\routes\roles.py                                    14      4    71%
+app\routes\user.py                                    291    168    42%
+app\scheduler.py                                       22     11    50%
+app\schemas\__init__.py                                 5      0   100%
+app\schemas\bulk_operations.py                         26      0   100%
+app\schemas\category.py                                16      0   100%
+app\schemas\content.py                                 70      0   100%
+app\schemas\content_version.py                         15      0   100%
+app\schemas\media.py                                   38      0   100%
+app\schemas\notifications.py                           20      0   100%
+app\schemas\password_reset.py                          26      3    88%
+app\schemas\search.py                                  25     25     0%
+app\schemas\token.py                                    6      0   100%
+app\schemas\user.py                                    84      8    90%
+app\services\analytics_service.py                      77     25    68%
+app\services\auth_service.py                           31      2    94%
+app\services\bulk_operations_service.py               131     13    90%
+app\services\content_service.py                        65     17    74%
+app\services\content_version_service.py                33      1    97%
+app\services\email_service.py                          79     12    85%
+app\services\export_service.py                        101     13    87%
+app\services\password_reset_service.py                 57      3    95%
+app\services\search_service.py                         70      6    91%
+app\services\upload_service.py                        121     29    76%
+app\utils\__init__.py                                   0      0   100%
+app\utils\activity_log.py                              22      6    73%
+app\utils\sanitize.py                                  74      0   100%
+app\utils\session.py                                  119     14    88%
+app\utils\slugify.py                                    8      0   100%
+-----------------------------------------------------------------------
+TOTAL                                                2873    704    75%
+Coverage HTML written to dir htmlcov
+=========================== short test summary info ===========================
+FAILED test/test_analytics_service.py::TestAnalyticsService::test_get_content_statistics
+FAILED test/test_analytics_service.py::TestAnalyticsService::test_get_content_statistics_by_category
+FAILED test/test_analytics_service.py::TestAnalyticsService::test_get_activity_statistics
+FAILED test/test_analytics_service.py::TestAnalyticsService::test_get_activity_statistics_by_action
+FAILED test/test_analytics_service.py::TestAnalyticsService::test_get_activity_statistics_custom_period
+FAILED test/test_analytics_service.py::TestAnalyticsService::test_get_media_statistics
+FAILED test/test_analytics_service.py::TestAnalyticsService::test_get_media_statistics_top_uploaders
+FAILED test/test_analytics_service.py::TestAnalyticsService::test_get_dashboard_overview
+FAILED test/test_analytics_service.py::TestAnalyticsService::test_get_user_performance_report
+FAILED test/test_bulk_operations_service.py::TestBulkOperationsService::test_bulk_assign_tags
+FAILED test/test_bulk_operations_service.py::TestBulkOperationsService::test_bulk_assign_tags_duplicate_prevention
+FAILED test/test_bulk_operations_service.py::TestBulkOperationsService::test_bulk_update_category
+FAILED test/test_export_service.py::TestExportService::test_export_content_json
+FAILED test/test_export_service.py::TestExportService::test_export_content_json_with_filters
+FAILED test/test_export_service.py::TestExportService::test_export_content_json_limit
+FAILED test/test_export_service.py::TestExportService::test_export_content_csv
+FAILED test/test_export_service.py::TestExportService::test_export_activity_logs_json
+FAILED test/test_export_service.py::TestExportService::test_export_activity_logs_csv
+FAILED test/test_export_service.py::TestExportService::test_export_activity_logs_limit
+FAILED test/test_export_service.py::TestExportService::test_export_empty_results
+FAILED test/test_routes_analytics.py::TestAnalyticsRoutes::test_get_dashboard_overview_admin
+FAILED test/test_routes_analytics.py::TestAnalyticsRoutes::test_get_dashboard_overview_forbidden
+FAILED test/test_routes_analytics.py::TestAnalyticsRoutes::test_get_dashboard_overview_manager
+FAILED test/test_routes_analytics.py::TestAnalyticsRoutes::test_get_content_statistics_admin
+FAILED test/test_routes_analytics.py::TestAnalyticsRoutes::test_get_content_statistics_forbidden
+FAILED test/test_routes_analytics.py::TestAnalyticsRoutes::test_get_user_statistics_admin
+FAILED test/test_routes_analytics.py::TestAnalyticsRoutes::test_get_user_statistics_forbidden
+FAILED test/test_routes_analytics.py::TestAnalyticsRoutes::test_get_activity_statistics_admin
+FAILED test/test_routes_analytics.py::TestAnalyticsRoutes::test_get_activity_statistics_custom_period
+FAILED test/test_routes_analytics.py::TestAnalyticsRoutes::test_get_activity_statistics_max_period
+FAILED test/test_routes_analytics.py::TestAnalyticsRoutes::test_get_media_statistics_admin
+FAILED test/test_routes_analytics.py::TestAnalyticsRoutes::test_get_media_statistics_forbidden
+FAILED test/test_routes_analytics.py::TestAnalyticsRoutes::test_get_user_performance_own
+FAILED test/test_routes_analytics.py::TestAnalyticsRoutes::test_get_user_performance_other_forbidden
+FAILED test/test_routes_analytics.py::TestAnalyticsRoutes::test_get_user_performance_admin_any_user
+FAILED test/test_routes_analytics.py::TestAnalyticsRoutes::test_get_my_performance
+FAILED test/test_routes_analytics.py::TestAnalyticsRoutes::test_get_user_performance_not_found
+FAILED test/test_routes_analytics.py::TestAnalyticsRoutes::test_analytics_role_based_access
+FAILED test/test_routes_bulk.py::TestBulkOperationsRoutes::test_bulk_publish_content_unauthorized
+FAILED test/test_routes_bulk.py::TestBulkOperationsRoutes::test_bulk_update_content_status
+FAILED test/test_routes_bulk.py::TestBulkOperationsRoutes::test_bulk_update_content_status_invalid
+FAILED test/test_routes_bulk.py::TestBulkOperationsRoutes::test_bulk_delete_content
+FAILED test/test_routes_bulk.py::TestBulkOperationsRoutes::test_bulk_delete_content_requires_admin
+FAILED test/test_routes_bulk.py::TestBulkOperationsRoutes::test_bulk_assign_tags
+FAILED test/test_routes_bulk.py::TestBulkOperationsRoutes::test_bulk_assign_tags_unauthorized
+FAILED test/test_routes_bulk.py::TestBulkOperationsRoutes::test_bulk_update_category
+FAILED test/test_routes_bulk.py::TestBulkOperationsRoutes::test_bulk_update_category_not_found
+FAILED test/test_routes_bulk.py::TestBulkOperationsRoutes::test_bulk_update_user_roles
+FAILED test/test_routes_bulk.py::TestBulkOperationsRoutes::test_bulk_update_user_roles_unauthorized
+FAILED test/test_routes_bulk.py::TestBulkOperationsRoutes::test_bulk_operations_empty_list
+FAILED test/test_routes_bulk.py::TestBulkOperationsRoutes::test_bulk_operations_missing_field
+FAILED test/test_routes_bulk.py::TestBulkOperationsRoutes::test_bulk_publish_partial_success
+FAILED test/test_routes_export.py::TestExportRoutes::test_export_content_json
+FAILED test/test_routes_export.py::TestExportRoutes::test_export_content_json_user_only_own
+FAILED test/test_routes_export.py::TestExportRoutes::test_export_content_json_admin_all_content
+FAILED test/test_routes_export.py::TestExportRoutes::test_export_content_json_with_filters
+FAILED test/test_routes_export.py::TestExportRoutes::test_export_content_csv
+FAILED test/test_routes_export.py::TestExportRoutes::test_export_users_json_admin
+FAILED test/test_routes_export.py::TestExportRoutes::test_export_users_json_forbidden
+FAILED test/test_routes_export.py::TestExportRoutes::test_export_users_json_with_role_filter
+FAILED test/test_routes_export.py::TestExportRoutes::test_export_users_csv_admin
+FAILED test/test_routes_export.py::TestExportRoutes::test_export_activity_logs_json_admin
+FAILED test/test_routes_export.py::TestExportRoutes::test_export_activity_logs_json_forbidden
+FAILED test/test_routes_export.py::TestExportRoutes::test_export_activity_logs_json_with_filters
+FAILED test/test_routes_export.py::TestExportRoutes::test_export_activity_logs_limit_enforcement
+FAILED test/test_routes_export.py::TestExportRoutes::test_export_activity_logs_csv_admin
+FAILED test/test_routes_export.py::TestExportRoutes::test_export_content_limit_parameter
+FAILED test/test_routes_export.py::TestExportRoutes::test_export_users_limit_parameter
+FAILED test/test_routes_media.py::TestMediaRoutes::test_upload_file_success
+FAILED test/test_routes_media.py::TestMediaRoutes::test_upload_file_invalid_type
+FAILED test/test_routes_media.py::TestMediaRoutes::test_upload_document - ass...
+FAILED test/test_routes_media.py::TestMediaRoutes::test_list_media - sqlalche...
+FAILED test/test_routes_media.py::TestMediaRoutes::test_list_media_pagination
+FAILED test/test_routes_media.py::TestMediaRoutes::test_list_media_limit_enforcement
+FAILED test/test_routes_media.py::TestMediaRoutes::test_get_media_by_id - sql...
+FAILED test/test_routes_media.py::TestMediaRoutes::test_get_media_not_found
+FAILED test/test_routes_media.py::TestMediaRoutes::test_get_media_forbidden
+FAILED test/test_routes_media.py::TestMediaRoutes::test_download_file - sqlal...
+FAILED test/test_routes_media.py::TestMediaRoutes::test_download_file_not_found
+FAILED test/test_routes_media.py::TestMediaRoutes::test_get_thumbnail - sqlal...
+FAILED test/test_routes_media.py::TestMediaRoutes::test_get_thumbnail_not_available
+FAILED test/test_routes_media.py::TestMediaRoutes::test_delete_media - sqlalc...
+FAILED test/test_routes_media.py::TestMediaRoutes::test_delete_media_forbidden
+FAILED test/test_routes_media.py::TestMediaRoutes::test_admin_can_access_any_media
+FAILED test/test_search_service.py::TestSearchService::test_search_by_category
+FAILED test/test_search_service.py::TestSearchService::test_search_with_multiple_filters
+FAILED test/test_upload_service.py::TestUploadService::test_upload_file_image_complete
+FAILED test/test_upload_service.py::TestUploadService::test_upload_file_document
+FAILED test/test_upload_service.py::TestUploadService::test_get_media_by_id_success
+FAILED test/test_upload_service.py::TestUploadService::test_get_media_by_id_not_found
+FAILED test/test_upload_service.py::TestUploadService::test_get_user_media - ...
+FAILED test/test_upload_service.py::TestUploadService::test_get_user_media_pagination
+FAILED test/test_upload_service.py::TestUploadService::test_delete_media_success
+FAILED test/test_upload_service.py::TestUploadService::test_delete_media_unauthorized
+ERROR test/test_search_service.py::TestSearchService::test_search_content_by_author
+94 failed, 701 passed, 55 skipped, 7 warnings, 1 error in 187.65s (0:03:07)

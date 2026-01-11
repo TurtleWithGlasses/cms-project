@@ -18,6 +18,9 @@ class RoleName(str, Enum):
     SUPERADMIN = "superadmin"
 
 
+# Alias for backward compatibility
+RoleEnum = RoleName
+
 # Default role for new user registrations
 DEFAULT_ROLE = RoleName.USER
 

@@ -4,7 +4,6 @@ Upload Service
 Handles file uploads, validation, image processing, and storage.
 """
 
-import os
 import uuid
 from pathlib import Path
 
@@ -129,7 +128,7 @@ class UploadService:
         file_size = 0
 
         try:
-            with open(file_path, "wb") as buffer:
+            with file_path.open("wb") as buffer:
                 while chunk := await file.read(8192):
                     file_size += len(chunk)
 
@@ -137,7 +136,7 @@ class UploadService:
                     if file_size > MAX_FILE_SIZE:
                         # Clean up partial file
                         buffer.close()
-                        os.remove(file_path)
+                        file_path.unlink()
                         raise HTTPException(
                             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
                             detail=f"File size exceeds maximum allowed size of {MAX_FILE_SIZE // (1024 * 1024)}MB",
@@ -152,10 +151,10 @@ class UploadService:
         except Exception as e:
             # Clean up on error
             if file_path.exists():
-                os.remove(file_path)
+                file_path.unlink()
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to save file: {str(e)}"
-            )
+            ) from e
 
     @staticmethod
     def create_thumbnail(image_path: str, thumbnail_filename: str) -> tuple[str | None, int | None, int | None]:
@@ -310,8 +309,8 @@ class UploadService:
         from app.constants.roles import RoleEnum
 
         if media.uploaded_by != current_user.id and current_user.role.name not in [
-            RoleEnum.admin.value,
-            RoleEnum.superadmin.value,
+            RoleEnum.ADMIN.value,
+            RoleEnum.SUPERADMIN.value,
         ]:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to delete this media")
 
@@ -319,12 +318,12 @@ class UploadService:
         try:
             file_path = Path(media.file_path)
             if file_path.exists():
-                os.remove(file_path)
+                file_path.unlink()
 
             if media.thumbnail_path:
                 thumbnail_path = Path(media.thumbnail_path)
                 if thumbnail_path.exists():
-                    os.remove(thumbnail_path)
+                    thumbnail_path.unlink()
         except Exception as e:
             print(f"Error deleting physical files: {e}")
 

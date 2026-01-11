@@ -191,8 +191,8 @@ async def post_login(
 ):
     form = await request.form()
     print("Received from data:", dict(form))
-    email = form.get("email")
-    password = form.get("password")
+    email = str(form.get("email", ""))
+    password = str(form.get("password", ""))
 
     try:
         user = await authenticate_user(email, password, db)
@@ -253,7 +253,7 @@ async def update_user(
     current_user: User = Depends(get_current_user),
 ):
     user_update = UserUpdate(username=username, email=email, password=password)
-    await update_user_info(current_user.id, user_update, db)
+    await update_user_info(int(current_user.id), user_update, db)
 
     if user_update.email != current_user.email or user_update.password:
         response = RedirectResponse(url="/login", status_code=302)

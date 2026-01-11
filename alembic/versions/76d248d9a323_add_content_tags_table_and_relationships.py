@@ -5,15 +5,13 @@ Revises: 1ac893f62ffb
 Create Date: 2024-11-13 20:00:38.358845
 
 """
-from typing import Sequence, Union
 
-from alembic import op
-import sqlalchemy as sa
-
+from collections.abc import Sequence
+from typing import Union
 
 # revision identifiers, used by Alembic.
-revision: str = '76d248d9a323'
-down_revision: Union[str, None] = '1ac893f62ffb'
+revision: str = "76d248d9a323"
+down_revision: Union[str, None] = "1ac893f62ffb"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

@@ -35,7 +35,7 @@ async def export_content_json(
     **Returns**: JSON file
     """
     # Non-admins can only export their own content
-    if current_user.role.name not in [RoleEnum.admin.value, RoleEnum.superadmin.value]:
+    if current_user.role.name not in [RoleEnum.ADMIN.value, RoleEnum.SUPERADMIN.value]:
         author_id = current_user.id
 
     json_data = await export_service.export_content_json(
@@ -71,7 +71,7 @@ async def export_content_csv(
     **Returns**: CSV file
     """
     # Non-admins can only export their own content
-    if current_user.role.name not in [RoleEnum.admin.value, RoleEnum.superadmin.value]:
+    if current_user.role.name not in [RoleEnum.ADMIN.value, RoleEnum.SUPERADMIN.value]:
         author_id = current_user.id
 
     csv_data = await export_service.export_content_csv(
@@ -92,7 +92,7 @@ async def export_content_csv(
 async def export_users_json(
     role_id: int | None = None,
     limit: int | None = None,
-    current_user: User = Depends(get_current_user_with_role([RoleEnum.admin, RoleEnum.superadmin])),
+    current_user: User = Depends(get_current_user_with_role([RoleEnum.ADMIN, RoleEnum.SUPERADMIN])),
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -123,7 +123,7 @@ async def export_users_json(
 async def export_users_csv(
     role_id: int | None = None,
     limit: int | None = None,
-    current_user: User = Depends(get_current_user_with_role([RoleEnum.admin, RoleEnum.superadmin])),
+    current_user: User = Depends(get_current_user_with_role([RoleEnum.ADMIN, RoleEnum.SUPERADMIN])),
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -155,7 +155,7 @@ async def export_activity_logs_json(
     user_id: int | None = None,
     action: str | None = None,
     limit: int = 1000,
-    current_user: User = Depends(get_current_user_with_role([RoleEnum.admin, RoleEnum.superadmin])),
+    current_user: User = Depends(get_current_user_with_role([RoleEnum.ADMIN, RoleEnum.SUPERADMIN])),
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -192,7 +192,7 @@ async def export_activity_logs_csv(
     user_id: int | None = None,
     action: str | None = None,
     limit: int = 1000,
-    current_user: User = Depends(get_current_user_with_role([RoleEnum.admin, RoleEnum.superadmin])),
+    current_user: User = Depends(get_current_user_with_role([RoleEnum.ADMIN, RoleEnum.SUPERADMIN])),
     db: AsyncSession = Depends(get_db),
 ):
     """

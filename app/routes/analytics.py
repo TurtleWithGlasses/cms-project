@@ -18,7 +18,7 @@ router = APIRouter(prefix="/analytics", tags=["Analytics"])
 
 @router.get("/dashboard")
 async def get_dashboard_overview(
-    current_user: User = Depends(get_current_user_with_role([RoleEnum.admin, RoleEnum.superadmin, RoleEnum.manager])),
+    current_user: User = Depends(get_current_user_with_role([RoleEnum.ADMIN, RoleEnum.SUPERADMIN, RoleEnum.MANAGER])),
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -37,7 +37,7 @@ async def get_dashboard_overview(
 
 @router.get("/content")
 async def get_content_statistics(
-    current_user: User = Depends(get_current_user_with_role([RoleEnum.admin, RoleEnum.superadmin, RoleEnum.manager])),
+    current_user: User = Depends(get_current_user_with_role([RoleEnum.ADMIN, RoleEnum.SUPERADMIN, RoleEnum.MANAGER])),
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -56,7 +56,7 @@ async def get_content_statistics(
 
 @router.get("/users")
 async def get_user_statistics(
-    current_user: User = Depends(get_current_user_with_role([RoleEnum.admin, RoleEnum.superadmin])),
+    current_user: User = Depends(get_current_user_with_role([RoleEnum.ADMIN, RoleEnum.SUPERADMIN])),
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -75,7 +75,7 @@ async def get_user_statistics(
 @router.get("/activity")
 async def get_activity_statistics(
     days: int = 30,
-    current_user: User = Depends(get_current_user_with_role([RoleEnum.admin, RoleEnum.superadmin, RoleEnum.manager])),
+    current_user: User = Depends(get_current_user_with_role([RoleEnum.ADMIN, RoleEnum.SUPERADMIN, RoleEnum.MANAGER])),
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -100,7 +100,7 @@ async def get_activity_statistics(
 
 @router.get("/media")
 async def get_media_statistics(
-    current_user: User = Depends(get_current_user_with_role([RoleEnum.admin, RoleEnum.superadmin])),
+    current_user: User = Depends(get_current_user_with_role([RoleEnum.ADMIN, RoleEnum.SUPERADMIN])),
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -140,8 +140,8 @@ async def get_user_performance_report(
     """
     # Check authorization
     if current_user.id != user_id and current_user.role.name not in [
-        RoleEnum.admin.value,
-        RoleEnum.superadmin.value,
+        RoleEnum.ADMIN.value,
+        RoleEnum.SUPERADMIN.value,
     ]:
         return {"error": "Not authorized to view this user's performance"}
 

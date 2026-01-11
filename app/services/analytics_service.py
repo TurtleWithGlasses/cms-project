@@ -77,7 +77,7 @@ class AnalyticsService:
 
         # Users by role
         role_result = await db.execute(select(User.role_id, func.count(User.id)).group_by(User.role_id))
-        users_by_role = dict(role_result.all())
+        users_by_role: dict[int, int] = dict(role_result.all())
 
         # Most active users (by content created)
         active_users_result = await db.execute(
@@ -126,7 +126,7 @@ class AnalyticsService:
             .group_by(ActivityLog.action)
             .order_by(func.count(ActivityLog.id).desc())
         )
-        activities_by_action = dict(action_result.all())
+        activities_by_action: dict[str, int] = dict(action_result.all())
 
         # Activities per day (last N days)
         daily_result = await db.execute(
@@ -180,7 +180,7 @@ class AnalyticsService:
 
         # Media by type
         type_result = await db.execute(select(Media.file_type, func.count(Media.id)).group_by(Media.file_type))
-        media_by_type = dict(type_result.all())
+        media_by_type: dict[str, int] = dict(type_result.all())
 
         # Top uploaders
         uploader_result = await db.execute(
