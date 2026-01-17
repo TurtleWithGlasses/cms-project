@@ -42,8 +42,13 @@ class Content(Base):
     activity_logs = relationship("ActivityLog", back_populates="content", cascade="all, delete-orphan")
     tags = relationship("Tag", secondary=content_tags, back_populates="contents")
 
-    # Unique constraint for slug
+    # Unique constraint for slug and performance indexes
     __table_args__ = (
         UniqueConstraint("slug", name="unique_slug"),
         Index("idx_content_status", "status"),
+        Index("ix_content_category_id", "category_id"),
+        Index("ix_content_created_at", "created_at"),
+        Index("ix_content_updated_at", "updated_at"),
+        Index("ix_content_publish_date", "publish_date"),
+        Index("ix_content_status_created", "status", "created_at"),
     )

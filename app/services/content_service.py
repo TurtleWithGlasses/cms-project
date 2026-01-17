@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy.orm import selectinload
 
 # from sqlalchemy import select
 from app.auth import hash_password
@@ -88,7 +89,12 @@ async def get_all_content(
     category_id: int | None = None,
     author_id: int | None = None,
 ) -> list[Content]:
-    query = select(Content)
+    # Use eager loading to avoid N+1 queries for author and category
+    query = select(Content).options(
+        selectinload(Content.author),
+        selectinload(Content.category),
+        selectinload(Content.tags),
+    )
 
     if category_id:
         query = query.where(Content.category_id == category_id)
@@ -99,7 +105,8 @@ async def get_all_content(
     if author_id:
         query = query.where(Content.author_id == author_id)
 
-    query = query.offset(skip).limit(limit)
+    # Order by created_at descending for better UX
+    query = query.order_by(Content.created_at.desc()).offset(skip).limit(limit)
     result = await db.execute(query)
     return result.scalars().all()
 

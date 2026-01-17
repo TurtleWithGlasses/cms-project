@@ -2,8 +2,10 @@
 Analytics Service
 
 Provides analytics and reporting for content, users, and system activity.
+Includes Redis caching for performance optimization.
 """
 
+import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -15,6 +17,9 @@ from app.models.activity_log import ActivityLog
 from app.models.content import Content
 from app.models.media import Media
 from app.models.user import User
+from app.utils.cache import CacheManager, get_cache_manager
+
+logger = logging.getLogger(__name__)
 
 
 class AnalyticsService:
@@ -211,7 +216,7 @@ class AnalyticsService:
     @staticmethod
     async def get_dashboard_overview(db: AsyncSession) -> dict[str, Any]:
         """
-        Get comprehensive dashboard overview.
+        Get comprehensive dashboard overview with caching.
 
         Args:
             db: Database session
@@ -219,18 +224,41 @@ class AnalyticsService:
         Returns:
             Dict with all statistics
         """
+        cache_key = f"{CacheManager.PREFIX_ANALYTICS}dashboard_overview"
+
+        # Try cache first
+        try:
+            cm = await get_cache_manager()
+            cached_data = await cm.get(cache_key)
+            if cached_data is not None:
+                logger.debug("Dashboard overview served from cache")
+                return cached_data
+        except Exception as e:
+            logger.warning(f"Cache read failed: {e}")
+
+        # Fetch fresh data
         content_stats = await AnalyticsService.get_content_statistics(db)
         user_stats = await AnalyticsService.get_user_statistics(db)
         activity_stats = await AnalyticsService.get_activity_statistics(db, days=30)
         media_stats = await AnalyticsService.get_media_statistics(db)
 
-        return {
+        result = {
             "content": content_stats,
             "users": user_stats,
             "activity": activity_stats,
             "media": media_stats,
             "generated_at": datetime.now(timezone.utc).isoformat(),
         }
+
+        # Cache the result
+        try:
+            cm = await get_cache_manager()
+            await cm.set(cache_key, result, CacheManager.TTL_ANALYTICS)
+            logger.debug("Dashboard overview cached")
+        except Exception as e:
+            logger.warning(f"Cache write failed: {e}")
+
+        return result
 
     @staticmethod
     async def get_user_performance_report(

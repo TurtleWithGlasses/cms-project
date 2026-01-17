@@ -2,9 +2,10 @@ import logging
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import text, update
+from sqlalchemy import func, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy.orm import selectinload
 from starlette.responses import HTMLResponse, RedirectResponse
 
 from app.auth import get_current_user, get_role_validator, hash_password
@@ -48,7 +49,8 @@ async def get_current_user_profile(current_user: User = Depends(get_current_user
 
 @router.get("/", response_model=list[UserResponse], dependencies=[Depends(get_role_validator(["admin", "superadmin"]))])
 async def list_users(db: AsyncSession = Depends(get_db)):
-    query = select(User)
+    # Use eager loading to avoid N+1 queries for role lookup
+    query = select(User).options(selectinload(User.role))
     result = await db.execute(query)
     users = result.scalars().all()
     response = [
@@ -56,7 +58,7 @@ async def list_users(db: AsyncSession = Depends(get_db)):
             "id": user.id,
             "username": user.username,
             "email": user.email,
-            "role": await get_role_name(user.role_id, db),
+            "role": user.role.name,  # Direct access - no additional query
         }
         for user in users
     ]
@@ -385,19 +387,29 @@ async def get_all_notifications(
     if page < 1 or size < 1:
         raise HTTPException(status_code=400, detail="Page and size must be greater than 0")
 
-    query = select(Notification).where(Notification.user_id == current_user.id)
+    # Build base filter conditions
+    base_filter = Notification.user_id == current_user.id
+    status_filter = None
 
     if status:
         try:
-            query = query.where(Notification.status == NotificationStatus[status.upper()])
+            status_filter = Notification.status == NotificationStatus[status.upper()]
         except KeyError:
             raise HTTPException(status_code=400, detail=f"Invalid status: {status}") from None
 
-    total_notifications_result = await db.execute(query)
-    total_notifications = len(total_notifications_result.scalars().all())
+    # Optimized COUNT query - more efficient than loading all records
+    count_query = select(func.count(Notification.id)).where(base_filter)
+    if status_filter is not None:
+        count_query = count_query.where(status_filter)
+    total_result = await db.execute(count_query)
+    total_notifications = total_result.scalar() or 0
 
-    paginated_query = query.offset((page - 1) * size).limit(size)
-    result = await db.execute(paginated_query)
+    # Paginated query for actual data
+    data_query = select(Notification).where(base_filter)
+    if status_filter is not None:
+        data_query = data_query.where(status_filter)
+    data_query = data_query.order_by(Notification.created_at.desc()).offset((page - 1) * size).limit(size)
+    result = await db.execute(data_query)
     notifications = result.scalars().all()
 
     return {

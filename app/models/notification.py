@@ -1,7 +1,7 @@
 from datetime import datetime
 from enum import Enum as PyEnum
 
-from sqlalchemy import Column, DateTime, Enum, ForeignKey, Integer, String
+from sqlalchemy import Column, DateTime, Enum, ForeignKey, Index, Integer, String
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -30,3 +30,6 @@ class Notification(Base):
     content = relationship(
         "Content", back_populates="notifications", cascade="all, delete-orphan", single_parent=True, lazy="selectin"
     )
+
+    # Composite index for efficient user notification queries
+    __table_args__ = (Index("ix_notifications_user_status", "user_id", "status"),)

@@ -4,6 +4,7 @@ from datetime import timedelta
 
 from fastapi import Depends, FastAPI, Form, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -87,7 +88,9 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    # Add middleware (order matters: Security Headers -> CSRF -> RBAC -> Session)
+    # Add middleware (order matters: GZip -> Security Headers -> CSRF -> RBAC -> Session)
+    # GZip compression for responses over 500 bytes
+    app.add_middleware(GZipMiddleware, minimum_size=500)
     app.add_middleware(SessionMiddleware, secret_key=settings.secret_key)
     app.add_middleware(RBACMiddleware, allowed_roles=["user", "admin", "superadmin"])
     app.add_middleware(

@@ -1,6 +1,6 @@
 import enum
 
-from sqlalchemy import JSON, Column, ForeignKey, Integer, String
+from sqlalchemy import JSON, Column, ForeignKey, Index, Integer, String
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -49,3 +49,6 @@ class User(Base):
     )
     password_reset_tokens = relationship("PasswordResetToken", back_populates="user", cascade="all, delete-orphan")
     uploaded_media = relationship("Media", back_populates="uploader", cascade="all, delete-orphan")
+
+    # Index for role-based queries
+    __table_args__ = (Index("ix_users_role_id", "role_id"),)

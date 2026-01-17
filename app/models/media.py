@@ -6,7 +6,7 @@ Represents uploaded media files (images, documents, etc.)
 
 from datetime import datetime, timezone
 
-from sqlalchemy import BigInteger, Column, DateTime, ForeignKey, Integer, String
+from sqlalchemy import BigInteger, Column, DateTime, ForeignKey, Index, Integer, String
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -36,6 +36,12 @@ class Media(Base):
 
     # Relationships
     uploader = relationship("User", back_populates="uploaded_media")
+
+    # Performance indexes
+    __table_args__ = (
+        Index("ix_media_uploaded_by", "uploaded_by"),
+        Index("ix_media_uploaded_at", "uploaded_at"),
+    )
 
     def __repr__(self):
         return f"<Media(id={self.id}, filename={self.filename}, type={self.file_type})>"
