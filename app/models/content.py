@@ -42,6 +42,9 @@ class Content(Base):
     activity_logs = relationship("ActivityLog", back_populates="content", cascade="all, delete-orphan")
     tags = relationship("Tag", secondary=content_tags, back_populates="contents")
 
+    # Comment relationship
+    comments = relationship("Comment", back_populates="content", cascade="all, delete-orphan", lazy="selectin")
+
     # Unique constraint for slug and performance indexes
     __table_args__ = (
         UniqueConstraint("slug", name="unique_slug"),

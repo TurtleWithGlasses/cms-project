@@ -23,7 +23,22 @@ from app.middleware.rate_limit import configure_rate_limiting, limiter
 from app.middleware.rbac import RBACMiddleware
 from app.middleware.security_headers import SecurityHeadersMiddleware
 from app.models import User
-from app.routes import analytics, auth, bulk, category, export, media, monitoring, password_reset, privacy, roles, user
+from app.routes import (
+    analytics,
+    auth,
+    bulk,
+    category,
+    comments,
+    export,
+    media,
+    monitoring,
+    password_reset,
+    privacy,
+    roles,
+    seo,
+    two_factor,
+    user,
+)
 from app.routes.content import router as content_router
 from app.scheduler import scheduler
 from app.schemas.user import UserUpdate
@@ -139,6 +154,15 @@ def create_app() -> FastAPI:
 
     # Privacy & GDPR compliance routes
     app.include_router(privacy.router, prefix="/api/v1", tags=["Privacy & GDPR"])
+
+    # Comments routes
+    app.include_router(comments.router, prefix="/api/v1", tags=["Comments"])
+
+    # Two-Factor Authentication routes
+    app.include_router(two_factor.router, prefix="/api/v1", tags=["Two-Factor Authentication"])
+
+    # SEO routes (sitemap, RSS, robots.txt)
+    app.include_router(seo.router, tags=["SEO"])
 
     # Configure rate limiting
     configure_rate_limiting(app)

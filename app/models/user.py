@@ -50,5 +50,19 @@ class User(Base):
     password_reset_tokens = relationship("PasswordResetToken", back_populates="user", cascade="all, delete-orphan")
     uploaded_media = relationship("Media", back_populates="uploader", cascade="all, delete-orphan")
 
+    # Comment relationship
+    comments = relationship("Comment", back_populates="user", cascade="all, delete-orphan")
+
+    # Two-factor authentication (one-to-one)
+    two_factor_auth = relationship(
+        "TwoFactorAuth",
+        back_populates="user",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
+
+    # User preferences (stored as JSON in a separate column or via preferences dict)
+    preferences = Column(JSON, default=dict, nullable=True)
+
     # Index for role-based queries
     __table_args__ = (Index("ix_users_role_id", "role_id"),)
