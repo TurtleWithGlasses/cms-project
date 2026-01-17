@@ -18,18 +18,24 @@ from app.config import settings
 from app.database import Base, engine, get_db
 from app.exception_handlers import register_exception_handlers
 from app.middleware.csrf import CSRFMiddleware, get_csrf_token
+from app.middleware.logging import StructuredLoggingMiddleware, setup_structured_logging
 from app.middleware.rate_limit import configure_rate_limiting, limiter
 from app.middleware.rbac import RBACMiddleware
 from app.middleware.security_headers import SecurityHeadersMiddleware
 from app.models import User
-from app.routes import analytics, auth, bulk, category, export, media, password_reset, roles, user
+from app.routes import analytics, auth, bulk, category, export, media, monitoring, password_reset, privacy, roles, user
 from app.routes.content import router as content_router
 from app.scheduler import scheduler
 from app.schemas.user import UserUpdate
 from app.services.auth_service import authenticate_user, register_user
 from app.services.content_service import update_user_info
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+# Configure structured logging based on environment
+if settings.environment == "production":
+    setup_structured_logging(log_level="INFO", json_format=True)
+else:
+    setup_structured_logging(log_level="DEBUG", json_format=False)
+
 logger = logging.getLogger(__name__)
 
 templates = Jinja2Templates(directory="templates")
@@ -88,7 +94,9 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    # Add middleware (order matters: GZip -> Security Headers -> CSRF -> RBAC -> Session)
+    # Add middleware (order matters: Logging -> GZip -> Security Headers -> CSRF -> RBAC -> Session)
+    # Structured logging middleware for request/response tracking
+    app.add_middleware(StructuredLoggingMiddleware)
     # GZip compression for responses over 500 bytes
     app.add_middleware(GZipMiddleware, minimum_size=500)
     app.add_middleware(SessionMiddleware, secret_key=settings.secret_key)
@@ -126,6 +134,12 @@ def create_app() -> FastAPI:
     # Auth routes (keep at /auth for OAuth2 compatibility)
     app.include_router(auth.router, prefix="/auth", tags=["Auth"])
 
+    # Monitoring routes (health checks, metrics)
+    app.include_router(monitoring.router, tags=["Monitoring"])
+
+    # Privacy & GDPR compliance routes
+    app.include_router(privacy.router, prefix="/api/v1", tags=["Privacy & GDPR"])
+
     # Configure rate limiting
     configure_rate_limiting(app)
 
@@ -150,14 +164,9 @@ async def root():
     return {"message": "Welcome to the CMS API"}
 
 
-@app.get("/health", tags=["Health"])
-async def health_check():
-    """Health check endpoint for Docker and monitoring systems"""
-    return {
-        "status": "healthy",
-        "service": "CMS API",
-        "version": settings.APP_VERSION if hasattr(settings, "APP_VERSION") else "1.0.0",
-    }
+# Health check endpoints are now provided by monitoring router
+# The /health endpoint is kept for backwards compatibility
+# but the comprehensive endpoints are at /health, /ready, /metrics
 
 
 @app.get("/register")
