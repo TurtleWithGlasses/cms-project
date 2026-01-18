@@ -31,7 +31,9 @@ from app.routes import (
     cache,
     category,
     comments,
+    dashboard,
     export,
+    imports,
     media,
     monitoring,
     notifications,
@@ -39,6 +41,8 @@ from app.routes import (
     privacy,
     roles,
     seo,
+    teams,
+    templates as templates_routes,
     two_factor,
     user,
     webhooks,
@@ -187,6 +191,18 @@ def create_app() -> FastAPI:
 
     # Notification routes
     app.include_router(notifications.router, prefix="/api/v1", tags=["Notifications"])
+
+    # Team management routes
+    app.include_router(teams.router, prefix="/api/v1", tags=["Teams"])
+
+    # Import routes
+    app.include_router(imports.router, prefix="/api/v1", tags=["Import"])
+
+    # Dashboard routes
+    app.include_router(dashboard.router, prefix="/api/v1", tags=["Dashboard"])
+
+    # Content template routes
+    app.include_router(templates_routes.router, prefix="/api/v1", tags=["Content Templates"])
 
     # Configure rate limiting
     configure_rate_limiting(app)
