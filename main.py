@@ -28,11 +28,13 @@ from app.routes import (
     api_keys,
     auth,
     bulk,
+    cache,
     category,
     comments,
     export,
     media,
     monitoring,
+    notifications,
     password_reset,
     privacy,
     roles,
@@ -41,6 +43,7 @@ from app.routes import (
     user,
     webhooks,
     websocket,
+    workflow,
 )
 from app.routes.content import router as content_router
 from app.scheduler import scheduler
@@ -175,6 +178,15 @@ def create_app() -> FastAPI:
 
     # WebSocket routes
     app.include_router(websocket.router, prefix="/api/v1", tags=["WebSocket"])
+
+    # Workflow routes
+    app.include_router(workflow.router, prefix="/api/v1", tags=["Workflow"])
+
+    # Cache management routes
+    app.include_router(cache.router, prefix="/api/v1", tags=["Cache"])
+
+    # Notification routes
+    app.include_router(notifications.router, prefix="/api/v1", tags=["Notifications"])
 
     # Configure rate limiting
     configure_rate_limiting(app)

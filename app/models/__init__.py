@@ -6,11 +6,27 @@ from .content import Content
 from .content_tags import content_tags
 from .content_version import ContentVersion
 from .notification import Notification
+from .notification_preference import (
+    DigestFrequency,
+    NotificationCategory,
+    NotificationChannel,
+    NotificationDigest,
+    NotificationPreference,
+    NotificationQueue,
+    NotificationTemplate,
+)
 from .password_reset import PasswordResetToken
 from .tag import Tag
 from .two_factor import TwoFactorAuth
 from .user import Role, User
 from .webhook import Webhook, WebhookDelivery, WebhookEvent, WebhookStatus
+from .workflow import (
+    WorkflowApproval,
+    WorkflowHistory,
+    WorkflowState,
+    WorkflowTransition,
+    WorkflowType,
+)
 
 __all__ = [
     "ActivityLog",
@@ -22,7 +38,14 @@ __all__ = [
     "Content",
     "content_tags",
     "ContentVersion",
+    "DigestFrequency",
     "Notification",
+    "NotificationCategory",
+    "NotificationChannel",
+    "NotificationDigest",
+    "NotificationPreference",
+    "NotificationQueue",
+    "NotificationTemplate",
     "PasswordResetToken",
     "Role",
     "Tag",
@@ -32,4 +55,9 @@ __all__ = [
     "WebhookDelivery",
     "WebhookEvent",
     "WebhookStatus",
+    "WorkflowApproval",
+    "WorkflowHistory",
+    "WorkflowState",
+    "WorkflowTransition",
+    "WorkflowType",
 ]
