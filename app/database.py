@@ -1,4 +1,5 @@
 import logging
+from contextlib import asynccontextmanager
 
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
@@ -71,3 +72,19 @@ async def get_db():
 # async def get_async_session() -> AsyncSession:
 #     async with async_session() as session:
 #         yield session
+
+
+@asynccontextmanager
+async def get_db_context():
+    """Context manager for database sessions (for use outside of FastAPI dependencies)."""
+    async with AsyncSessionLocal() as db:
+        try:
+            yield db
+        except Exception as e:
+            logger.error(f"Database session error: {e}")
+            raise
+        finally:
+            try:
+                await db.close()
+            except Exception as close_error:
+                logger.warning(f"Error closing database session: {close_error}")

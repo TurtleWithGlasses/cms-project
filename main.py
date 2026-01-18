@@ -25,6 +25,7 @@ from app.middleware.security_headers import SecurityHeadersMiddleware
 from app.models import User
 from app.routes import (
     analytics,
+    api_keys,
     auth,
     bulk,
     category,
@@ -38,6 +39,8 @@ from app.routes import (
     seo,
     two_factor,
     user,
+    webhooks,
+    websocket,
 )
 from app.routes.content import router as content_router
 from app.scheduler import scheduler
@@ -163,6 +166,15 @@ def create_app() -> FastAPI:
 
     # SEO routes (sitemap, RSS, robots.txt)
     app.include_router(seo.router, tags=["SEO"])
+
+    # API Keys routes
+    app.include_router(api_keys.router, prefix="/api/v1", tags=["API Keys"])
+
+    # Webhooks routes
+    app.include_router(webhooks.router, prefix="/api/v1", tags=["Webhooks"])
+
+    # WebSocket routes
+    app.include_router(websocket.router, prefix="/api/v1", tags=["WebSocket"])
 
     # Configure rate limiting
     configure_rate_limiting(app)

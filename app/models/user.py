@@ -64,5 +64,11 @@ class User(Base):
     # User preferences (stored as JSON in a separate column or via preferences dict)
     preferences = Column(JSON, default=dict, nullable=True)
 
+    # API Keys relationship
+    api_keys = relationship("APIKey", back_populates="user", cascade="all, delete-orphan")
+
+    # Webhooks relationship
+    webhooks = relationship("Webhook", back_populates="user", cascade="all, delete-orphan")
+
     # Index for role-based queries
     __table_args__ = (Index("ix_users_role_id", "role_id"),)
