@@ -24,10 +24,14 @@ import {
   FileCode,
   Activity,
   Search,
+  Shield,
+  Download,
+  BarChart3,
 } from 'lucide-react'
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+  { name: 'Analytics', href: '/analytics', icon: BarChart3 },
   { name: 'Content', href: '/content', icon: FileText },
   { name: 'Categories', href: '/categories', icon: Folder },
   { name: 'Tags', href: '/tags', icon: Tag },
@@ -36,7 +40,9 @@ const navigation = [
   { name: 'Templates', href: '/templates', icon: FileCode },
   { name: 'Users', href: '/users', icon: Users },
   { name: 'Teams', href: '/teams', icon: UsersRound },
+  { name: 'Roles', href: '/roles', icon: Shield },
   { name: 'Activity', href: '/activity', icon: Activity },
+  { name: 'Import/Export', href: '/import-export', icon: Download },
   { name: 'API Keys', href: '/api-keys', icon: Key },
   { name: 'Webhooks', href: '/webhooks', icon: Webhook },
   { name: 'Settings', href: '/settings', icon: Settings },

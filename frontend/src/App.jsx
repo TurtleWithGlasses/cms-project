@@ -9,6 +9,8 @@ import DashboardLayout from './components/layouts/DashboardLayout'
 import LoginPage from './pages/auth/LoginPage'
 import RegisterPage from './pages/auth/RegisterPage'
 import TwoFactorPage from './pages/auth/TwoFactorPage'
+import ForgotPasswordPage from './pages/auth/ForgotPasswordPage'
+import ResetPasswordPage from './pages/auth/ResetPasswordPage'
 
 // Dashboard Pages
 import DashboardPage from './pages/dashboard/DashboardPage'
@@ -26,6 +28,9 @@ import SettingsPage from './pages/settings/SettingsPage'
 import ProfilePage from './pages/settings/ProfilePage'
 import TemplatesPage from './pages/templates/TemplatesPage'
 import ActivityLogPage from './pages/activity/ActivityLogPage'
+import RolesPage from './pages/roles/RolesPage'
+import ImportExportPage from './pages/import-export/ImportExportPage'
+import AnalyticsPage from './pages/analytics/AnalyticsPage'
 
 // Error Pages
 import NotFoundPage from './pages/errors/NotFoundPage'
@@ -90,6 +95,22 @@ function App() {
           }
         />
         <Route path="/2fa" element={<TwoFactorPage />} />
+        <Route
+          path="/forgot-password"
+          element={
+            <PublicRoute>
+              <ForgotPasswordPage />
+            </PublicRoute>
+          }
+        />
+        <Route
+          path="/reset-password"
+          element={
+            <PublicRoute>
+              <ResetPasswordPage />
+            </PublicRoute>
+          }
+        />
       </Route>
 
       {/* Dashboard Routes */}
@@ -114,6 +135,9 @@ function App() {
         <Route path="/webhooks" element={<WebhooksPage />} />
         <Route path="/templates" element={<TemplatesPage />} />
         <Route path="/activity" element={<ActivityLogPage />} />
+        <Route path="/roles" element={<RolesPage />} />
+        <Route path="/import-export" element={<ImportExportPage />} />
+        <Route path="/analytics" element={<AnalyticsPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/profile" element={<ProfilePage />} />
       </Route>

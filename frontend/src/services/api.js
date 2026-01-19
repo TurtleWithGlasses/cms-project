@@ -40,6 +40,8 @@ export const authApi = {
   register: (data) => axios.post('/auth/register', data),
   verify2FA: (code) => api.post('/two-factor/verify', { code }),
   getProfile: () => api.get('/users/me'),
+  forgotPassword: (email) => api.post('/password-reset/request', { email }),
+  resetPassword: (token, password) => api.post('/password-reset/reset', { token, password }),
 }
 
 // Dashboard API
@@ -175,6 +177,36 @@ export const searchApi = {
   content: (query, params = {}) => api.get('/search/content', { params: { q: query, ...params } }),
   users: (query, params = {}) => api.get('/search/users', { params: { q: query, ...params } }),
   media: (query, params = {}) => api.get('/search/media', { params: { q: query, ...params } }),
+}
+
+// Roles API
+export const rolesApi = {
+  getAll: () => api.get('/roles'),
+  getById: (id) => api.get(`/roles/${id}`),
+  create: (data) => api.post('/roles', data),
+  update: (id, data) => api.put(`/roles/${id}`, data),
+  delete: (id) => api.delete(`/roles/${id}`),
+  getPermissions: () => api.get('/roles/permissions'),
+}
+
+// Import/Export API
+export const importExportApi = {
+  export: (options) => api.post('/export', options, { responseType: 'blob' }),
+  import: (formData) => api.post('/import', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }),
+  preview: (formData) => api.post('/import/preview', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }),
+}
+
+// Analytics API
+export const analyticsApi = {
+  getOverview: (params = {}) => api.get('/analytics/overview', { params }),
+  getContentStats: (params = {}) => api.get('/analytics/content', { params }),
+  getUserStats: (params = {}) => api.get('/analytics/users', { params }),
+  getTrafficSources: (params = {}) => api.get('/analytics/traffic', { params }),
+  export: (params = {}) => api.get('/analytics/export', { params, responseType: 'blob' }),
 }
 
 export default api
