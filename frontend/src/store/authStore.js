@@ -109,3 +109,5 @@ export const useAuthStore = create((set, get) => ({
 
 // Initialize auth on app load
 useAuthStore.getState().initialize()
+
+export default useAuthStore
