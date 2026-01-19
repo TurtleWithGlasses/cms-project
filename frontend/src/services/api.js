@@ -134,4 +134,21 @@ export const notificationsApi = {
   markAllAsRead: () => api.post('/notifications/read-all'),
 }
 
+// API Keys API
+export const apiKeysApi = {
+  getAll: () => api.get('/api-keys'),
+  create: (data) => api.post('/api-keys', data),
+  delete: (id) => api.delete(`/api-keys/${id}`),
+}
+
+// Webhooks API
+export const webhooksApi = {
+  getAll: () => api.get('/webhooks'),
+  getById: (id) => api.get(`/webhooks/${id}`),
+  create: (data) => api.post('/webhooks', data),
+  update: (id, data) => api.put(`/webhooks/${id}`, data),
+  delete: (id) => api.delete(`/webhooks/${id}`),
+  test: (id) => api.post(`/webhooks/${id}/test`),
+}
+
 export default api

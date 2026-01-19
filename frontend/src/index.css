@@ -53,3 +53,73 @@
     @apply text-gray-600 hover:bg-gray-100 hover:text-gray-900;
   }
 }
+
+/* TipTap Editor Styles */
+.ProseMirror {
+  outline: none;
+  min-height: 250px;
+}
+
+.ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: #9ca3af;
+  pointer-events: none;
+  height: 0;
+}
+
+.ProseMirror h1 {
+  @apply text-2xl font-bold mt-6 mb-4;
+}
+
+.ProseMirror h2 {
+  @apply text-xl font-bold mt-5 mb-3;
+}
+
+.ProseMirror h3 {
+  @apply text-lg font-bold mt-4 mb-2;
+}
+
+.ProseMirror p {
+  @apply my-3;
+}
+
+.ProseMirror ul {
+  @apply list-disc pl-6 my-3;
+}
+
+.ProseMirror ol {
+  @apply list-decimal pl-6 my-3;
+}
+
+.ProseMirror li {
+  @apply my-1;
+}
+
+.ProseMirror blockquote {
+  @apply border-l-4 border-gray-300 pl-4 italic my-4 text-gray-600;
+}
+
+.ProseMirror code {
+  @apply bg-gray-100 px-1.5 py-0.5 rounded text-sm font-mono text-red-600;
+}
+
+.ProseMirror pre {
+  @apply bg-gray-900 text-gray-100 p-4 rounded-lg my-4 overflow-x-auto;
+}
+
+.ProseMirror pre code {
+  @apply bg-transparent text-gray-100 p-0;
+}
+
+.ProseMirror hr {
+  @apply my-6 border-gray-300;
+}
+
+.ProseMirror a {
+  @apply text-primary-600 underline hover:text-primary-700;
+}
+
+.ProseMirror img {
+  @apply max-w-full h-auto rounded-lg my-4;
+}

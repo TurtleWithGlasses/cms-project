@@ -18,6 +18,8 @@ import {
   Tag,
   MessageSquare,
   UsersRound,
+  Key,
+  Webhook,
 } from 'lucide-react'
 
 const navigation = [
@@ -29,6 +31,8 @@ const navigation = [
   { name: 'Media', href: '/media', icon: Image },
   { name: 'Users', href: '/users', icon: Users },
   { name: 'Teams', href: '/teams', icon: UsersRound },
+  { name: 'API Keys', href: '/api-keys', icon: Key },
+  { name: 'Webhooks', href: '/webhooks', icon: Webhook },
   { name: 'Settings', href: '/settings', icon: Settings },
 ]
 

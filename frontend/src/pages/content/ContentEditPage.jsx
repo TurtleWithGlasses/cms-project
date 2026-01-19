@@ -8,7 +8,8 @@ import { contentApi, categoriesApi } from '../../services/api'
 import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card'
-import { ArrowLeft, Save, Eye, Trash2 } from 'lucide-react'
+import RichTextEditor from '../../components/editor/RichTextEditor'
+import { ArrowLeft, Save, Trash2 } from 'lucide-react'
 
 const contentSchema = z.object({
   title: z.string().min(1, 'Title is required'),
@@ -24,6 +25,7 @@ function ContentEditPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const isNew = !id
+  const [bodyContent, setBodyContent] = useState('')
 
   // Fetch content if editing
   const { data: content, isLoading: contentLoading } = useQuery({
@@ -44,6 +46,7 @@ function ContentEditPage() {
     register,
     handleSubmit,
     reset,
+    setValue,
     formState: { errors, isDirty },
   } = useForm({
     resolver: zodResolver(contentSchema),
@@ -68,8 +71,15 @@ function ContentEditPage() {
         status: content.status || 'draft',
         category_id: content.category_id || null,
       })
+      setBodyContent(content.body || '')
     }
   }, [content, reset])
+
+  // Update form value when editor content changes
+  const handleEditorChange = (html) => {
+    setBodyContent(html)
+    setValue('body', html, { shouldDirty: true })
+  }
 
   // Save mutation
   const saveMutation = useMutation({
@@ -173,11 +183,10 @@ function ContentEditPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Content Body
                 </label>
-                <textarea
-                  rows={12}
+                <RichTextEditor
+                  content={bodyContent}
+                  onChange={handleEditorChange}
                   placeholder="Write your content here..."
-                  className="input font-mono text-sm"
-                  {...register('body')}
                 />
                 {errors.body && (
                   <p className="mt-1 text-sm text-red-600">{errors.body.message}</p>

@@ -20,8 +20,13 @@ import CommentsPage from './pages/comments/CommentsPage'
 import UsersPage from './pages/users/UsersPage'
 import TeamsPage from './pages/teams/TeamsPage'
 import MediaPage from './pages/media/MediaPage'
+import ApiKeysPage from './pages/apikeys/ApiKeysPage'
+import WebhooksPage from './pages/webhooks/WebhooksPage'
 import SettingsPage from './pages/settings/SettingsPage'
 import ProfilePage from './pages/settings/ProfilePage'
+
+// Error Pages
+import NotFoundPage from './pages/errors/NotFoundPage'
 
 // Protected Route Component
 function ProtectedRoute({ children }) {
@@ -103,13 +108,17 @@ function App() {
         <Route path="/users" element={<UsersPage />} />
         <Route path="/teams" element={<TeamsPage />} />
         <Route path="/media" element={<MediaPage />} />
+        <Route path="/api-keys" element={<ApiKeysPage />} />
+        <Route path="/webhooks" element={<WebhooksPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/profile" element={<ProfilePage />} />
       </Route>
 
       {/* Default Redirect */}
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
-      <Route path="*" element={<Navigate to="/dashboard" replace />} />
+
+      {/* 404 Page */}
+      <Route path="*" element={<NotFoundPage />} />
     </Routes>
   )
 }
