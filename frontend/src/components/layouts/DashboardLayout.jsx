@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../../store/authStore'
 import { cn } from '../../utils/cn'
+import NotificationsDropdown from '../notifications/NotificationsDropdown'
 import {
   LayoutDashboard,
   FileText,
@@ -11,16 +12,23 @@ import {
   LogOut,
   Menu,
   X,
-  Bell,
   ChevronDown,
   User,
+  Folder,
+  Tag,
+  MessageSquare,
+  UsersRound,
 } from 'lucide-react'
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Content', href: '/content', icon: FileText },
-  { name: 'Users', href: '/users', icon: Users },
+  { name: 'Categories', href: '/categories', icon: Folder },
+  { name: 'Tags', href: '/tags', icon: Tag },
+  { name: 'Comments', href: '/comments', icon: MessageSquare },
   { name: 'Media', href: '/media', icon: Image },
+  { name: 'Users', href: '/users', icon: Users },
+  { name: 'Teams', href: '/teams', icon: UsersRound },
   { name: 'Settings', href: '/settings', icon: Settings },
 ]
 
@@ -119,10 +127,7 @@ function DashboardLayout() {
             {/* Right side actions */}
             <div className="flex items-center gap-4">
               {/* Notifications */}
-              <button className="p-2 rounded-lg hover:bg-gray-100 relative">
-                <Bell className="h-5 w-5 text-gray-600" />
-                <span className="absolute top-1 right-1 h-2 w-2 bg-red-500 rounded-full" />
-              </button>
+              <NotificationsDropdown />
 
               {/* User menu */}
               <div className="relative">

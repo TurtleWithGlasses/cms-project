@@ -14,7 +14,11 @@ import TwoFactorPage from './pages/auth/TwoFactorPage'
 import DashboardPage from './pages/dashboard/DashboardPage'
 import ContentListPage from './pages/content/ContentListPage'
 import ContentEditPage from './pages/content/ContentEditPage'
+import CategoriesPage from './pages/categories/CategoriesPage'
+import TagsPage from './pages/tags/TagsPage'
+import CommentsPage from './pages/comments/CommentsPage'
 import UsersPage from './pages/users/UsersPage'
+import TeamsPage from './pages/teams/TeamsPage'
 import MediaPage from './pages/media/MediaPage'
 import SettingsPage from './pages/settings/SettingsPage'
 import ProfilePage from './pages/settings/ProfilePage'
@@ -93,7 +97,11 @@ function App() {
         <Route path="/content" element={<ContentListPage />} />
         <Route path="/content/new" element={<ContentEditPage />} />
         <Route path="/content/:id" element={<ContentEditPage />} />
+        <Route path="/categories" element={<CategoriesPage />} />
+        <Route path="/tags" element={<TagsPage />} />
+        <Route path="/comments" element={<CommentsPage />} />
         <Route path="/users" element={<UsersPage />} />
+        <Route path="/teams" element={<TeamsPage />} />
         <Route path="/media" element={<MediaPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/profile" element={<ProfilePage />} />
