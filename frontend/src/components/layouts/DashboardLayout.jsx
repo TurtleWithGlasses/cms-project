@@ -3,6 +3,7 @@ import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../../store/authStore'
 import { cn } from '../../utils/cn'
 import NotificationsDropdown from '../notifications/NotificationsDropdown'
+import GlobalSearch from '../search/GlobalSearch'
 import {
   LayoutDashboard,
   FileText,
@@ -20,6 +21,9 @@ import {
   UsersRound,
   Key,
   Webhook,
+  FileCode,
+  Activity,
+  Search,
 } from 'lucide-react'
 
 const navigation = [
@@ -29,8 +33,10 @@ const navigation = [
   { name: 'Tags', href: '/tags', icon: Tag },
   { name: 'Comments', href: '/comments', icon: MessageSquare },
   { name: 'Media', href: '/media', icon: Image },
+  { name: 'Templates', href: '/templates', icon: FileCode },
   { name: 'Users', href: '/users', icon: Users },
   { name: 'Teams', href: '/teams', icon: UsersRound },
+  { name: 'Activity', href: '/activity', icon: Activity },
   { name: 'API Keys', href: '/api-keys', icon: Key },
   { name: 'Webhooks', href: '/webhooks', icon: Webhook },
   { name: 'Settings', href: '/settings', icon: Settings },
@@ -119,13 +125,9 @@ function DashboardLayout() {
               <Menu className="h-5 w-5" />
             </button>
 
-            {/* Search (placeholder) */}
+            {/* Global Search */}
             <div className="hidden md:block flex-1 max-w-md mx-4">
-              <input
-                type="text"
-                placeholder="Search..."
-                className="input"
-              />
+              <GlobalSearch />
             </div>
 
             {/* Right side actions */}

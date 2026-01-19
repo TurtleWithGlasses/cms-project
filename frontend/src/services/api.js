@@ -151,4 +151,30 @@ export const webhooksApi = {
   test: (id) => api.post(`/webhooks/${id}/test`),
 }
 
+// Templates API
+export const templatesApi = {
+  getAll: (params = {}) => api.get('/templates', { params }),
+  getById: (id) => api.get(`/templates/${id}`),
+  create: (data) => api.post('/templates', data),
+  update: (id, data) => api.put(`/templates/${id}`, data),
+  delete: (id) => api.delete(`/templates/${id}`),
+  duplicate: (id) => api.post(`/templates/${id}/duplicate`),
+}
+
+// Activity API
+export const activityApi = {
+  getAll: (params = {}) => api.get('/activity', { params }),
+  getByResource: (resourceType, resourceId) =>
+    api.get(`/activity/${resourceType}/${resourceId}`),
+  exportLogs: (params = {}) => api.get('/activity/export', { params, responseType: 'blob' }),
+}
+
+// Search API
+export const searchApi = {
+  global: (query, params = {}) => api.get('/search', { params: { q: query, ...params } }),
+  content: (query, params = {}) => api.get('/search/content', { params: { q: query, ...params } }),
+  users: (query, params = {}) => api.get('/search/users', { params: { q: query, ...params } }),
+  media: (query, params = {}) => api.get('/search/media', { params: { q: query, ...params } }),
+}
+
 export default api

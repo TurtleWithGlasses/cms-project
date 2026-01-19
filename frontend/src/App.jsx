@@ -24,6 +24,8 @@ import ApiKeysPage from './pages/apikeys/ApiKeysPage'
 import WebhooksPage from './pages/webhooks/WebhooksPage'
 import SettingsPage from './pages/settings/SettingsPage'
 import ProfilePage from './pages/settings/ProfilePage'
+import TemplatesPage from './pages/templates/TemplatesPage'
+import ActivityLogPage from './pages/activity/ActivityLogPage'
 
 // Error Pages
 import NotFoundPage from './pages/errors/NotFoundPage'
@@ -110,6 +112,8 @@ function App() {
         <Route path="/media" element={<MediaPage />} />
         <Route path="/api-keys" element={<ApiKeysPage />} />
         <Route path="/webhooks" element={<WebhooksPage />} />
+        <Route path="/templates" element={<TemplatesPage />} />
+        <Route path="/activity" element={<ActivityLogPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/profile" element={<ProfilePage />} />
       </Route>
