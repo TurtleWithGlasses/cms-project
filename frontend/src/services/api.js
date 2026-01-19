@@ -209,4 +209,30 @@ export const analyticsApi = {
   export: (params = {}) => api.get('/analytics/export', { params, responseType: 'blob' }),
 }
 
+// Monitoring API
+export const monitoringApi = {
+  getHealth: () => api.get('/monitoring/health'),
+  getMetrics: () => api.get('/monitoring/metrics'),
+  getErrors: (params = {}) => api.get('/monitoring/errors', { params }),
+  getPerformance: (params = {}) => api.get('/monitoring/performance', { params }),
+}
+
+// Workflow API
+export const workflowApi = {
+  getPending: (params = {}) => api.get('/workflow/pending', { params }),
+  approve: (id, data) => api.post(`/workflow/${id}/approve`, data),
+  reject: (id, data) => api.post(`/workflow/${id}/reject`, data),
+  requestChanges: (id, data) => api.post(`/workflow/${id}/request-changes`, data),
+  getHistory: (contentId) => api.get(`/workflow/${contentId}/history`),
+}
+
+// SEO API
+export const seoApi = {
+  getByContent: (contentId) => api.get(`/seo/content/${contentId}`),
+  update: (contentId, data) => api.put(`/seo/content/${contentId}`, data),
+  analyze: (contentId) => api.get(`/seo/content/${contentId}/analyze`),
+  getSitemap: () => api.get('/seo/sitemap'),
+  getRobotsTxt: () => api.get('/seo/robots.txt'),
+}
+
 export default api

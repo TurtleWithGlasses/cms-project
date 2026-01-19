@@ -31,6 +31,9 @@ import ActivityLogPage from './pages/activity/ActivityLogPage'
 import RolesPage from './pages/roles/RolesPage'
 import ImportExportPage from './pages/import-export/ImportExportPage'
 import AnalyticsPage from './pages/analytics/AnalyticsPage'
+import SystemMonitoringPage from './pages/monitoring/SystemMonitoringPage'
+import WorkflowPage from './pages/workflow/WorkflowPage'
+import ScheduledContentPage from './pages/scheduled/ScheduledContentPage'
 
 // Error Pages
 import NotFoundPage from './pages/errors/NotFoundPage'
@@ -138,6 +141,9 @@ function App() {
         <Route path="/roles" element={<RolesPage />} />
         <Route path="/import-export" element={<ImportExportPage />} />
         <Route path="/analytics" element={<AnalyticsPage />} />
+        <Route path="/monitoring" element={<SystemMonitoringPage />} />
+        <Route path="/workflow" element={<WorkflowPage />} />
+        <Route path="/scheduled" element={<ScheduledContentPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/profile" element={<ProfilePage />} />
       </Route>

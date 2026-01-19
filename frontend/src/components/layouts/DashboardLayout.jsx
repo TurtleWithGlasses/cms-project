@@ -27,12 +27,17 @@ import {
   Shield,
   Download,
   BarChart3,
+  Monitor,
+  GitBranch,
+  Calendar,
 } from 'lucide-react'
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Analytics', href: '/analytics', icon: BarChart3 },
   { name: 'Content', href: '/content', icon: FileText },
+  { name: 'Scheduled', href: '/scheduled', icon: Calendar },
+  { name: 'Workflow', href: '/workflow', icon: GitBranch },
   { name: 'Categories', href: '/categories', icon: Folder },
   { name: 'Tags', href: '/tags', icon: Tag },
   { name: 'Comments', href: '/comments', icon: MessageSquare },
@@ -42,6 +47,7 @@ const navigation = [
   { name: 'Teams', href: '/teams', icon: UsersRound },
   { name: 'Roles', href: '/roles', icon: Shield },
   { name: 'Activity', href: '/activity', icon: Activity },
+  { name: 'Monitoring', href: '/monitoring', icon: Monitor },
   { name: 'Import/Export', href: '/import-export', icon: Download },
   { name: 'API Keys', href: '/api-keys', icon: Key },
   { name: 'Webhooks', href: '/webhooks', icon: Webhook },
