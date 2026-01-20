@@ -34,6 +34,9 @@ import AnalyticsPage from './pages/analytics/AnalyticsPage'
 import SystemMonitoringPage from './pages/monitoring/SystemMonitoringPage'
 import WorkflowPage from './pages/workflow/WorkflowPage'
 import ScheduledContentPage from './pages/scheduled/ScheduledContentPage'
+import ContentRevisionsPage from './pages/revisions/ContentRevisionsPage'
+import PrivacySettingsPage from './pages/privacy/PrivacySettingsPage'
+import CacheManagementPage from './pages/cache/CacheManagementPage'
 
 // Error Pages
 import NotFoundPage from './pages/errors/NotFoundPage'
@@ -144,6 +147,9 @@ function App() {
         <Route path="/monitoring" element={<SystemMonitoringPage />} />
         <Route path="/workflow" element={<WorkflowPage />} />
         <Route path="/scheduled" element={<ScheduledContentPage />} />
+        <Route path="/content/:id/revisions" element={<ContentRevisionsPage />} />
+        <Route path="/privacy" element={<PrivacySettingsPage />} />
+        <Route path="/cache" element={<CacheManagementPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/profile" element={<ProfilePage />} />
       </Route>

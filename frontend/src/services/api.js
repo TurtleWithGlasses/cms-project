@@ -235,4 +235,47 @@ export const seoApi = {
   getRobotsTxt: () => api.get('/seo/robots.txt'),
 }
 
+// Revisions API
+export const revisionsApi = {
+  getByContent: (contentId, params = {}) => api.get(`/content/${contentId}/revisions`, { params }),
+  getById: (contentId, revisionId) => api.get(`/content/${contentId}/revisions/${revisionId}`),
+  restore: (contentId, revisionId) => api.post(`/content/${contentId}/revisions/${revisionId}/restore`),
+  compare: (contentId, revisionId1, revisionId2) =>
+    api.get(`/content/${contentId}/revisions/compare`, { params: { from: revisionId1, to: revisionId2 } }),
+}
+
+// Privacy API
+export const privacyApi = {
+  getSettings: () => api.get('/privacy/settings'),
+  updateSettings: (data) => api.put('/privacy/settings', data),
+  getCookieConfig: () => api.get('/privacy/cookies'),
+  updateCookieConfig: (data) => api.put('/privacy/cookies', data),
+  getDataRetention: () => api.get('/privacy/data-retention'),
+  updateDataRetention: (data) => api.put('/privacy/data-retention', data),
+  exportUserData: (userId) => api.get(`/privacy/users/${userId}/export`, { responseType: 'blob' }),
+  deleteUserData: (userId) => api.delete(`/privacy/users/${userId}/data`),
+  getConsentLogs: (params = {}) => api.get('/privacy/consent-logs', { params }),
+}
+
+// Cache API
+export const cacheApi = {
+  getStats: () => api.get('/cache/stats'),
+  getCaches: () => api.get('/cache'),
+  clear: (cacheKey) => api.delete(`/cache/${cacheKey}`),
+  clearAll: () => api.delete('/cache'),
+  warmup: (cacheKey) => api.post(`/cache/${cacheKey}/warmup`),
+  getActivity: (params = {}) => api.get('/cache/activity', { params }),
+}
+
+// Bulk Actions API
+export const bulkActionsApi = {
+  publish: (ids) => api.post('/content/bulk/publish', { ids }),
+  unpublish: (ids) => api.post('/content/bulk/unpublish', { ids }),
+  archive: (ids) => api.post('/content/bulk/archive', { ids }),
+  delete: (ids) => api.post('/content/bulk/delete', { ids }),
+  updateCategory: (ids, categoryId) => api.post('/content/bulk/category', { ids, category_id: categoryId }),
+  addTags: (ids, tagIds) => api.post('/content/bulk/tags/add', { ids, tag_ids: tagIds }),
+  removeTags: (ids, tagIds) => api.post('/content/bulk/tags/remove', { ids, tag_ids: tagIds }),
+}
+
 export default api
