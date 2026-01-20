@@ -278,4 +278,73 @@ export const bulkActionsApi = {
   removeTags: (ids, tagIds) => api.post('/content/bulk/tags/remove', { ids, tag_ids: tagIds }),
 }
 
+// Two Factor API
+export const twoFactorApi = {
+  getStatus: () => api.get('/2fa/status'),
+  setup: (method) => api.post('/2fa/setup', { method }),
+  verify: (code) => api.post('/2fa/verify', { code }),
+  disable: (code) => api.post('/2fa/disable', { code }),
+  regenerateBackupCodes: () => api.post('/2fa/backup-codes/regenerate'),
+}
+
+// Site Settings API
+export const siteSettingsApi = {
+  get: () => api.get('/settings/site'),
+  update: (data) => api.put('/settings/site', data),
+  uploadLogo: (file) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    return api.post('/settings/site/logo', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+  },
+  uploadFavicon: (file) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    return api.post('/settings/site/favicon', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+  },
+}
+
+// Localization API
+export const localizationApi = {
+  getLanguages: () => api.get('/localization/languages'),
+  addLanguage: (code) => api.post('/localization/languages', { code }),
+  removeLanguage: (code) => api.delete(`/localization/languages/${code}`),
+  setDefault: (code) => api.put(`/localization/languages/${code}/default`),
+  toggleEnabled: (code, enabled) => api.put(`/localization/languages/${code}`, { enabled }),
+  getTranslations: (lang) => api.get(`/localization/translations/${lang}`),
+  updateTranslation: (lang, key, value) => api.put(`/localization/translations/${lang}`, { key, value }),
+  exportTranslations: (lang) => api.get(`/localization/translations/${lang}/export`, { responseType: 'blob' }),
+  importTranslations: (lang, file) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    return api.post(`/localization/translations/${lang}/import`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+  },
+}
+
+// Backup API
+export const backupApi = {
+  getAll: () => api.get('/backups'),
+  create: (options) => api.post('/backups', options),
+  delete: (id) => api.delete(`/backups/${id}`),
+  download: (id) => api.get(`/backups/${id}/download`, { responseType: 'blob' }),
+  restore: (id) => api.post(`/backups/${id}/restore`),
+  getSchedule: () => api.get('/backups/schedule'),
+  updateSchedule: (data) => api.put('/backups/schedule', data),
+  getStorageInfo: () => api.get('/backups/storage'),
+}
+
+// Email Templates API
+export const emailTemplatesApi = {
+  getAll: () => api.get('/email-templates'),
+  getById: (id) => api.get(`/email-templates/${id}`),
+  update: (id, data) => api.put(`/email-templates/${id}`, data),
+  sendTest: (id, email) => api.post(`/email-templates/${id}/test`, { email }),
+  resetToDefault: (id) => api.post(`/email-templates/${id}/reset`),
+}
+
 export default api

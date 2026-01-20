@@ -37,6 +37,11 @@ import ScheduledContentPage from './pages/scheduled/ScheduledContentPage'
 import ContentRevisionsPage from './pages/revisions/ContentRevisionsPage'
 import PrivacySettingsPage from './pages/privacy/PrivacySettingsPage'
 import CacheManagementPage from './pages/cache/CacheManagementPage'
+import TwoFactorSettingsPage from './pages/settings/TwoFactorSettingsPage'
+import SiteSettingsPage from './pages/settings/SiteSettingsPage'
+import LocalizationPage from './pages/localization/LocalizationPage'
+import BackupRestorePage from './pages/backup/BackupRestorePage'
+import EmailTemplatesPage from './pages/email-templates/EmailTemplatesPage'
 
 // Error Pages
 import NotFoundPage from './pages/errors/NotFoundPage'
@@ -150,6 +155,11 @@ function App() {
         <Route path="/content/:id/revisions" element={<ContentRevisionsPage />} />
         <Route path="/privacy" element={<PrivacySettingsPage />} />
         <Route path="/cache" element={<CacheManagementPage />} />
+        <Route path="/settings/2fa" element={<TwoFactorSettingsPage />} />
+        <Route path="/settings/site" element={<SiteSettingsPage />} />
+        <Route path="/localization" element={<LocalizationPage />} />
+        <Route path="/backups" element={<BackupRestorePage />} />
+        <Route path="/email-templates" element={<EmailTemplatesPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/profile" element={<ProfilePage />} />
       </Route>

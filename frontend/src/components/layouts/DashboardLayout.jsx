@@ -32,6 +32,9 @@ import {
   Calendar,
   Lock,
   Database,
+  Globe,
+  HardDrive,
+  Mail,
 } from 'lucide-react'
 
 const navigation = [
@@ -54,6 +57,9 @@ const navigation = [
   { name: 'Import/Export', href: '/import-export', icon: Download },
   { name: 'API Keys', href: '/api-keys', icon: Key },
   { name: 'Webhooks', href: '/webhooks', icon: Webhook },
+  { name: 'Email Templates', href: '/email-templates', icon: Mail },
+  { name: 'Localization', href: '/localization', icon: Globe },
+  { name: 'Backups', href: '/backups', icon: HardDrive },
   { name: 'Privacy', href: '/privacy', icon: Lock },
   { name: 'Settings', href: '/settings', icon: Settings },
 ]
