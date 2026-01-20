@@ -82,6 +82,7 @@ class ContentTemplate(Base):
         back_populates="template",
         cascade="all, delete-orphan",
         order_by="TemplateField.order",
+        foreign_keys="TemplateField.template_id",
     )
     revisions = relationship(
         "TemplateRevision",

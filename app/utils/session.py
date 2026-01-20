@@ -1,13 +1,14 @@
 """
-Session Management with Redis
+Session Management with Redis (with in-memory fallback)
 
 Provides Redis-based session storage for user authentication and session tracking.
+Falls back to in-memory storage if Redis is not available.
 """
 
 import json
 import logging
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 import redis.asyncio as redis
@@ -15,6 +16,117 @@ import redis.asyncio as redis
 from app.config import settings
 
 logger = logging.getLogger(__name__)
+
+
+class InMemorySessionManager:
+    """
+    In-memory session manager fallback when Redis is not available.
+    Note: Sessions are lost on server restart and won't scale across instances.
+    """
+
+    def __init__(self):
+        self._sessions: dict[str, dict[str, Any]] = {}
+        self._user_sessions: dict[int, set[str]] = {}
+        self._expirations: dict[str, datetime] = {}
+
+    def _cleanup_expired(self):
+        """Remove expired sessions"""
+        now = datetime.utcnow()
+        expired = [sid for sid, exp in self._expirations.items() if exp < now]
+        for sid in expired:
+            self._delete_session_internal(sid)
+
+    def _delete_session_internal(self, session_id: str):
+        """Internal method to delete a session"""
+        if session_id in self._sessions:
+            session_data = self._sessions.pop(session_id, {})
+            self._expirations.pop(session_id, None)
+            user_id = session_data.get("user_id")
+            if user_id and user_id in self._user_sessions:
+                self._user_sessions[user_id].discard(session_id)
+
+    async def connect(self):
+        """No-op for in-memory"""
+        logger.info("Using in-memory session storage (Redis not available)")
+
+    async def disconnect(self):
+        """Clear all sessions"""
+        self._sessions.clear()
+        self._user_sessions.clear()
+        self._expirations.clear()
+
+    async def create_session(
+        self, user_id: int, user_email: str, user_role: str, additional_data: dict[str, Any] | None = None
+    ) -> str:
+        self._cleanup_expired()
+        session_id = str(uuid.uuid4())
+        session_data = {
+            "user_id": user_id,
+            "email": user_email,
+            "role": user_role,
+            "created_at": datetime.utcnow().isoformat(),
+            "last_activity": datetime.utcnow().isoformat(),
+        }
+        if additional_data:
+            session_data.update(additional_data)
+
+        self._sessions[session_id] = session_data
+        self._expirations[session_id] = datetime.utcnow() + timedelta(seconds=settings.session_expire_seconds)
+
+        if user_id not in self._user_sessions:
+            self._user_sessions[user_id] = set()
+        self._user_sessions[user_id].add(session_id)
+
+        logger.info(f"Created in-memory session {session_id} for user {user_email}")
+        return session_id
+
+    async def get_session(self, session_id: str) -> dict[str, Any] | None:
+        self._cleanup_expired()
+        if session_id not in self._sessions:
+            return None
+        data = self._sessions[session_id].copy()
+        data["last_activity"] = datetime.utcnow().isoformat()
+        self._sessions[session_id] = data
+        self._expirations[session_id] = datetime.utcnow() + timedelta(seconds=settings.session_expire_seconds)
+        return data
+
+    async def validate_session(self, session_id: str) -> bool:
+        self._cleanup_expired()
+        return session_id in self._sessions
+
+    async def delete_session(self, session_id: str) -> bool:
+        if session_id in self._sessions:
+            self._delete_session_internal(session_id)
+            logger.info(f"Deleted in-memory session {session_id}")
+            return True
+        return False
+
+    async def delete_all_user_sessions(self, user_id: int) -> int:
+        if user_id not in self._user_sessions:
+            return 0
+        session_ids = list(self._user_sessions[user_id])
+        for sid in session_ids:
+            self._delete_session_internal(sid)
+        logger.info(f"Deleted {len(session_ids)} in-memory sessions for user {user_id}")
+        return len(session_ids)
+
+    async def get_active_sessions(self, user_id: int) -> list[dict[str, Any]]:
+        self._cleanup_expired()
+        if user_id not in self._user_sessions:
+            return []
+        sessions = []
+        for session_id in self._user_sessions[user_id]:
+            if session_id in self._sessions:
+                data = self._sessions[session_id].copy()
+                data["session_id"] = session_id
+                sessions.append(data)
+        return sessions
+
+    async def extend_session(self, session_id: str) -> bool:
+        if session_id in self._sessions:
+            self._expirations[session_id] = datetime.utcnow() + timedelta(seconds=settings.session_expire_seconds)
+            return True
+        return False
 
 
 class RedisSessionManager:
@@ -271,15 +383,38 @@ class RedisSessionManager:
         return bool(extended)
 
 
-# Global session manager instance
-session_manager = RedisSessionManager()
+# Global session manager instance (will be set on first access)
+_session_manager: RedisSessionManager | InMemorySessionManager | None = None
+_redis_available: bool | None = None
 
 
-async def get_session_manager() -> RedisSessionManager:
+async def get_session_manager() -> RedisSessionManager | InMemorySessionManager:
     """
     Dependency to get the session manager instance.
-    Ensures Redis connection is established.
+    Uses Redis if available, falls back to in-memory storage.
     """
-    if not session_manager._redis:
-        await session_manager.connect()
-    return session_manager
+    global _session_manager, _redis_available
+
+    if _session_manager is not None:
+        return _session_manager
+
+    # Try Redis first
+    if _redis_available is None:
+        try:
+            redis_manager = RedisSessionManager()
+            await redis_manager.connect()
+            _session_manager = redis_manager
+            _redis_available = True
+            logger.info("Session manager using Redis")
+            return _session_manager
+        except Exception as e:
+            logger.warning(f"Redis not available, using in-memory sessions: {e}")
+            _redis_available = False
+
+    # Fall back to in-memory
+    if not _redis_available:
+        _session_manager = InMemorySessionManager()
+        await _session_manager.connect()
+        logger.info("Session manager using in-memory storage")
+
+    return _session_manager

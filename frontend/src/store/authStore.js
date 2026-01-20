@@ -10,21 +10,27 @@ export const useAuthStore = create((set, get) => ({
 
   // Initialize auth state from localStorage
   initialize: async () => {
-    const token = localStorage.getItem('access_token')
-    if (token) {
-      try {
-        const response = await authApi.getProfile()
-        set({
-          user: response.data,
-          isAuthenticated: true,
-          isLoading: false,
-        })
-      } catch (error) {
-        localStorage.removeItem('access_token')
-        set({ isAuthenticated: false, isLoading: false, user: null })
+    try {
+      const token = localStorage.getItem('access_token')
+      if (token) {
+        try {
+          const response = await authApi.getProfile()
+          set({
+            user: response.data,
+            isAuthenticated: true,
+            isLoading: false,
+          })
+        } catch (error) {
+          console.log('Auth init: token invalid, clearing')
+          localStorage.removeItem('access_token')
+          set({ isAuthenticated: false, isLoading: false, user: null })
+        }
+      } else {
+        set({ isLoading: false })
       }
-    } else {
-      set({ isLoading: false })
+    } catch (error) {
+      console.error('Auth init error:', error)
+      set({ isAuthenticated: false, isLoading: false, user: null })
     }
   },
 

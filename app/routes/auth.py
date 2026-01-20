@@ -77,7 +77,7 @@ async def login_for_access_token(
 
     # No 2FA - create full access token and session
     session_manager = await get_session_manager()
-    session_id = await session_manager.create_session(user_id=user.id, user_email=user.email, user_role=user.role)
+    session_id = await session_manager.create_session(user_id=user.id, user_email=user.email, user_role=user.role.name)
 
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
@@ -151,7 +151,7 @@ async def verify_2fa_and_get_token(
 
     # Create session and access token
     session_manager = await get_session_manager()
-    session_id = await session_manager.create_session(user_id=user.id, user_email=user.email, user_role=user.role)
+    session_id = await session_manager.create_session(user_id=user.id, user_email=user.email, user_role=user.role.name)
 
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(

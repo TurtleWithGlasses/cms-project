@@ -37,7 +37,7 @@ export const authApi = {
     axios.post('/auth/token', new URLSearchParams({ username: email, password }), {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     }),
-  register: (data) => axios.post('/auth/register', data),
+  register: (data) => api.post('/users/register', data),
   verify2FA: (code) => api.post('/two-factor/verify', { code }),
   getProfile: () => api.get('/users/me'),
   forgotPassword: (email) => api.post('/password-reset/request', { email }),

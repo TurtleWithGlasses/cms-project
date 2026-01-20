@@ -1,13 +1,16 @@
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.exception_handlers import register_exception_handlers
 from app.middleware.rbac import RBACMiddleware
 from app.routes import auth, category, password_reset, roles, user
 from app.routes.content import router as content_router
-from app.utils.session import session_manager
+from app.utils.session import get_session_manager
 
 logging.basicConfig()
 # logging.getLogger("sqlalchemy.engine").setLevel(logging.INFO)
@@ -20,24 +23,24 @@ async def lifespan(app: FastAPI):
     """
     Application lifespan manager - handles startup and shutdown events.
     """
-    # Startup: Connect to Redis
+    # Startup: Initialize session manager (Redis or in-memory fallback)
     logger.info("Starting up application...")
     try:
-        await session_manager.connect()
-        logger.info("Redis session manager connected")
+        session_manager = await get_session_manager()
+        logger.info("Session manager initialized")
     except Exception as e:
-        logger.error(f"Failed to connect to Redis: {e}")
-        logger.warning("Application will run without session management")
+        logger.error(f"Failed to initialize session manager: {e}")
 
     yield
 
-    # Shutdown: Disconnect from Redis
+    # Shutdown: Disconnect session manager
     logger.info("Shutting down application...")
     try:
+        session_manager = await get_session_manager()
         await session_manager.disconnect()
-        logger.info("Redis session manager disconnected")
+        logger.info("Session manager disconnected")
     except Exception as e:
-        logger.error(f"Error during Redis disconnect: {e}")
+        logger.error(f"Error during session manager disconnect: {e}")
 
 
 app = FastAPI(lifespan=lifespan)
@@ -60,7 +63,27 @@ register_exception_handlers(app)
 
 # Base.metadata.create_all(bind=engine)
 
+# Serve React frontend static files
+FRONTEND_DIR = Path(__file__).parent.parent / "frontend" / "dist"
 
-@app.get("/")
-def root():
-    return {"message": "Welcome to the CMS API"}
+if FRONTEND_DIR.exists():
+    # Mount static assets
+    app.mount("/assets", StaticFiles(directory=FRONTEND_DIR / "assets"), name="static_assets")
+
+    # Serve index.html at root
+    @app.get("/")
+    async def serve_root():
+        return FileResponse(FRONTEND_DIR / "index.html")
+
+    # Serve vite.svg
+    @app.get("/vite.svg")
+    async def serve_vite_svg():
+        svg_path = FRONTEND_DIR / "vite.svg"
+        if svg_path.exists():
+            return FileResponse(svg_path)
+        return {"message": "Not found"}
+else:
+
+    @app.get("/")
+    def root():
+        return {"message": "Welcome to the CMS API. Frontend not found - run 'npm run build' in frontend/"}

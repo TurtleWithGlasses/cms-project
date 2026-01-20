@@ -36,7 +36,14 @@ class RBACMiddleware(BaseHTTPMiddleware):
         logger.debug(f"Request Method: {request.method}")
         logger.debug(f"Request Headers: {request.headers}")
 
+        # Allow public paths
         if request.url.path in self.public_paths:
+            return await call_next(request)
+
+        # Allow static assets (for frontend)
+        if request.url.path.startswith("/assets/") or request.url.path.endswith(
+            (".js", ".css", ".svg", ".png", ".jpg", ".ico", ".woff", ".woff2", ".ttf")
+        ):
             return await call_next(request)
 
         token = request.cookies.get("access_token") or request.headers.get("Authorization", "").replace("Bearer ", "")

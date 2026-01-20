@@ -323,8 +323,59 @@ async def get_current_user_from_header(
     return user
 
 
-# Default get_current_user (cookie-based for backward compatibility)
-get_current_user = get_current_user_from_cookie
+# Default get_current_user - supports both header and cookie authentication
+async def get_current_user(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    """
+    Get current user from either Authorization header or cookie.
+    Tries header first, then falls back to cookie.
+    """
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+    token = None
+
+    # Try Authorization header first
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        token = auth_header.split(" ")[1]
+        logger.debug("Token found in Authorization header")
+
+    # Fall back to cookie
+    if not token:
+        token = request.cookies.get("access_token")
+        if token:
+            logger.debug("Token found in cookie")
+
+    if not token:
+        logger.warning("No token found in header or cookies")
+        raise credentials_exception
+
+    try:
+        email = decode_access_token(token)
+        logger.debug(f"Decoded email: {email}")
+    except HTTPException as e:
+        logger.error(f"Error decoding token: {str(e)}")
+        raise credentials_exception from e
+
+    try:
+        result = await db.execute(select(User).options(selectinload(User.role)).where(User.email == email))
+        user = result.scalars().first()
+        if user is None:
+            raise credentials_exception
+    except Exception as e:
+        logger.error(f"Database error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve user info",
+        ) from e
+
+    return user
 
 
 # ============================================================================

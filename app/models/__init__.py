@@ -21,6 +21,7 @@ from .import_job import (
     ImportStatus,
     ImportType,
 )
+from .media import Media
 from .notification import Notification
 from .notification_preference import (
     DigestFrequency,
@@ -68,6 +69,7 @@ __all__ = [
     "ImportType",
     "InvitationStatus",
     "LoginAttempt",
+    "Media",
     "Notification",
     "NotificationCategory",
     "NotificationChannel",

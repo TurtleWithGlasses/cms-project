@@ -21,62 +21,56 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    # Use raw SQL with IF NOT EXISTS to avoid errors on existing indexes
+
     # Content table indexes
-    op.create_index("ix_content_category_id", "content", ["category_id"], unique=False)
-    op.create_index("ix_content_created_at", "content", ["created_at"], unique=False)
-    op.create_index("ix_content_updated_at", "content", ["updated_at"], unique=False)
-    op.create_index("ix_content_publish_date", "content", ["publish_date"], unique=False)
+    op.execute("CREATE INDEX IF NOT EXISTS ix_content_category_id ON content (category_id)")
+    op.execute("CREATE INDEX IF NOT EXISTS ix_content_created_at ON content (created_at)")
+    op.execute("CREATE INDEX IF NOT EXISTS ix_content_updated_at ON content (updated_at)")
+    op.execute("CREATE INDEX IF NOT EXISTS ix_content_publish_date ON content (publish_date)")
 
     # Composite index for common content queries (status + created_at for listing)
-    op.create_index(
-        "ix_content_status_created",
-        "content",
-        ["status", "created_at"],
-        unique=False,
-    )
+    op.execute("CREATE INDEX IF NOT EXISTS ix_content_status_created ON content (status, created_at)")
 
     # User table indexes
-    op.create_index("ix_users_role_id", "users", ["role_id"], unique=False)
+    op.execute("CREATE INDEX IF NOT EXISTS ix_users_role_id ON users (role_id)")
 
     # Media table indexes
-    op.create_index("ix_media_uploaded_by", "media", ["uploaded_by"], unique=False)
-    op.create_index("ix_media_uploaded_at", "media", ["uploaded_at"], unique=False)
+    op.execute("CREATE INDEX IF NOT EXISTS ix_media_uploaded_by ON media (uploaded_by)")
+    op.execute("CREATE INDEX IF NOT EXISTS ix_media_uploaded_at ON media (uploaded_at)")
 
     # Notification table indexes
-    op.create_index("ix_notifications_user_id", "notifications", ["user_id"], unique=False)
-    op.create_index("ix_notifications_status", "notifications", ["status"], unique=False)
-    op.create_index(
-        "ix_notifications_user_status",
-        "notifications",
-        ["user_id", "status"],
-        unique=False,
-    )
+    op.execute("CREATE INDEX IF NOT EXISTS ix_notifications_user_id ON notifications (user_id)")
+    op.execute("CREATE INDEX IF NOT EXISTS ix_notifications_status ON notifications (status)")
+    op.execute("CREATE INDEX IF NOT EXISTS ix_notifications_user_status ON notifications (user_id, status)")
 
     # Activity logs additional indexes
-    op.create_index("ix_activity_logs_timestamp", "activity_logs", ["timestamp"], unique=False)
-    op.create_index("ix_activity_logs_action", "activity_logs", ["action"], unique=False)
+    op.execute("CREATE INDEX IF NOT EXISTS ix_activity_logs_timestamp ON activity_logs (timestamp)")
+    op.execute("CREATE INDEX IF NOT EXISTS ix_activity_logs_action ON activity_logs (action)")
 
 
 def downgrade() -> None:
+    # Use raw SQL with IF EXISTS to safely drop indexes
+
     # Activity logs indexes
-    op.drop_index("ix_activity_logs_action", table_name="activity_logs")
-    op.drop_index("ix_activity_logs_timestamp", table_name="activity_logs")
+    op.execute("DROP INDEX IF EXISTS ix_activity_logs_action")
+    op.execute("DROP INDEX IF EXISTS ix_activity_logs_timestamp")
 
     # Notification indexes
-    op.drop_index("ix_notifications_user_status", table_name="notifications")
-    op.drop_index("ix_notifications_status", table_name="notifications")
-    op.drop_index("ix_notifications_user_id", table_name="notifications")
+    op.execute("DROP INDEX IF EXISTS ix_notifications_user_status")
+    op.execute("DROP INDEX IF EXISTS ix_notifications_status")
+    op.execute("DROP INDEX IF EXISTS ix_notifications_user_id")
 
     # Media indexes
-    op.drop_index("ix_media_uploaded_at", table_name="media")
-    op.drop_index("ix_media_uploaded_by", table_name="media")
+    op.execute("DROP INDEX IF EXISTS ix_media_uploaded_at")
+    op.execute("DROP INDEX IF EXISTS ix_media_uploaded_by")
 
     # User indexes
-    op.drop_index("ix_users_role_id", table_name="users")
+    op.execute("DROP INDEX IF EXISTS ix_users_role_id")
 
     # Content indexes
-    op.drop_index("ix_content_status_created", table_name="content")
-    op.drop_index("ix_content_publish_date", table_name="content")
-    op.drop_index("ix_content_updated_at", table_name="content")
-    op.drop_index("ix_content_created_at", table_name="content")
-    op.drop_index("ix_content_category_id", table_name="content")
+    op.execute("DROP INDEX IF EXISTS ix_content_status_created")
+    op.execute("DROP INDEX IF EXISTS ix_content_publish_date")
+    op.execute("DROP INDEX IF EXISTS ix_content_updated_at")
+    op.execute("DROP INDEX IF EXISTS ix_content_created_at")
+    op.execute("DROP INDEX IF EXISTS ix_content_category_id")

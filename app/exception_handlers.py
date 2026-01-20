@@ -86,7 +86,7 @@ async def cms_exception_handler(request: Request, exc: CMSException) -> JSONResp
     )
 
 
-async def http_exception_handler(request: Request, exc: StarletteHTTPException) -> JSONResponse:
+async def http_exception_handler(request: Request, exc: StarletteHTTPException):
     """
     Handle standard HTTP exceptions
 
@@ -95,8 +95,21 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException) 
         exc: The HTTPException instance
 
     Returns:
-        JSONResponse with error details
+        JSONResponse with error details, or index.html for SPA routes
     """
+    # For 404 errors on non-API routes, serve the SPA
+    if exc.status_code == 404:
+        path = request.url.path
+        if not path.startswith("/api/") and not path.startswith("/auth/"):
+            from pathlib import Path
+
+            from fastapi.responses import FileResponse
+
+            frontend_dir = Path(__file__).parent.parent / "frontend" / "dist"
+            index_path = frontend_dir / "index.html"
+            if index_path.exists():
+                return FileResponse(index_path)
+
     logger.warning(f"HTTPException: {exc.detail}", extra={"status_code": exc.status_code, "path": request.url.path})
 
     return create_error_response(status_code=exc.status_code, message=str(exc.detail), path=request.url.path)
