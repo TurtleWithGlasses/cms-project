@@ -63,24 +63,24 @@ function ToastItem({ toast, onClose }) {
 
   const styles = {
     success: {
-      bg: 'bg-green-50 border-green-200',
-      icon: <CheckCircle className="h-5 w-5 text-green-500" />,
-      text: 'text-green-800',
+      bg: 'bg-green-50 border-green-200 dark:bg-green-900/50 dark:border-green-800',
+      icon: <CheckCircle className="h-5 w-5 text-green-500 dark:text-green-400" />,
+      text: 'text-green-800 dark:text-green-200',
     },
     error: {
-      bg: 'bg-red-50 border-red-200',
-      icon: <XCircle className="h-5 w-5 text-red-500" />,
-      text: 'text-red-800',
+      bg: 'bg-red-50 border-red-200 dark:bg-red-900/50 dark:border-red-800',
+      icon: <XCircle className="h-5 w-5 text-red-500 dark:text-red-400" />,
+      text: 'text-red-800 dark:text-red-200',
     },
     warning: {
-      bg: 'bg-yellow-50 border-yellow-200',
-      icon: <AlertCircle className="h-5 w-5 text-yellow-500" />,
-      text: 'text-yellow-800',
+      bg: 'bg-yellow-50 border-yellow-200 dark:bg-yellow-900/50 dark:border-yellow-800',
+      icon: <AlertCircle className="h-5 w-5 text-yellow-500 dark:text-yellow-400" />,
+      text: 'text-yellow-800 dark:text-yellow-200',
     },
     info: {
-      bg: 'bg-blue-50 border-blue-200',
-      icon: <Info className="h-5 w-5 text-blue-500" />,
-      text: 'text-blue-800',
+      bg: 'bg-blue-50 border-blue-200 dark:bg-blue-900/50 dark:border-blue-800',
+      icon: <Info className="h-5 w-5 text-blue-500 dark:text-blue-400" />,
+      text: 'text-blue-800 dark:text-blue-200',
     },
   }
 
@@ -94,9 +94,9 @@ function ToastItem({ toast, onClose }) {
       <p className={`flex-1 text-sm ${style.text}`}>{message}</p>
       <button
         onClick={onClose}
-        className="p-1 hover:bg-white/50 rounded"
+        className="p-1 hover:bg-white/50 dark:hover:bg-black/30 rounded"
       >
-        <X className="h-4 w-4 text-gray-500" />
+        <X className="h-4 w-4 text-gray-500 dark:text-gray-400" />
       </button>
     </div>
   )

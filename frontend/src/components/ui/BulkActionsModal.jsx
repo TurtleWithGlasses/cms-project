@@ -108,18 +108,18 @@ function BulkActionsModal({
         />
 
         {/* Modal */}
-        <div className="inline-block w-full max-w-lg my-8 text-left align-middle bg-white rounded-xl shadow-xl transform transition-all">
+        <div className="inline-block w-full max-w-lg my-8 text-left align-middle bg-white dark:bg-gray-800 rounded-xl shadow-xl transform transition-all">
           {/* Header */}
-          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
             <div>
-              <h3 className="text-lg font-semibold text-gray-900">Bulk Actions</h3>
-              <p className="text-sm text-gray-500">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Bulk Actions</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
                 {selectedItems.length} {itemType} selected
               </p>
             </div>
             <button
               onClick={handleClose}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
             >
               <X className="h-5 w-5 text-gray-400" />
             </button>
@@ -135,7 +135,7 @@ function BulkActionsModal({
                 ) : (
                   <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
                 )}
-                <p className={`font-medium ${result.success ? 'text-green-700' : 'text-red-700'}`}>
+                <p className={`font-medium ${result.success ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'}`}>
                   {result.message}
                 </p>
                 <Button onClick={handleClose} className="mt-4">
@@ -146,22 +146,22 @@ function BulkActionsModal({
               /* Loading state */
               <div className="text-center py-8">
                 <Loader2 className="h-8 w-8 animate-spin text-primary-600 mx-auto mb-4" />
-                <p className="text-gray-600">Processing {selectedItems.length} {itemType}...</p>
+                <p className="text-gray-600 dark:text-gray-400">Processing {selectedItems.length} {itemType}...</p>
               </div>
             ) : selectedAction ? (
               /* Confirmation state */
               <div className="space-y-4">
-                <div className={`p-4 rounded-lg ${selectedAction.dangerous ? 'bg-red-50' : 'bg-gray-50'}`}>
+                <div className={`p-4 rounded-lg ${selectedAction.dangerous ? 'bg-red-50 dark:bg-red-900/30' : 'bg-gray-50 dark:bg-gray-700'}`}>
                   <div className="flex items-center gap-3">
                     <selectedAction.icon className={`h-6 w-6 ${selectedAction.color}`} />
                     <div>
-                      <p className="font-medium text-gray-900">{selectedAction.label}</p>
-                      <p className="text-sm text-gray-500">{selectedAction.description}</p>
+                      <p className="font-medium text-gray-900 dark:text-gray-100">{selectedAction.label}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">{selectedAction.description}</p>
                     </div>
                   </div>
                 </div>
 
-                <p className="text-gray-700">
+                <p className="text-gray-700 dark:text-gray-300">
                   You are about to <strong>{selectedAction.label.toLowerCase()}</strong>{' '}
                   {selectedItems.length} {itemType}. This action
                   {selectedAction.dangerous ? ' cannot be undone.' : ' can be reversed.'}
@@ -169,7 +169,7 @@ function BulkActionsModal({
 
                 {selectedAction.dangerous && (
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Type "DELETE" to confirm
                     </label>
                     <input
@@ -204,16 +204,16 @@ function BulkActionsModal({
                     <button
                       key={action.id}
                       onClick={() => setSelectedAction(action)}
-                      className="w-full flex items-center gap-4 p-4 rounded-lg border border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-colors text-left"
+                      className="w-full flex items-center gap-4 p-4 rounded-lg border border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-left"
                     >
                       <div className={`h-10 w-10 rounded-lg flex items-center justify-center ${
-                        action.dangerous ? 'bg-red-100' : 'bg-gray-100'
+                        action.dangerous ? 'bg-red-100 dark:bg-red-900/50' : 'bg-gray-100 dark:bg-gray-700'
                       }`}>
                         <Icon className={`h-5 w-5 ${action.color}`} />
                       </div>
                       <div className="flex-1">
-                        <p className="font-medium text-gray-900">{action.label}</p>
-                        <p className="text-sm text-gray-500">{action.description}</p>
+                        <p className="font-medium text-gray-900 dark:text-gray-100">{action.label}</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">{action.description}</p>
                       </div>
                     </button>
                   )

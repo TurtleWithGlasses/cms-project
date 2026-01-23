@@ -1,6 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
 import { categoriesApi } from '../../services/api'
+import { useToast } from '../../components/ui/Toast'
 import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
 import { Card, CardContent } from '../../components/ui/Card'
@@ -14,23 +18,71 @@ import {
   X,
   ChevronRight,
   FileText,
+  AlertCircle,
+  RefreshCw,
 } from 'lucide-react'
+
+// Validation schema for category form
+const categorySchema = z.object({
+  name: z.string()
+    .min(1, 'Name is required')
+    .min(2, 'Name must be at least 2 characters')
+    .max(100, 'Name must be less than 100 characters'),
+  slug: z.string()
+    .max(100, 'Slug must be less than 100 characters')
+    .regex(/^[a-z0-9-]*$/, 'Slug can only contain lowercase letters, numbers, and hyphens')
+    .optional()
+    .or(z.literal('')),
+  description: z.string()
+    .max(500, 'Description must be less than 500 characters')
+    .optional()
+    .or(z.literal('')),
+  parent_id: z.number().nullable().optional(),
+})
 
 function CategoriesPage() {
   const queryClient = useQueryClient()
+  const toast = useToast()
   const [search, setSearch] = useState('')
   const [showModal, setShowModal] = useState(false)
   const [editingCategory, setEditingCategory] = useState(null)
   const [expandedCategories, setExpandedCategories] = useState(new Set())
-  const [formData, setFormData] = useState({
-    name: '',
-    slug: '',
-    description: '',
-    parent_id: null,
+
+  // Form handling with validation
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    watch,
+    reset,
+    formState: { errors, isSubmitting },
+  } = useForm({
+    resolver: zodResolver(categorySchema),
+    defaultValues: {
+      name: '',
+      slug: '',
+      description: '',
+      parent_id: null,
+    },
   })
 
+  const watchName = watch('name')
+
+  // Auto-generate slug from name
+  useEffect(() => {
+    if (!editingCategory && watchName) {
+      const autoSlug = watchName
+        .toLowerCase()
+        .replace(/[^a-z0-9\s-]/g, '')
+        .replace(/\s+/g, '-')
+        .replace(/-+/g, '-')
+        .trim()
+      setValue('slug', autoSlug)
+    }
+  }, [watchName, editingCategory, setValue])
+
   // Fetch categories
-  const { data: categories, isLoading } = useQuery({
+  const { data: categories, isLoading, error, refetch } = useQuery({
     queryKey: ['categories', search],
     queryFn: () => categoriesApi.getAll({ search }),
     select: (res) => res.data,
@@ -41,7 +93,11 @@ function CategoriesPage() {
     mutationFn: (data) => categoriesApi.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries(['categories'])
+      toast.success('Category created successfully')
       closeModal()
+    },
+    onError: (error) => {
+      toast.error(error.response?.data?.detail || 'Failed to create category')
     },
   })
 
@@ -50,7 +106,11 @@ function CategoriesPage() {
     mutationFn: ({ id, data }) => categoriesApi.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries(['categories'])
+      toast.success('Category updated successfully')
       closeModal()
+    },
+    onError: (error) => {
+      toast.error(error.response?.data?.detail || 'Failed to update category')
     },
   })
 
@@ -59,12 +119,16 @@ function CategoriesPage() {
     mutationFn: (id) => categoriesApi.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries(['categories'])
+      toast.success('Category deleted successfully')
+    },
+    onError: (error) => {
+      toast.error(error.response?.data?.detail || 'Failed to delete category')
     },
   })
 
   const openCreateModal = (parentId = null) => {
     setEditingCategory(null)
-    setFormData({
+    reset({
       name: '',
       slug: '',
       description: '',
@@ -75,7 +139,7 @@ function CategoriesPage() {
 
   const openEditModal = (category) => {
     setEditingCategory(category)
-    setFormData({
+    reset({
       name: category.name,
       slug: category.slug,
       description: category.description || '',
@@ -87,7 +151,7 @@ function CategoriesPage() {
   const closeModal = () => {
     setShowModal(false)
     setEditingCategory(null)
-    setFormData({
+    reset({
       name: '',
       slug: '',
       description: '',
@@ -95,11 +159,10 @@ function CategoriesPage() {
     })
   }
 
-  const handleSubmit = (e) => {
-    e.preventDefault()
+  const onSubmit = (data) => {
     const submitData = {
-      ...formData,
-      slug: formData.slug || formData.name.toLowerCase().replace(/\s+/g, '-'),
+      ...data,
+      slug: data.slug || data.name.toLowerCase().replace(/\s+/g, '-'),
     }
     if (editingCategory) {
       updateMutation.mutate({ id: editingCategory.id, data: submitData })
@@ -144,15 +207,15 @@ function CategoriesPage() {
     return (
       <div key={category.id}>
         <div
-          className={`flex items-center gap-3 py-3 px-4 hover:bg-gray-50 border-b border-gray-100 ${
-            level > 0 ? 'bg-gray-50/50' : ''
+          className={`flex items-center gap-3 py-3 px-4 hover:bg-gray-50 dark:hover:bg-gray-800 border-b border-gray-100 dark:border-gray-700 ${
+            level > 0 ? 'bg-gray-50/50 dark:bg-gray-800/50' : ''
           }`}
           style={{ paddingLeft: `${level * 24 + 16}px` }}
         >
           {hasChildren ? (
             <button
               onClick={() => toggleExpand(category.id)}
-              className="p-1 hover:bg-gray-200 rounded"
+              className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded"
             >
               <ChevronRight
                 className={`h-4 w-4 text-gray-400 transition-transform ${
@@ -171,11 +234,11 @@ function CategoriesPage() {
           )}
 
           <div className="flex-1 min-w-0">
-            <p className="font-medium text-gray-900">{category.name}</p>
-            <p className="text-sm text-gray-500 truncate">{category.slug}</p>
+            <p className="font-medium text-gray-900 dark:text-gray-100">{category.name}</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{category.slug}</p>
           </div>
 
-          <div className="flex items-center gap-2 text-sm text-gray-500">
+          <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
             <FileText className="h-4 w-4" />
             <span>{category.content_count || 0}</span>
           </div>
@@ -183,20 +246,20 @@ function CategoriesPage() {
           <div className="flex items-center gap-1">
             <button
               onClick={() => openCreateModal(category.id)}
-              className="p-2 text-gray-600 hover:text-primary-600 hover:bg-gray-100 rounded-lg"
+              className="p-2 text-gray-600 dark:text-gray-400 hover:text-primary-600 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
               title="Add subcategory"
             >
               <Plus className="h-4 w-4" />
             </button>
             <button
               onClick={() => openEditModal(category)}
-              className="p-2 text-gray-600 hover:text-primary-600 hover:bg-gray-100 rounded-lg"
+              className="p-2 text-gray-600 dark:text-gray-400 hover:text-primary-600 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
             >
               <Edit2 className="h-4 w-4" />
             </button>
             <button
               onClick={() => handleDelete(category)}
-              className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg"
+              className="p-2 text-gray-600 dark:text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg"
             >
               <Trash2 className="h-4 w-4" />
             </button>
@@ -226,13 +289,28 @@ function CategoriesPage() {
 
   const flatCategories = flattenCategories(categoryTree)
 
+  // Error state
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 text-center">
+        <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
+        <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Failed to load categories</h3>
+        <p className="text-gray-500 dark:text-gray-400 mt-1">{error.message}</p>
+        <Button onClick={() => refetch()} className="mt-4">
+          <RefreshCw className="h-4 w-4 mr-2" />
+          Try Again
+        </Button>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       {/* Page header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Categories</h1>
-          <p className="text-gray-500 mt-1">Organize your content with categories</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Categories</h1>
+          <p className="text-gray-500 dark:text-gray-400 mt-1">Organize your content with categories</p>
         </div>
         <Button onClick={() => openCreateModal()}>
           <Plus className="h-4 w-4 mr-2" />
@@ -266,11 +344,11 @@ function CategoriesPage() {
           ) : categoryTree?.length === 0 ? (
             <div className="text-center py-12">
               <Folder className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900">No categories</h3>
-              <p className="text-gray-500 mt-1">Create your first category to organize content.</p>
+              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">No categories</h3>
+              <p className="text-gray-500 dark:text-gray-400 mt-1">Create your first category to organize content.</p>
             </div>
           ) : (
-            <div className="divide-y divide-gray-100">
+            <div className="divide-y divide-gray-100 dark:divide-gray-700">
               {categoryTree?.map((category) => renderCategory(category))}
             </div>
           )}
@@ -280,43 +358,45 @@ function CategoriesPage() {
       {/* Create/Edit Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4">
-            <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <h2 className="text-lg font-semibold">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md mx-4">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
                 {editingCategory ? 'Edit Category' : 'Create Category'}
               </h2>
               <button
                 onClick={closeModal}
-                className="p-2 hover:bg-gray-100 rounded-lg"
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
               >
-                <X className="h-5 w-5" />
+                <X className="h-5 w-5 text-gray-500 dark:text-gray-400" />
               </button>
             </div>
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
-              <Input
-                label="Name"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                required
-              />
-              <Input
-                label="Slug"
-                value={formData.slug}
-                onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
-                placeholder="auto-generated-from-name"
-              />
+            <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <Input
+                  label="Name"
+                  {...register('name')}
+                  error={errors.name?.message}
+                />
+              </div>
+              <div>
+                <Input
+                  label="Slug"
+                  {...register('slug')}
+                  placeholder="auto-generated-from-name"
+                  error={errors.slug?.message}
+                />
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  URL-friendly identifier. Leave empty to auto-generate.
+                </p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Parent Category
                 </label>
                 <select
-                  value={formData.parent_id || ''}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      parent_id: e.target.value ? parseInt(e.target.value) : null,
-                    })
-                  }
+                  {...register('parent_id', {
+                    setValueAs: (v) => (v === '' ? null : parseInt(v)),
+                  })}
                   className="input"
                 >
                   <option value="">None (Top Level)</option>
@@ -330,16 +410,18 @@ function CategoriesPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Description
                 </label>
                 <textarea
                   rows={3}
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  {...register('description')}
                   className="input"
                   placeholder="Optional description..."
                 />
+                {errors.description && (
+                  <p className="text-sm text-red-600 dark:text-red-400 mt-1">{errors.description.message}</p>
+                )}
               </div>
               <div className="flex justify-end gap-3 pt-4">
                 <Button type="button" variant="secondary" onClick={closeModal}>
@@ -347,7 +429,7 @@ function CategoriesPage() {
                 </Button>
                 <Button
                   type="submit"
-                  isLoading={createMutation.isPending || updateMutation.isPending}
+                  isLoading={createMutation.isPending || updateMutation.isPending || isSubmitting}
                 >
                   {editingCategory ? 'Update' : 'Create'}
                 </Button>

@@ -3,6 +3,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { commentsApi } from '../../services/api'
 import Button from '../../components/ui/Button'
 import { Card, CardContent } from '../../components/ui/Card'
+import { useToast } from '../../components/ui/Toast'
+import { SkeletonComment } from '../../components/ui/Skeleton'
 import {
   Search,
   MessageSquare,
@@ -13,20 +15,22 @@ import {
   User,
   Calendar,
   FileText,
-  Filter,
   CheckCircle,
   XCircle,
   Clock,
+  AlertCircle,
+  RefreshCw,
 } from 'lucide-react'
 
 function CommentsPage() {
   const queryClient = useQueryClient()
+  const { toast } = useToast()
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [selectedComments, setSelectedComments] = useState(new Set())
 
   // Fetch comments
-  const { data: commentsData, isLoading } = useQuery({
+  const { data: commentsData, isLoading, error, refetch } = useQuery({
     queryKey: ['comments', search, statusFilter],
     queryFn: () => commentsApi.getAll({ search, status: statusFilter }),
     select: (res) => res.data,
@@ -39,6 +43,18 @@ function CommentsPage() {
     mutationFn: (id) => commentsApi.approve(id),
     onSuccess: () => {
       queryClient.invalidateQueries(['comments'])
+      toast({
+        title: 'Comment approved',
+        description: 'The comment has been approved successfully.',
+        variant: 'success',
+      })
+    },
+    onError: (error) => {
+      toast({
+        title: 'Failed to approve',
+        description: error.response?.data?.detail || error.message || 'An error occurred while approving the comment.',
+        variant: 'error',
+      })
     },
   })
 
@@ -47,6 +63,18 @@ function CommentsPage() {
     mutationFn: (id) => commentsApi.reject(id),
     onSuccess: () => {
       queryClient.invalidateQueries(['comments'])
+      toast({
+        title: 'Comment rejected',
+        description: 'The comment has been rejected successfully.',
+        variant: 'success',
+      })
+    },
+    onError: (error) => {
+      toast({
+        title: 'Failed to reject',
+        description: error.response?.data?.detail || error.message || 'An error occurred while rejecting the comment.',
+        variant: 'error',
+      })
     },
   })
 
@@ -56,20 +84,56 @@ function CommentsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries(['comments'])
       setSelectedComments(new Set())
+      toast({
+        title: 'Comment deleted',
+        description: 'The comment has been deleted successfully.',
+        variant: 'success',
+      })
+    },
+    onError: (error) => {
+      toast({
+        title: 'Failed to delete',
+        description: error.response?.data?.detail || error.message || 'An error occurred while deleting the comment.',
+        variant: 'error',
+      })
     },
   })
 
   // Bulk actions
   const handleBulkApprove = () => {
+    let successCount = 0
     selectedComments.forEach((id) => {
-      approveMutation.mutate(id)
+      approveMutation.mutate(id, {
+        onSuccess: () => {
+          successCount++
+          if (successCount === selectedComments.size) {
+            toast({
+              title: 'Bulk approve complete',
+              description: `${successCount} comment(s) approved.`,
+              variant: 'success',
+            })
+          }
+        },
+      })
     })
     setSelectedComments(new Set())
   }
 
   const handleBulkReject = () => {
+    let successCount = 0
     selectedComments.forEach((id) => {
-      rejectMutation.mutate(id)
+      rejectMutation.mutate(id, {
+        onSuccess: () => {
+          successCount++
+          if (successCount === selectedComments.size) {
+            toast({
+              title: 'Bulk reject complete',
+              description: `${successCount} comment(s) rejected.`,
+              variant: 'success',
+            })
+          }
+        },
+      })
     })
     setSelectedComments(new Set())
   }
@@ -102,10 +166,10 @@ function CommentsPage() {
 
   const getStatusBadge = (status) => {
     const styles = {
-      pending: { bg: 'bg-yellow-100', text: 'text-yellow-700', icon: Clock },
-      approved: { bg: 'bg-green-100', text: 'text-green-700', icon: CheckCircle },
-      rejected: { bg: 'bg-red-100', text: 'text-red-700', icon: XCircle },
-      spam: { bg: 'bg-gray-100', text: 'text-gray-700', icon: Flag },
+      pending: { bg: 'bg-yellow-100 dark:bg-yellow-900/30', text: 'text-yellow-700 dark:text-yellow-400', icon: Clock },
+      approved: { bg: 'bg-green-100 dark:bg-green-900/30', text: 'text-green-700 dark:text-green-400', icon: CheckCircle },
+      rejected: { bg: 'bg-red-100 dark:bg-red-900/30', text: 'text-red-700 dark:text-red-400', icon: XCircle },
+      spam: { bg: 'bg-gray-100 dark:bg-gray-700', text: 'text-gray-700 dark:text-gray-300', icon: Flag },
     }
     const style = styles[status] || styles.pending
     const Icon = style.icon
@@ -126,12 +190,39 @@ function CommentsPage() {
     spam: comments.filter((c) => c.status === 'spam').length,
   }
 
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Comments</h1>
+          <p className="text-gray-500 dark:text-gray-400 mt-1">Moderate and manage user comments</p>
+        </div>
+        <div className="flex flex-col items-center justify-center py-16 space-y-4">
+          <AlertCircle className="h-12 w-12 text-red-500" />
+          <div className="text-center">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Failed to load comments</h2>
+            <p className="text-gray-600 dark:text-gray-400 mt-1">
+              {error.response?.data?.detail || error.message || 'An error occurred while loading comments.'}
+            </p>
+          </div>
+          <button
+            onClick={() => refetch()}
+            className="btn btn-secondary flex items-center gap-2"
+          >
+            <RefreshCw className="h-4 w-4" />
+            Retry
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       {/* Page header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Comments</h1>
-        <p className="text-gray-500 mt-1">Moderate and manage user comments</p>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Comments</h1>
+        <p className="text-gray-500 dark:text-gray-400 mt-1">Moderate and manage user comments</p>
       </div>
 
       {/* Stats */}
@@ -142,12 +233,12 @@ function CommentsPage() {
         >
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-yellow-100 rounded-lg">
-                <Clock className="h-5 w-5 text-yellow-600" />
+              <div className="p-2 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg">
+                <Clock className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-gray-900">{stats.pending}</p>
-                <p className="text-sm text-gray-500">Pending</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.pending}</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Pending</p>
               </div>
             </div>
           </CardContent>
@@ -158,12 +249,12 @@ function CommentsPage() {
         >
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-green-100 rounded-lg">
-                <CheckCircle className="h-5 w-5 text-green-600" />
+              <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
+                <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-gray-900">{stats.approved}</p>
-                <p className="text-sm text-gray-500">Approved</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.approved}</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Approved</p>
               </div>
             </div>
           </CardContent>
@@ -174,12 +265,12 @@ function CommentsPage() {
         >
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-red-100 rounded-lg">
-                <XCircle className="h-5 w-5 text-red-600" />
+              <div className="p-2 bg-red-100 dark:bg-red-900/30 rounded-lg">
+                <XCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-gray-900">{stats.rejected}</p>
-                <p className="text-sm text-gray-500">Rejected</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.rejected}</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Rejected</p>
               </div>
             </div>
           </CardContent>
@@ -190,12 +281,12 @@ function CommentsPage() {
         >
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-gray-100 rounded-lg">
-                <Flag className="h-5 w-5 text-gray-600" />
+              <div className="p-2 bg-gray-100 dark:bg-gray-700 rounded-lg">
+                <Flag className="h-5 w-5 text-gray-600 dark:text-gray-400" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-gray-900">{stats.spam}</p>
-                <p className="text-sm text-gray-500">Spam</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.spam}</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Spam</p>
               </div>
             </div>
           </CardContent>
@@ -214,14 +305,14 @@ function CommentsPage() {
                   placeholder="Search comments..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="input pl-10"
+                  className="input pl-10 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                 />
               </div>
             </div>
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="input w-full sm:w-40"
+              className="input w-full sm:w-40 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
             >
               <option value="">All Status</option>
               <option value="pending">Pending</option>
@@ -231,8 +322,8 @@ function CommentsPage() {
             </select>
           </div>
           {selectedComments.size > 0 && (
-            <div className="mt-4 flex items-center gap-2 p-3 bg-gray-50 rounded-lg">
-              <span className="text-sm text-gray-600">
+            <div className="mt-4 flex items-center gap-2 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+              <span className="text-sm text-gray-600 dark:text-gray-400">
                 {selectedComments.size} selected
               </span>
               <div className="flex-1" />
@@ -257,26 +348,28 @@ function CommentsPage() {
       <Card>
         <CardContent className="p-0">
           {isLoading ? (
-            <div className="flex items-center justify-center h-64">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+            <div>
+              {Array.from({ length: 3 }).map((_, i) => (
+                <SkeletonComment key={i} />
+              ))}
             </div>
           ) : comments.length === 0 ? (
             <div className="text-center py-12">
               <MessageSquare className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900">No comments</h3>
-              <p className="text-gray-500 mt-1">Comments will appear here when users post them.</p>
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white">No comments</h3>
+              <p className="text-gray-500 dark:text-gray-400 mt-1">Comments will appear here when users post them.</p>
             </div>
           ) : (
-            <div className="divide-y divide-gray-200">
+            <div className="divide-y divide-gray-200 dark:divide-gray-700">
               {/* Header */}
-              <div className="px-6 py-3 bg-gray-50 flex items-center gap-4">
+              <div className="px-6 py-3 bg-gray-50 dark:bg-gray-800 flex items-center gap-4">
                 <input
                   type="checkbox"
                   checked={selectedComments.size === comments.length && comments.length > 0}
                   onChange={toggleSelectAll}
                   className="h-4 w-4 text-primary-600 rounded border-gray-300"
                 />
-                <span className="text-xs font-medium text-gray-500 uppercase">
+                <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
                   {comments.length} comments
                 </span>
               </div>
@@ -285,8 +378,8 @@ function CommentsPage() {
               {comments.map((comment) => (
                 <div
                   key={comment.id}
-                  className={`p-6 hover:bg-gray-50 ${
-                    selectedComments.has(comment.id) ? 'bg-primary-50' : ''
+                  className={`p-6 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors ${
+                    selectedComments.has(comment.id) ? 'bg-primary-50 dark:bg-primary-900/20' : ''
                   }`}
                 >
                   <div className="flex gap-4">
@@ -299,14 +392,14 @@ function CommentsPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-4">
                         <div className="flex items-center gap-3">
-                          <div className="h-10 w-10 bg-gray-200 rounded-full flex items-center justify-center">
-                            <User className="h-5 w-5 text-gray-500" />
+                          <div className="h-10 w-10 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center">
+                            <User className="h-5 w-5 text-gray-500 dark:text-gray-400" />
                           </div>
                           <div>
-                            <p className="font-medium text-gray-900">
+                            <p className="font-medium text-gray-900 dark:text-white">
                               {comment.author_name || 'Anonymous'}
                             </p>
-                            <p className="text-sm text-gray-500">
+                            <p className="text-sm text-gray-500 dark:text-gray-400">
                               {comment.author_email}
                             </p>
                           </div>
@@ -314,9 +407,9 @@ function CommentsPage() {
                         {getStatusBadge(comment.status)}
                       </div>
 
-                      <p className="mt-3 text-gray-700">{comment.content}</p>
+                      <p className="mt-3 text-gray-700 dark:text-gray-300">{comment.content}</p>
 
-                      <div className="mt-3 flex flex-wrap items-center gap-4 text-sm text-gray-500">
+                      <div className="mt-3 flex flex-wrap items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
                         <div className="flex items-center gap-1">
                           <FileText className="h-4 w-4" />
                           <span>{comment.content_title || 'Unknown post'}</span>
@@ -376,6 +469,7 @@ function CommentsPage() {
                               deleteMutation.mutate(comment.id)
                             }
                           }}
+                          disabled={deleteMutation.isPending}
                         >
                           <Trash2 className="h-4 w-4 mr-1" />
                           Delete

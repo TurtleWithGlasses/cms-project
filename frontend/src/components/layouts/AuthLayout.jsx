@@ -1,13 +1,19 @@
 import { Outlet } from 'react-router-dom'
+import { ThemeToggleButton } from '../ui/ThemeToggle'
 
 function AuthLayout() {
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-screen flex bg-white dark:bg-gray-900 transition-colors">
+      {/* Theme toggle in corner */}
+      <div className="absolute top-4 right-4 z-10">
+        <ThemeToggleButton />
+      </div>
+
       {/* Left side - Branding */}
-      <div className="hidden lg:flex lg:w-1/2 bg-primary-600 items-center justify-center p-12">
+      <div className="hidden lg:flex lg:w-1/2 bg-primary-600 dark:bg-primary-900 items-center justify-center p-12">
         <div className="max-w-md text-white">
           <h1 className="text-4xl font-bold mb-4">CMS Admin</h1>
-          <p className="text-primary-100 text-lg">
+          <p className="text-primary-100 dark:text-primary-200 text-lg">
             Manage your content, users, and media with our powerful content management system.
           </p>
           <div className="mt-8 grid grid-cols-2 gap-4">
@@ -32,7 +38,7 @@ function AuthLayout() {
       </div>
 
       {/* Right side - Auth form */}
-      <div className="flex-1 flex items-center justify-center p-8">
+      <div className="flex-1 flex items-center justify-center p-8 bg-gray-50 dark:bg-gray-900">
         <div className="w-full max-w-md">
           <Outlet />
         </div>

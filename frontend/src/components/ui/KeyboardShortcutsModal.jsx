@@ -86,23 +86,23 @@ function KeyboardShortcutsModal({ isOpen, onClose }) {
         />
 
         {/* Modal */}
-        <div className="inline-block w-full max-w-2xl my-8 text-left align-middle bg-white rounded-xl shadow-xl transform transition-all">
+        <div className="inline-block w-full max-w-2xl my-8 text-left align-middle bg-white dark:bg-gray-800 rounded-xl shadow-xl transform transition-all">
           {/* Header */}
-          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
             <div className="flex items-center gap-3">
-              <div className="h-10 w-10 bg-primary-100 rounded-lg flex items-center justify-center">
-                <Keyboard className="h-5 w-5 text-primary-600" />
+              <div className="h-10 w-10 bg-primary-100 dark:bg-primary-900/50 rounded-lg flex items-center justify-center">
+                <Keyboard className="h-5 w-5 text-primary-600 dark:text-primary-400" />
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-gray-900">Keyboard Shortcuts</h3>
-                <p className="text-sm text-gray-500">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Keyboard Shortcuts</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
                   {isMac ? 'Showing shortcuts for Mac' : 'Showing shortcuts for Windows/Linux'}
                 </p>
               </div>
             </div>
             <button
               onClick={onClose}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
             >
               <X className="h-5 w-5 text-gray-400" />
             </button>
@@ -113,20 +113,20 @@ function KeyboardShortcutsModal({ isOpen, onClose }) {
             <div className="space-y-6">
               {shortcuts.map((section) => (
                 <div key={section.category}>
-                  <h4 className="text-sm font-semibold text-gray-900 uppercase tracking-wider mb-3">
+                  <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100 uppercase tracking-wider mb-3">
                     {section.category}
                   </h4>
                   <div className="space-y-2">
                     {section.items.map((shortcut, index) => (
                       <div
                         key={index}
-                        className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-gray-50"
+                        className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
                       >
-                        <span className="text-sm text-gray-600">{shortcut.description}</span>
+                        <span className="text-sm text-gray-600 dark:text-gray-400">{shortcut.description}</span>
                         <div className="flex items-center gap-1">
                           {shortcut.keys.map((key, keyIndex) => (
                             <span key={keyIndex} className="flex items-center">
-                              <kbd className="inline-flex items-center justify-center min-w-[28px] h-7 px-2 bg-gray-100 border border-gray-300 rounded text-xs font-medium text-gray-700 shadow-sm">
+                              <kbd className="inline-flex items-center justify-center min-w-[28px] h-7 px-2 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-xs font-medium text-gray-700 dark:text-gray-300 shadow-sm">
                                 {formatKey(key)}
                               </kbd>
                               {keyIndex < shortcut.keys.length - 1 && (
@@ -144,9 +144,9 @@ function KeyboardShortcutsModal({ isOpen, onClose }) {
           </div>
 
           {/* Footer */}
-          <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 rounded-b-xl">
-            <p className="text-sm text-gray-500 text-center">
-              Press <kbd className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 bg-white border border-gray-300 rounded text-xs font-medium text-gray-700">?</kbd> anywhere to open this dialog
+          <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 rounded-b-xl">
+            <p className="text-sm text-gray-500 dark:text-gray-400 text-center">
+              Press <kbd className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-xs font-medium text-gray-700 dark:text-gray-300">?</kbd> anywhere to open this dialog
             </p>
           </div>
         </div>

@@ -10,12 +10,13 @@ import {
   Eye,
   FileText,
   Users,
-  Clock,
+  HardDrive,
   Calendar,
   Download,
   RefreshCw,
   ArrowUpRight,
-  ArrowDownRight,
+  Loader2,
+  AlertCircle,
 } from 'lucide-react'
 
 const periods = [
@@ -25,73 +26,29 @@ const periods = [
   { value: '365', label: 'Last year' },
 ]
 
-// Mock data for demo
-const mockAnalytics = {
-  overview: {
-    totalViews: 125840,
-    viewsChange: 12.5,
-    totalContent: 342,
-    contentChange: 8.2,
-    activeUsers: 1250,
-    usersChange: -2.3,
-    avgReadTime: '4:32',
-    readTimeChange: 5.1,
-  },
-  topContent: [
-    { id: 1, title: 'Getting Started with React', views: 12500, trend: 15.2 },
-    { id: 2, title: 'Understanding TypeScript', views: 9800, trend: 8.7 },
-    { id: 3, title: 'CSS Grid Layout Guide', views: 8200, trend: -3.2 },
-    { id: 4, title: 'Node.js Best Practices', views: 7500, trend: 22.1 },
-    { id: 5, title: 'Database Optimization Tips', views: 6300, trend: 4.5 },
-  ],
-  trafficSources: [
-    { source: 'Organic Search', visits: 45200, percentage: 42 },
-    { source: 'Direct', visits: 28900, percentage: 27 },
-    { source: 'Social Media', visits: 18500, percentage: 17 },
-    { source: 'Referral', visits: 10200, percentage: 9 },
-    { source: 'Email', visits: 5400, percentage: 5 },
-  ],
-  contentByStatus: [
-    { status: 'Published', count: 245, color: '#10B981' },
-    { status: 'Draft', count: 67, color: '#F59E0B' },
-    { status: 'Scheduled', count: 18, color: '#3B82F6' },
-    { status: 'Under Review', count: 12, color: '#8B5CF6' },
-  ],
-  recentActivity: [
-    { action: 'Published', title: 'New Feature Announcement', time: '2 hours ago', user: 'John D.' },
-    { action: 'Edited', title: 'API Documentation', time: '4 hours ago', user: 'Sarah M.' },
-    { action: 'Created', title: 'Q1 Report Draft', time: '6 hours ago', user: 'Mike R.' },
-    { action: 'Published', title: 'Security Update Guide', time: '1 day ago', user: 'Emma L.' },
-    { action: 'Deleted', title: 'Outdated Policy Page', time: '1 day ago', user: 'Admin' },
-  ],
-  dailyViews: [
-    { date: 'Mon', views: 4200 },
-    { date: 'Tue', views: 5100 },
-    { date: 'Wed', views: 4800 },
-    { date: 'Thu', views: 6200 },
-    { date: 'Fri', views: 5500 },
-    { date: 'Sat', views: 3200 },
-    { date: 'Sun', views: 2800 },
-  ],
+const statusColors = {
+  published: '#10B981',
+  draft: '#F59E0B',
+  scheduled: '#3B82F6',
+  archived: '#6B7280',
+  pending_review: '#8B5CF6',
 }
 
-function StatCard({ title, value, change, icon: Icon, iconColor }) {
-  const isPositive = change >= 0
+function StatCard({ title, value, subtitle, icon: Icon, iconColor, isLoading }) {
   return (
     <Card>
       <CardContent className="p-6">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm font-medium text-gray-500">{title}</p>
-            <p className="text-2xl font-bold text-gray-900 mt-1">{value}</p>
-            <div className={`flex items-center mt-2 text-sm ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
-              {isPositive ? (
-                <ArrowUpRight className="h-4 w-4 mr-1" />
-              ) : (
-                <ArrowDownRight className="h-4 w-4 mr-1" />
-              )}
-              <span>{Math.abs(change)}% from last period</span>
-            </div>
+            <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{title}</p>
+            {isLoading ? (
+              <div className="h-8 w-20 bg-gray-200 dark:bg-gray-700 rounded animate-pulse mt-1" />
+            ) : (
+              <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">{value}</p>
+            )}
+            {subtitle && (
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{subtitle}</p>
+            )}
           </div>
           <div className={`h-12 w-12 rounded-lg flex items-center justify-center ${iconColor}`}>
             <Icon className="h-6 w-6 text-white" />
@@ -103,18 +60,27 @@ function StatCard({ title, value, change, icon: Icon, iconColor }) {
 }
 
 function SimpleBarChart({ data, maxValue }) {
+  if (!data || data.length === 0) {
+    return (
+      <div className="h-40 flex items-center justify-center text-gray-500 dark:text-gray-400">
+        No activity data available
+      </div>
+    )
+  }
+
   return (
     <div className="flex items-end justify-between gap-2 h-40">
       {data.map((item, index) => {
-        const height = (item.views / maxValue) * 100
+        const height = maxValue > 0 ? (item.count / maxValue) * 100 : 0
+        const dateStr = new Date(item.date).toLocaleDateString('en-US', { weekday: 'short' })
         return (
           <div key={index} className="flex-1 flex flex-col items-center">
             <div
-              className="w-full bg-primary-500 rounded-t hover:bg-primary-600 transition-colors"
-              style={{ height: `${height}%` }}
-              title={`${item.views.toLocaleString()} views`}
+              className="w-full bg-primary-500 rounded-t hover:bg-primary-600 transition-colors min-h-[4px]"
+              style={{ height: `${Math.max(height, 2)}%` }}
+              title={`${item.count} activities`}
             />
-            <span className="text-xs text-gray-500 mt-2">{item.date}</span>
+            <span className="text-xs text-gray-500 dark:text-gray-400 mt-2">{dateStr}</span>
           </div>
         )
       })}
@@ -125,23 +91,62 @@ function SimpleBarChart({ data, maxValue }) {
 function AnalyticsPage() {
   const [period, setPeriod] = useState('30')
 
-  // In a real app, this would fetch from API
-  const { data: analytics = mockAnalytics, isLoading, refetch } = useQuery({
-    queryKey: ['analytics', period],
-    queryFn: () => analyticsApi.getOverview({ period_days: parseInt(period) }),
-    select: (res) => res.data || mockAnalytics,
-    placeholderData: mockAnalytics,
+  // Fetch dashboard analytics from real API
+  const { data: analytics, isLoading, error, refetch } = useQuery({
+    queryKey: ['analytics', 'dashboard'],
+    queryFn: async () => {
+      const response = await analyticsApi.getDashboard()
+      return response.data
+    },
   })
 
-  const maxViews = Math.max(...analytics.dailyViews.map((d) => d.views))
+  // Fetch activity stats based on selected period
+  const { data: activityData } = useQuery({
+    queryKey: ['analytics', 'activity', period],
+    queryFn: async () => {
+      const response = await analyticsApi.getActivityStats(parseInt(period))
+      return response.data
+    },
+  })
+
+  const contentStats = analytics?.content || {}
+  const userStats = analytics?.users || {}
+  const mediaStats = analytics?.media || {}
+  const activity = activityData || analytics?.activity || {}
+
+  const dailyActivities = activity?.daily_activities || []
+  const maxActivity = Math.max(...dailyActivities.map(d => d.count), 1)
+
+  // Transform content_by_status to array format for display
+  const contentByStatus = Object.entries(contentStats.content_by_status || {}).map(([status, count]) => ({
+    status: status.charAt(0).toUpperCase() + status.slice(1).replace('_', ' '),
+    count,
+    color: statusColors[status] || '#6B7280',
+  }))
+
+  const totalContent = contentStats.total_content || 0
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 text-center">
+        <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
+        <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Failed to load analytics</h3>
+        <p className="text-gray-500 dark:text-gray-400 mt-1">{error.message}</p>
+        <Button onClick={() => refetch()} className="mt-4">
+          <RefreshCw className="h-4 w-4 mr-2" />
+          Try Again
+        </Button>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
       {/* Page header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Analytics</h1>
-          <p className="text-gray-500 mt-1">Monitor your content performance</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Analytics</h1>
+          <p className="text-gray-500 dark:text-gray-400 mt-1">Monitor your content performance</p>
         </div>
         <div className="flex items-center gap-3">
           <select
@@ -153,13 +158,9 @@ function AnalyticsPage() {
               <option key={p.value} value={p.value}>{p.label}</option>
             ))}
           </select>
-          <Button variant="outline" onClick={() => refetch()}>
-            <RefreshCw className="h-4 w-4 mr-2" />
+          <Button variant="outline" onClick={() => refetch()} disabled={isLoading}>
+            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
             Refresh
-          </Button>
-          <Button variant="outline">
-            <Download className="h-4 w-4 mr-2" />
-            Export
           </Button>
         </div>
       </div>
@@ -167,46 +168,55 @@ function AnalyticsPage() {
       {/* Overview stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard
-          title="Total Views"
-          value={analytics.overview.totalViews.toLocaleString()}
-          change={analytics.overview.viewsChange}
-          icon={Eye}
-          iconColor="bg-blue-500"
-        />
-        <StatCard
           title="Total Content"
-          value={analytics.overview.totalContent.toLocaleString()}
-          change={analytics.overview.contentChange}
+          value={contentStats.total_content?.toLocaleString() || '0'}
+          subtitle={`${contentStats.recent_content_30_days || 0} in last 30 days`}
           icon={FileText}
-          iconColor="bg-green-500"
+          iconColor="bg-blue-500"
+          isLoading={isLoading}
         />
         <StatCard
-          title="Active Users"
-          value={analytics.overview.activeUsers.toLocaleString()}
-          change={analytics.overview.usersChange}
+          title="Total Users"
+          value={userStats.total_users?.toLocaleString() || '0'}
           icon={Users}
-          iconColor="bg-purple-500"
+          iconColor="bg-green-500"
+          isLoading={isLoading}
         />
         <StatCard
-          title="Avg. Read Time"
-          value={analytics.overview.avgReadTime}
-          change={analytics.overview.readTimeChange}
-          icon={Clock}
+          title="Total Media"
+          value={mediaStats.total_media?.toLocaleString() || '0'}
+          subtitle={`${mediaStats.total_storage_mb || 0} MB used`}
+          icon={HardDrive}
+          iconColor="bg-purple-500"
+          isLoading={isLoading}
+        />
+        <StatCard
+          title="Activities"
+          value={activity.total_activities?.toLocaleString() || '0'}
+          subtitle={`Last ${period} days`}
+          icon={Calendar}
           iconColor="bg-orange-500"
+          isLoading={isLoading}
         />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Views chart */}
+        {/* Activity chart */}
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <BarChart3 className="h-5 w-5" />
-              Daily Views
+              Daily Activity
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <SimpleBarChart data={analytics.dailyViews} maxValue={maxViews} />
+            {isLoading ? (
+              <div className="h-40 flex items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
+              </div>
+            ) : (
+              <SimpleBarChart data={dailyActivities.slice(-7)} maxValue={maxActivity} />
+            )}
           </CardContent>
         </Card>
 
@@ -216,117 +226,147 @@ function AnalyticsPage() {
             <CardTitle>Content by Status</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {analytics.contentByStatus.map((item) => (
-                <div key={item.status}>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm text-gray-700">{item.status}</span>
-                    <span className="text-sm font-medium text-gray-900">{item.count}</span>
+            {isLoading ? (
+              <div className="space-y-4">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="h-8 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                ))}
+              </div>
+            ) : contentByStatus.length > 0 ? (
+              <div className="space-y-4">
+                {contentByStatus.map((item) => (
+                  <div key={item.status}>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-sm text-gray-700 dark:text-gray-300">{item.status}</span>
+                      <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{item.count}</span>
+                    </div>
+                    <div className="h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all"
+                        style={{
+                          width: totalContent > 0 ? `${(item.count / totalContent) * 100}%` : '0%',
+                          backgroundColor: item.color,
+                        }}
+                      />
+                    </div>
                   </div>
-                  <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                    <div
-                      className="h-full rounded-full transition-all"
-                      style={{
-                        width: `${(item.count / analytics.overview.totalContent) * 100}%`,
-                        backgroundColor: item.color,
-                      }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-gray-500 dark:text-gray-400 text-center py-4">No content data</p>
+            )}
           </CardContent>
         </Card>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Top content */}
+        {/* Most active users */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <TrendingUp className="h-5 w-5" />
-              Top Performing Content
+              Most Active Users
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
-            <div className="divide-y divide-gray-200">
-              {analytics.topContent.map((content, index) => (
-                <div key={content.id} className="flex items-center gap-4 px-6 py-4">
-                  <span className="text-lg font-bold text-gray-400 w-6">{index + 1}</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-gray-900 truncate">{content.title}</p>
-                    <p className="text-sm text-gray-500">{content.views.toLocaleString()} views</p>
+            {isLoading ? (
+              <div className="p-6 space-y-4">
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <div key={i} className="h-10 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                ))}
+              </div>
+            ) : (activity.most_active_users_top10?.length || 0) > 0 ? (
+              <div className="divide-y divide-gray-200 dark:divide-gray-700">
+                {activity.most_active_users_top10.slice(0, 5).map((user, index) => (
+                  <div key={user.user_id} className="flex items-center gap-4 px-6 py-4">
+                    <span className="text-lg font-bold text-gray-400 w-6">{index + 1}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-gray-900 dark:text-gray-100 truncate">{user.username}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">{user.activity_count} activities</p>
+                    </div>
                   </div>
-                  <div className={`flex items-center text-sm ${content.trend >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    {content.trend >= 0 ? (
-                      <TrendingUp className="h-4 w-4 mr-1" />
-                    ) : (
-                      <TrendingDown className="h-4 w-4 mr-1" />
-                    )}
-                    {Math.abs(content.trend)}%
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-gray-500 dark:text-gray-400 text-center py-8">No activity data</p>
+            )}
           </CardContent>
         </Card>
 
-        {/* Traffic sources */}
+        {/* Activities by action */}
         <Card>
           <CardHeader>
-            <CardTitle>Traffic Sources</CardTitle>
+            <CardTitle>Activities by Action</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {analytics.trafficSources.map((source) => (
-                <div key={source.source}>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm text-gray-700">{source.source}</span>
-                    <span className="text-sm text-gray-500">
-                      {source.visits.toLocaleString()} ({source.percentage}%)
-                    </span>
-                  </div>
-                  <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-primary-500 rounded-full transition-all"
-                      style={{ width: `${source.percentage}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
+            {isLoading ? (
+              <div className="space-y-4">
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i} className="h-8 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                ))}
+              </div>
+            ) : Object.keys(activity.activities_by_action || {}).length > 0 ? (
+              <div className="space-y-4">
+                {Object.entries(activity.activities_by_action).slice(0, 6).map(([action, count]) => {
+                  const totalActivities = activity.total_activities || 1
+                  const percentage = Math.round((count / totalActivities) * 100)
+                  return (
+                    <div key={action}>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-sm text-gray-700 dark:text-gray-300 capitalize">{action.replace('_', ' ')}</span>
+                        <span className="text-sm text-gray-500 dark:text-gray-400">
+                          {count.toLocaleString()} ({percentage}%)
+                        </span>
+                      </div>
+                      <div className="h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-primary-500 rounded-full transition-all"
+                          style={{ width: `${percentage}%` }}
+                        />
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            ) : (
+              <p className="text-gray-500 dark:text-gray-400 text-center py-4">No activity data</p>
+            )}
           </CardContent>
         </Card>
       </div>
 
-      {/* Recent activity */}
+      {/* Top uploaders */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Calendar className="h-5 w-5" />
-            Recent Activity
+            <HardDrive className="h-5 w-5" />
+            Top Media Uploaders
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="divide-y divide-gray-200">
-            {analytics.recentActivity.map((activity, index) => (
-              <div key={index} className="flex items-center gap-4 px-6 py-4">
-                <div className={`px-2 py-1 rounded text-xs font-medium ${
-                  activity.action === 'Published' ? 'bg-green-100 text-green-700' :
-                  activity.action === 'Edited' ? 'bg-blue-100 text-blue-700' :
-                  activity.action === 'Created' ? 'bg-purple-100 text-purple-700' :
-                  'bg-red-100 text-red-700'
-                }`}>
-                  {activity.action}
+          {isLoading ? (
+            <div className="p-6 space-y-4">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="h-12 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+              ))}
+            </div>
+          ) : (mediaStats.top_uploaders_top10?.length || 0) > 0 ? (
+            <div className="divide-y divide-gray-200 dark:divide-gray-700">
+              {mediaStats.top_uploaders_top10.slice(0, 5).map((uploader, index) => (
+                <div key={uploader.user_id} className="flex items-center gap-4 px-6 py-4">
+                  <span className="text-lg font-bold text-gray-400 w-6">{index + 1}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-gray-900 dark:text-gray-100 truncate">{uploader.username}</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      {uploader.upload_count} files ({Math.round(uploader.total_size_bytes / (1024 * 1024))} MB)
+                    </p>
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-gray-900 truncate">{activity.title}</p>
-                  <p className="text-sm text-gray-500">by {activity.user}</p>
-                </div>
-                <span className="text-sm text-gray-400">{activity.time}</span>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-gray-500 dark:text-gray-400 text-center py-8">No upload data</p>
+          )}
         </CardContent>
       </Card>
     </div>

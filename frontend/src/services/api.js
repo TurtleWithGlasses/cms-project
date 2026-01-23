@@ -202,19 +202,21 @@ export const importExportApi = {
 
 // Analytics API
 export const analyticsApi = {
-  getOverview: (params = {}) => api.get('/analytics/overview', { params }),
-  getContentStats: (params = {}) => api.get('/analytics/content', { params }),
-  getUserStats: (params = {}) => api.get('/analytics/users', { params }),
-  getTrafficSources: (params = {}) => api.get('/analytics/traffic', { params }),
-  export: (params = {}) => api.get('/analytics/export', { params, responseType: 'blob' }),
+  getDashboard: () => api.get('/analytics/dashboard'),
+  getContentStats: () => api.get('/analytics/content'),
+  getUserStats: () => api.get('/analytics/users'),
+  getActivityStats: (days = 30) => api.get(`/analytics/activity?days=${days}`),
+  getMediaStats: () => api.get('/analytics/media'),
+  getMyPerformance: () => api.get('/analytics/my-performance'),
+  getUserPerformance: (userId) => api.get(`/analytics/user/${userId}/performance`),
 }
 
-// Monitoring API
+// Monitoring API - Note: health endpoints are at root level, not under /monitoring
 export const monitoringApi = {
-  getHealth: () => api.get('/monitoring/health'),
-  getMetrics: () => api.get('/monitoring/metrics'),
-  getErrors: (params = {}) => api.get('/monitoring/errors', { params }),
-  getPerformance: (params = {}) => api.get('/monitoring/performance', { params }),
+  getHealth: () => axios.get('/health'),
+  getReadiness: () => axios.get('/ready'),
+  getDetailedHealth: () => axios.get('/health/detailed'),
+  getMetrics: () => axios.get('/metrics'),
 }
 
 // Workflow API

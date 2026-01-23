@@ -1,26 +1,21 @@
 import { useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { rolesApi } from '../../services/api'
-import { useToast } from '../../components/ui/Toast'
+import { useQuery } from '@tanstack/react-query'
+import { rolesApi, analyticsApi } from '../../services/api'
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card'
-import Button from '../../components/ui/Button'
-import Input from '../../components/ui/Input'
 import {
   Shield,
-  Plus,
-  Edit2,
-  Trash2,
-  Check,
-  X,
   Users,
   FileText,
   Image,
   Settings,
-  Eye,
-  Pencil,
-  UserPlus,
+  RefreshCw,
+  AlertCircle,
+  Check,
+  X,
 } from 'lucide-react'
+import Button from '../../components/ui/Button'
 
+// Permission groups define what capabilities exist in the system
 const permissionGroups = [
   {
     name: 'Content',
@@ -65,154 +60,112 @@ const permissionGroups = [
   },
 ]
 
-const defaultRoles = [
-  {
-    id: 1,
+// Predefined roles with their permissions (matching backend RoleEnum)
+const roleDefinitions = {
+  superadmin: {
     name: 'Super Admin',
-    description: 'Full system access',
+    description: 'Full system access with all permissions',
     color: '#EF4444',
-    userCount: 1,
+    hierarchy: 5,
     permissions: permissionGroups.flatMap((g) => g.permissions.map((p) => p.key)),
   },
-  {
-    id: 2,
+  admin: {
     name: 'Admin',
-    description: 'Administrative access without system settings',
+    description: 'Administrative access to manage users and content',
     color: '#F59E0B',
-    userCount: 3,
-    permissions: ['content.view', 'content.create', 'content.edit', 'content.delete', 'content.publish', 'users.view', 'users.create', 'users.edit', 'media.view', 'media.upload', 'media.delete'],
+    hierarchy: 4,
+    permissions: [
+      'content.view', 'content.create', 'content.edit', 'content.delete', 'content.publish',
+      'users.view', 'users.create', 'users.edit', 'users.delete',
+      'media.view', 'media.upload', 'media.delete',
+      'settings.view',
+    ],
   },
-  {
-    id: 3,
+  manager: {
+    name: 'Manager',
+    description: 'Can manage content and view analytics',
+    color: '#8B5CF6',
+    hierarchy: 3,
+    permissions: [
+      'content.view', 'content.create', 'content.edit', 'content.delete', 'content.publish',
+      'users.view',
+      'media.view', 'media.upload', 'media.delete',
+    ],
+  },
+  editor: {
     name: 'Editor',
-    description: 'Can create and edit content',
+    description: 'Can create, edit, and publish content',
     color: '#10B981',
-    userCount: 8,
-    permissions: ['content.view', 'content.create', 'content.edit', 'content.publish', 'media.view', 'media.upload'],
+    hierarchy: 2,
+    permissions: [
+      'content.view', 'content.create', 'content.edit', 'content.publish',
+      'media.view', 'media.upload',
+    ],
   },
-  {
-    id: 4,
-    name: 'Author',
-    description: 'Can create content but cannot publish',
-    color: '#3B82F6',
-    userCount: 12,
-    permissions: ['content.view', 'content.create', 'content.edit', 'media.view', 'media.upload'],
-  },
-  {
-    id: 5,
-    name: 'Viewer',
-    description: 'Read-only access',
+  user: {
+    name: 'User',
+    description: 'Basic user with read access',
     color: '#6B7280',
-    userCount: 25,
+    hierarchy: 1,
     permissions: ['content.view', 'media.view'],
   },
-]
+}
 
 function RolesPage() {
-  const queryClient = useQueryClient()
-  const toast = useToast()
-  const [selectedRole, setSelectedRole] = useState(null)
-  const [isEditing, setIsEditing] = useState(false)
-  const [showCreateModal, setShowCreateModal] = useState(false)
-  const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    color: '#3B82F6',
-    permissions: [],
-  })
+  const [selectedRoleKey, setSelectedRoleKey] = useState(null)
 
-  // In a real app, this would fetch from API
-  const { data: roles = defaultRoles, isLoading } = useQuery({
+  // Fetch available roles from backend
+  const { data: roleNames = [], isLoading: rolesLoading, error: rolesError, refetch } = useQuery({
     queryKey: ['roles'],
-    queryFn: () => rolesApi.getAll(),
-    select: (res) => res.data || defaultRoles,
-    placeholderData: defaultRoles,
-  })
-
-  const createMutation = useMutation({
-    mutationFn: rolesApi.create,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['roles'] })
-      toast.success('Role created successfully')
-      setShowCreateModal(false)
-      resetForm()
+    queryFn: async () => {
+      const response = await rolesApi.getAll()
+      return response.data || []
     },
-    onError: () => toast.error('Failed to create role'),
   })
 
-  const updateMutation = useMutation({
-    mutationFn: ({ id, data }) => rolesApi.update(id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['roles'] })
-      toast.success('Role updated successfully')
-      setIsEditing(false)
+  // Fetch user statistics to get user counts per role
+  const { data: userStats } = useQuery({
+    queryKey: ['analytics', 'users'],
+    queryFn: async () => {
+      const response = await analyticsApi.getUserStats()
+      return response.data
     },
-    onError: () => toast.error('Failed to update role'),
   })
 
-  const deleteMutation = useMutation({
-    mutationFn: rolesApi.delete,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['roles'] })
-      toast.success('Role deleted successfully')
-      setSelectedRole(null)
-    },
-    onError: () => toast.error('Failed to delete role'),
-  })
-
-  const resetForm = () => {
-    setFormData({
-      name: '',
-      description: '',
-      color: '#3B82F6',
+  // Build roles list with definitions and user counts
+  const roles = roleNames.map((roleName) => {
+    const definition = roleDefinitions[roleName] || {
+      name: roleName.charAt(0).toUpperCase() + roleName.slice(1),
+      description: 'System role',
+      color: '#6B7280',
+      hierarchy: 0,
       permissions: [],
-    })
-  }
-
-  const handleSelectRole = (role) => {
-    setSelectedRole(role)
-    setFormData({
-      name: role.name,
-      description: role.description,
-      color: role.color,
-      permissions: [...role.permissions],
-    })
-    setIsEditing(false)
-  }
-
-  const handlePermissionToggle = (permissionKey) => {
-    setFormData((prev) => ({
-      ...prev,
-      permissions: prev.permissions.includes(permissionKey)
-        ? prev.permissions.filter((p) => p !== permissionKey)
-        : [...prev.permissions, permissionKey],
-    }))
-  }
-
-  const handleGroupToggle = (group) => {
-    const groupPermissions = group.permissions.map((p) => p.key)
-    const allSelected = groupPermissions.every((p) => formData.permissions.includes(p))
-
-    setFormData((prev) => ({
-      ...prev,
-      permissions: allSelected
-        ? prev.permissions.filter((p) => !groupPermissions.includes(p))
-        : [...new Set([...prev.permissions, ...groupPermissions])],
-    }))
-  }
-
-  const handleSave = () => {
-    if (selectedRole) {
-      updateMutation.mutate({ id: selectedRole.id, data: formData })
-    } else {
-      createMutation.mutate(formData)
     }
-  }
 
-  const handleDelete = () => {
-    if (selectedRole && window.confirm(`Delete role "${selectedRole.name}"? Users with this role will need to be reassigned.`)) {
-      deleteMutation.mutate(selectedRole.id)
+    // Get user count from stats (users_by_role is keyed by role_id, need to map)
+    const userCount = userStats?.users_by_role?.[roleName] || 0
+
+    return {
+      key: roleName,
+      ...definition,
+      userCount,
     }
+  }).sort((a, b) => b.hierarchy - a.hierarchy)
+
+  const selectedRole = roles.find((r) => r.key === selectedRoleKey)
+
+  if (rolesError) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 text-center">
+        <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
+        <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Failed to load roles</h3>
+        <p className="text-gray-500 dark:text-gray-400 mt-1">{rolesError.message}</p>
+        <Button onClick={() => refetch()} className="mt-4">
+          <RefreshCw className="h-4 w-4 mr-2" />
+          Try Again
+        </Button>
+      </div>
+    )
   }
 
   return (
@@ -220,16 +173,12 @@ function RolesPage() {
       {/* Page header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Roles & Permissions</h1>
-          <p className="text-gray-500 mt-1">Manage user roles and their permissions</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Roles & Permissions</h1>
+          <p className="text-gray-500 dark:text-gray-400 mt-1">View system roles and their permissions</p>
         </div>
-        <Button onClick={() => {
-          resetForm()
-          setSelectedRole(null)
-          setShowCreateModal(true)
-        }}>
-          <Plus className="h-4 w-4 mr-2" />
-          Create Role
+        <Button variant="outline" onClick={() => refetch()} disabled={rolesLoading}>
+          <RefreshCw className={`h-4 w-4 mr-2 ${rolesLoading ? 'animate-spin' : ''}`} />
+          Refresh
         </Button>
       </div>
 
@@ -239,151 +188,124 @@ function RolesPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Shield className="h-5 w-5" />
-              Roles
+              System Roles
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
-            <div className="divide-y divide-gray-200">
-              {roles.map((role) => (
-                <button
-                  key={role.id}
-                  onClick={() => handleSelectRole(role)}
-                  className={`w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-50 transition-colors ${
-                    selectedRole?.id === role.id ? 'bg-primary-50' : ''
-                  }`}
-                >
-                  <div
-                    className="h-3 w-3 rounded-full flex-shrink-0"
-                    style={{ backgroundColor: role.color }}
-                  />
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-gray-900">{role.name}</p>
-                    <p className="text-sm text-gray-500 truncate">{role.description}</p>
-                  </div>
-                  <span className="text-sm text-gray-400">{role.userCount} users</span>
-                </button>
-              ))}
-            </div>
+            {rolesLoading ? (
+              <div className="p-6 space-y-3">
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <div key={i} className="h-14 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                ))}
+              </div>
+            ) : roles.length > 0 ? (
+              <div className="divide-y divide-gray-200 dark:divide-gray-700">
+                {roles.map((role) => (
+                  <button
+                    key={role.key}
+                    onClick={() => setSelectedRoleKey(role.key)}
+                    className={`w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors ${
+                      selectedRoleKey === role.key ? 'bg-primary-50 dark:bg-primary-900/30' : ''
+                    }`}
+                  >
+                    <div
+                      className="h-3 w-3 rounded-full flex-shrink-0"
+                      style={{ backgroundColor: role.color }}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-gray-900 dark:text-gray-100">{role.name}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{role.description}</p>
+                    </div>
+                    <span className="text-sm text-gray-400">{role.userCount} users</span>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="text-gray-500 dark:text-gray-400 text-center py-8">No roles found</p>
+            )}
           </CardContent>
         </Card>
 
-        {/* Role details / editor */}
+        {/* Role details */}
         <Card className="lg:col-span-2">
           <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>
-                {selectedRole ? (isEditing ? 'Edit Role' : 'Role Details') : 'Select a Role'}
-              </CardTitle>
-              {selectedRole && !isEditing && (
-                <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
-                    <Edit2 className="h-4 w-4 mr-1" />
-                    Edit
-                  </Button>
-                  {selectedRole.id > 1 && (
-                    <Button variant="outline" size="sm" onClick={handleDelete} className="text-red-600 hover:text-red-700">
-                      <Trash2 className="h-4 w-4 mr-1" />
-                      Delete
-                    </Button>
-                  )}
-                </div>
-              )}
-            </div>
+            <CardTitle>
+              {selectedRole ? 'Role Details' : 'Select a Role'}
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            {selectedRole || showCreateModal ? (
+            {selectedRole ? (
               <div className="space-y-6">
                 {/* Role info */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Input
-                    label="Role Name"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    disabled={!isEditing && !showCreateModal}
-                  />
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Role Color
-                    </label>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="color"
-                        value={formData.color}
-                        onChange={(e) => setFormData({ ...formData, color: e.target.value })}
-                        disabled={!isEditing && !showCreateModal}
-                        className="h-10 w-16 rounded cursor-pointer disabled:opacity-50"
-                      />
-                      <span className="text-sm text-gray-500">{formData.color}</span>
+                <div className="flex items-start gap-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                  <div
+                    className="h-12 w-12 rounded-lg flex items-center justify-center flex-shrink-0"
+                    style={{ backgroundColor: selectedRole.color + '20' }}
+                  >
+                    <Shield className="h-6 w-6" style={{ color: selectedRole.color }} />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{selectedRole.name}</h3>
+                    <p className="text-gray-500 dark:text-gray-400">{selectedRole.description}</p>
+                    <div className="flex items-center gap-4 mt-2 text-sm">
+                      <span className="text-gray-500 dark:text-gray-400">
+                        <Users className="h-4 w-4 inline mr-1" />
+                        {selectedRole.userCount} users
+                      </span>
+                      <span className="text-gray-500 dark:text-gray-400">
+                        Hierarchy Level: {selectedRole.hierarchy}
+                      </span>
                     </div>
                   </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Description
-                  </label>
-                  <textarea
-                    rows={2}
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    disabled={!isEditing && !showCreateModal}
-                    className="input"
-                  />
                 </div>
 
                 {/* Permissions */}
                 <div>
-                  <h4 className="font-medium text-gray-900 mb-4">Permissions</h4>
-                  <div className="space-y-6">
+                  <h4 className="font-medium text-gray-900 dark:text-gray-100 mb-4">Permissions</h4>
+                  <div className="space-y-4">
                     {permissionGroups.map((group) => {
                       const GroupIcon = group.icon
                       const groupPermissions = group.permissions.map((p) => p.key)
                       const selectedCount = groupPermissions.filter((p) =>
-                        formData.permissions.includes(p)
+                        selectedRole.permissions.includes(p)
                       ).length
-                      const allSelected = selectedCount === groupPermissions.length
 
                       return (
-                        <div key={group.name} className="border border-gray-200 rounded-lg p-4">
+                        <div key={group.name} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
                           <div className="flex items-center justify-between mb-3">
                             <div className="flex items-center gap-2">
-                              <GroupIcon className="h-5 w-5 text-gray-500" />
-                              <span className="font-medium text-gray-900">{group.name}</span>
-                              <span className="text-sm text-gray-500">
+                              <GroupIcon className="h-5 w-5 text-gray-500 dark:text-gray-400" />
+                              <span className="font-medium text-gray-900 dark:text-gray-100">{group.name}</span>
+                              <span className="text-sm text-gray-500 dark:text-gray-400">
                                 ({selectedCount}/{groupPermissions.length})
                               </span>
                             </div>
-                            {(isEditing || showCreateModal) && (
-                              <button
-                                onClick={() => handleGroupToggle(group)}
-                                className="text-sm text-primary-600 hover:text-primary-700"
-                              >
-                                {allSelected ? 'Deselect All' : 'Select All'}
-                              </button>
-                            )}
                           </div>
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                             {group.permissions.map((permission) => {
-                              const isSelected = formData.permissions.includes(permission.key)
+                              const hasPermission = selectedRole.permissions.includes(permission.key)
                               return (
-                                <label
+                                <div
                                   key={permission.key}
-                                  className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer ${
-                                    isEditing || showCreateModal
-                                      ? 'hover:bg-gray-50'
-                                      : 'cursor-default'
-                                  } ${isSelected ? 'bg-primary-50' : ''}`}
+                                  className={`flex items-center gap-2 p-2 rounded-lg ${
+                                    hasPermission
+                                      ? 'bg-green-50 dark:bg-green-900/30'
+                                      : 'bg-gray-50 dark:bg-gray-800'
+                                  }`}
                                 >
-                                  <input
-                                    type="checkbox"
-                                    checked={isSelected}
-                                    onChange={() => handlePermissionToggle(permission.key)}
-                                    disabled={!isEditing && !showCreateModal}
-                                    className="h-4 w-4 text-primary-600 rounded border-gray-300 focus:ring-primary-500"
-                                  />
-                                  <span className={`text-sm ${isSelected ? 'text-primary-700' : 'text-gray-700'}`}>
+                                  {hasPermission ? (
+                                    <Check className="h-4 w-4 text-green-600 dark:text-green-400" />
+                                  ) : (
+                                    <X className="h-4 w-4 text-gray-400" />
+                                  )}
+                                  <span className={`text-sm ${
+                                    hasPermission
+                                      ? 'text-green-700 dark:text-green-300'
+                                      : 'text-gray-500 dark:text-gray-400'
+                                  }`}>
                                     {permission.label}
                                   </span>
-                                </label>
+                                </div>
                               )
                             })}
                           </div>
@@ -393,41 +315,19 @@ function RolesPage() {
                   </div>
                 </div>
 
-                {/* Actions */}
-                {(isEditing || showCreateModal) && (
-                  <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-200">
-                    <Button
-                      variant="outline"
-                      onClick={() => {
-                        if (showCreateModal) {
-                          setShowCreateModal(false)
-                          resetForm()
-                        } else {
-                          setIsEditing(false)
-                          if (selectedRole) {
-                            setFormData({
-                              name: selectedRole.name,
-                              description: selectedRole.description,
-                              color: selectedRole.color,
-                              permissions: [...selectedRole.permissions],
-                            })
-                          }
-                        }
-                      }}
-                    >
-                      Cancel
-                    </Button>
-                    <Button onClick={handleSave} disabled={!formData.name}>
-                      {showCreateModal ? 'Create Role' : 'Save Changes'}
-                    </Button>
-                  </div>
-                )}
+                {/* Note about role management */}
+                <div className="p-4 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg">
+                  <p className="text-sm text-blue-700 dark:text-blue-300">
+                    <strong>Note:</strong> System roles are predefined and cannot be modified.
+                    Permissions are enforced at the application level. To change a user's access level,
+                    update their role assignment in the Users management page.
+                  </p>
+                </div>
               </div>
             ) : (
-              <div className="text-center py-12 text-gray-500">
-                <Shield className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                <p>Select a role from the list to view details</p>
-                <p className="text-sm mt-1">or create a new role</p>
+              <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+                <Shield className="h-12 w-12 mx-auto mb-4 text-gray-300 dark:text-gray-600" />
+                <p>Select a role from the list to view its permissions</p>
               </div>
             )}
           </CardContent>
