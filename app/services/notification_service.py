@@ -28,6 +28,7 @@ from app.models.notification_preference import (
     NotificationTemplate,
 )
 from app.models.user import User
+from app.services.email_service import email_service
 
 logger = logging.getLogger(__name__)
 
@@ -297,17 +298,35 @@ class NotificationService:
         category: NotificationCategory,
         is_digest: bool,
     ) -> None:
-        """Queue an email notification."""
-        queue_item = NotificationQueue(
-            user_id=user_id,
-            category=category,
-            subject=subject,
-            body=body,
-            channel=NotificationChannel.EMAIL,
-            is_digest=is_digest,
-        )
-        self.db.add(queue_item)
-        await self.db.commit()
+        """Queue an email notification or send immediately."""
+        if not is_digest:
+            # Send immediately
+            user = await self.db.get(User, user_id)
+            if user and user.email:
+                email_sent = email_service.send_notification_email(
+                    to_email=user.email,
+                    username=user.username,
+                    subject=subject,
+                    message=body,
+                )
+                if email_sent:
+                    logger.info(f"Immediate email sent to user {user_id}: {subject}")
+                else:
+                    logger.error(f"Failed to send immediate email to user {user_id}")
+            else:
+                logger.warning(f"Cannot send email: User {user_id} not found or has no email")
+        else:
+            # Queue for digest
+            queue_item = NotificationQueue(
+                user_id=user_id,
+                category=category,
+                subject=subject,
+                body=body,
+                channel=NotificationChannel.EMAIL,
+                is_digest=is_digest,
+            )
+            self.db.add(queue_item)
+            await self.db.commit()
 
     async def _get_preference(self, user_id: int, category: NotificationCategory) -> NotificationPreference:
         """Get user preference, creating default if not exists."""
@@ -470,14 +489,28 @@ class NotificationService:
         """Send a digest email to a user."""
         # Get user email
         user = await self.db.get(User, user_id)
-        if not user:
+        if not user or not user.email:
+            logger.warning(f"Cannot send digest: User {user_id} not found or has no email")
             return
 
         # Build digest content
         digest_content = f"You have {len(items)} notification(s) this {frequency.value}:\n\n"
 
         for item in items:
-            digest_content += f"• {item.subject}\n  {item.body[:100]}...\n\n"
+            body_preview = item.body[:100] + "..." if len(item.body) > 100 else item.body
+            digest_content += f"• {item.subject}\n  {body_preview}\n\n"
+
+        # Send the digest email
+        email_sent = email_service.send_notification_email(
+            to_email=user.email,
+            username=user.username,
+            subject=f"Your {frequency.value.capitalize()} Notification Digest",
+            message=digest_content,
+        )
+
+        if not email_sent:
+            logger.error(f"Failed to send digest email to user {user_id}")
+            return
 
         # Mark items as sent
         for item in items:
@@ -498,8 +531,61 @@ class NotificationService:
 
         await self.db.commit()
 
-        # TODO: Actually send the email via email service
-        logger.info(f"Digest email prepared for user {user_id}: {len(items)} items")
+        logger.info(f"Digest email sent to user {user_id}: {len(items)} items")
+
+    async def process_immediate_queue(self, limit: int = 100) -> int:
+        """
+        Process queued immediate emails that haven't been sent yet.
+
+        Useful for retry mechanism when email service was temporarily unavailable.
+
+        Args:
+            limit: Maximum number of emails to process in one batch
+
+        Returns:
+            int: Number of emails successfully sent
+        """
+        # Get unsent immediate (non-digest) queue items
+        result = await self.db.execute(
+            select(NotificationQueue)
+            .where(
+                NotificationQueue.is_digest.is_(False),
+                NotificationQueue.is_sent.is_(False),
+            )
+            .limit(limit)
+        )
+        queue_items = result.scalars().all()
+
+        if not queue_items:
+            return 0
+
+        sent_count = 0
+        for item in queue_items:
+            user = await self.db.get(User, item.user_id)
+            if not user or not user.email:
+                # Mark as sent to prevent retries for invalid users
+                item.is_sent = True
+                item.sent_at = datetime.now(timezone.utc)
+                continue
+
+            email_sent = email_service.send_notification_email(
+                to_email=user.email,
+                username=user.username,
+                subject=item.subject,
+                message=item.body,
+            )
+
+            if email_sent:
+                item.is_sent = True
+                item.sent_at = datetime.now(timezone.utc)
+                sent_count += 1
+                logger.info(f"Queued email sent to user {item.user_id}: {item.subject}")
+            else:
+                logger.error(f"Failed to send queued email to user {item.user_id}")
+
+        await self.db.commit()
+        logger.info(f"Processed immediate queue: {sent_count}/{len(queue_items)} emails sent")
+        return sent_count
 
 
 async def get_notification_service(db: AsyncSession) -> NotificationService:

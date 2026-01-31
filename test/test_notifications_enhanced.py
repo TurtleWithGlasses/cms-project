@@ -178,3 +178,34 @@ class TestNotificationRoutes:
             response = await client.get("/api/v1/notifications/templates")
 
         assert response.status_code == 401
+
+
+class TestNotificationEmailIntegration:
+    """Tests for notification service email integration."""
+
+    def test_email_service_import(self):
+        """Test that email_service is imported in notification_service."""
+        from app.services.notification_service import email_service
+
+        assert email_service is not None
+
+    def test_notification_service_has_process_immediate_queue(self):
+        """Test that NotificationService has process_immediate_queue method."""
+        from app.services.notification_service import NotificationService
+
+        assert hasattr(NotificationService, "process_immediate_queue")
+        assert callable(NotificationService.process_immediate_queue)
+
+    def test_notification_service_has_send_digest(self):
+        """Test that NotificationService has _send_digest method."""
+        from app.services.notification_service import NotificationService
+
+        assert hasattr(NotificationService, "_send_digest")
+        assert callable(NotificationService._send_digest)
+
+    def test_notification_service_has_queue_email(self):
+        """Test that NotificationService has _queue_email method."""
+        from app.services.notification_service import NotificationService
+
+        assert hasattr(NotificationService, "_queue_email")
+        assert callable(NotificationService._queue_email)

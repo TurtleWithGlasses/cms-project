@@ -561,8 +561,8 @@ def mock_redis_session(monkeypatch, mock_session_manager):
     """
     from app.utils import session as session_module
 
-    # Replace the global session_manager instance
-    monkeypatch.setattr(session_module, "session_manager", mock_session_manager)
+    # Replace the global _session_manager instance
+    monkeypatch.setattr(session_module, "_session_manager", mock_session_manager)
 
     # Mock get_session_manager to return our mock
     async def mock_get_session_manager():

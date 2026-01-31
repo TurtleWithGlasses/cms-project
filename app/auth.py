@@ -452,6 +452,41 @@ def get_role_validator(required_roles: list[str]) -> Callable:
     return role_validator
 
 
+def require_role(required_roles: list[str]) -> Callable:
+    """
+    Create a dependency that validates user has one of the required roles.
+    Supports both header and cookie authentication.
+
+    Args:
+        required_roles: List of role names that are allowed access
+
+    Returns:
+        Async function that validates user role
+
+    Example:
+        @router.get("/admin")
+        async def admin_route(user: User = Depends(require_role(["admin"]))):
+            pass
+    """
+
+    async def _require_role(
+        request: Request,
+        db: AsyncSession = Depends(get_db),
+    ) -> User:
+        # Get user from either header or cookie
+        user = await get_current_user(request=request, db=db)
+
+        if not user.role or user.role.name not in required_roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Role '{user.role.name if user.role else 'None'}' does not have access to this resource.",
+            )
+
+        return user
+
+    return _require_role
+
+
 # ============================================================================
 # Permission Validation
 # ============================================================================
