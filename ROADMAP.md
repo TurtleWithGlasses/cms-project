@@ -93,6 +93,16 @@ The following major features and improvements have been completed:
   - 12 tests covering rate limiter configuration and integration
   - Files: `app/main.py`, `app/routes/auth.py`, `app/middleware/rate_limit.py`, `test/test_rate_limit.py`
 
+#### Code Quality Improvements (v1.2.5)
+- [x] **Authentication Code Refactoring** - Consolidated auth utilities and removed hardcoded values
+  - Consolidated all auth code into single `app/auth.py` module (520 lines)
+  - Removed redundant `auth_utils.py` and `auth_helpers.py` files
+  - Replaced hardcoded `role_id=2` with `get_default_role_name()` function
+  - Created `RoleName` enum with 5 roles: user, editor, manager, admin, superadmin
+  - Added `ROLE_HIERARCHY` for permission comparison
+  - 5 tests verifying refactoring in `test/test_auth_refactoring.py`
+  - Files: `app/auth.py`, `app/constants/roles.py`, `app/services/auth_service.py`
+
 ---
 
 ## Current State Assessment
@@ -110,8 +120,8 @@ The following major features and improvements have been completed:
 ### Critical Issues Identified
 
 #### Code Quality
-1. **Hardcoded Values**: `role_id=2` hardcoded in [auth_service.py:23](app/services/auth_service.py#L23)
-2. **Code Redundancy**: Multiple auth utility files ([auth.py](app/auth.py), [auth_utils.py](app/utils/auth_utils.py), [auth_helpers.py](app/utils/auth_helpers.py))
+1. ~~**Hardcoded Values**: `role_id=2` hardcoded~~ ✅ FIXED (v1.2.5) - Now uses `get_default_role_name()` with `RoleName` enum
+2. ~~**Code Redundancy**: Multiple auth utility files~~ ✅ FIXED (v1.2.5) - Consolidated into single `app/auth.py` module
 3. **Limited Test Coverage**: Only 3 test files covering basic functionality
 4. **Inconsistent API Versioning**: `/api/v1` for content, `/api` for other routes
 5. **Mixed Error Handling**: Inconsistent exception handling patterns
@@ -158,11 +168,13 @@ The following major features and improvements have been completed:
 **Goal:** Stabilize codebase, eliminate security vulnerabilities, improve code quality
 
 #### 1.1 Code Quality & Architecture
-- [ ] **Refactor Authentication Code**
-  - Consolidate `auth.py`, `auth_utils.py`, `auth_helpers.py` into single module
-  - Remove hardcoded `role_id=2` from auth service
-  - Create role constants/enums
-  - Files: [auth.py](app/auth.py), [auth_utils.py](app/utils/auth_utils.py), [auth_helpers.py](app/utils/auth_helpers.py)
+- [x] **Refactor Authentication Code** ✅ COMPLETED
+  - Consolidated all auth utilities into `app/auth.py` ✅
+  - Removed hardcoded `role_id=2` - now uses `get_default_role_name()` ✅
+  - Created `RoleName` enum with role hierarchy in `app/constants/roles.py` ✅
+  - Removed redundant `auth_utils.py` and `auth_helpers.py` files ✅
+  - 5 tests verifying refactoring in `test/test_auth_refactoring.py` ✅
+  - Files: `app/auth.py`, `app/constants/roles.py`, `app/services/auth_service.py`
 
 - [ ] **Standardize API Versioning**
   - Apply `/api/v1` prefix to all routes
@@ -881,7 +893,7 @@ This roadmap transforms the CMS Project from a functional MVP to a production-re
 
 ---
 
-**Document Version:** 1.2.5
+**Document Version:** 1.2.6
 **Last Updated:** 2026-01-31
 **Maintained By:** Development Team
 **Review Cycle:** Quarterly
