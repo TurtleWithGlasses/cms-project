@@ -1,7 +1,7 @@
 import logging
 from datetime import timedelta
 
-from fastapi import APIRouter, Depends, Header, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -10,6 +10,7 @@ from ..auth import create_access_token, get_current_user, require_role, verify_p
 from ..constants import ACCESS_TOKEN_EXPIRE_MINUTES
 from ..database import get_db
 from ..exceptions import DatabaseError, InvalidCredentialsError
+from ..middleware.rate_limit import limiter
 from ..models import User
 from ..schemas import Token
 from ..schemas.token import TokenWith2FA, TwoFactorVerifyRequest
@@ -26,7 +27,9 @@ TEMP_TOKEN_EXPIRE_MINUTES = 5
 
 
 @router.post("/token", response_model=TokenWith2FA)
+@limiter.limit("5/minute")  # Strict rate limit to prevent brute force attacks
 async def login_for_access_token(
+    request: Request,
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: AsyncSession = Depends(get_db),
 ):
@@ -35,6 +38,8 @@ async def login_for_access_token(
 
     If 2FA is enabled, returns a temporary token that must be verified
     with /token/verify-2fa before getting the access token.
+
+    Rate limited to 5 requests per minute per IP address.
     """
     logger.debug(f"Executing query for user: {form_data.username}")
 
@@ -67,7 +72,7 @@ async def login_for_access_token(
             expires_delta=timedelta(minutes=TEMP_TOKEN_EXPIRE_MINUTES),
         )
         logger.info(f"2FA required for user: {user.email}")
-        return TokenWith2FA(
+        return TokenWith2FA(  # nosec B106 - "Bearer" is standard OAuth2 token type
             access_token=None,
             token_type="Bearer",
             requires_2fa=True,
@@ -86,7 +91,7 @@ async def login_for_access_token(
     )
     logger.info(f"Access token and session created for user: {user.email}")
 
-    return TokenWith2FA(
+    return TokenWith2FA(  # nosec B106 - "Bearer" is standard OAuth2 token type
         access_token=access_token,
         token_type="Bearer",
         requires_2fa=False,
@@ -96,7 +101,9 @@ async def login_for_access_token(
 
 
 @router.post("/token/verify-2fa", response_model=Token)
+@limiter.limit("5/minute")  # Strict rate limit to prevent 2FA code guessing
 async def verify_2fa_and_get_token(
+    request: Request,
     data: TwoFactorVerifyRequest,
     db: AsyncSession = Depends(get_db),
 ):
@@ -104,6 +111,8 @@ async def verify_2fa_and_get_token(
     Verify 2FA code and get access token.
 
     Requires the temporary token from /token and a valid TOTP or backup code.
+
+    Rate limited to 5 requests per minute per IP address.
     """
     from jose import JWTError, jwt
 
@@ -116,7 +125,7 @@ async def verify_2fa_and_get_token(
         token_type = payload.get("type")
         user_id = payload.get("user_id")
 
-        if token_type != "2fa_pending" or not email or not user_id:
+        if token_type != "2fa_pending" or not email or not user_id:  # nosec B105
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid temporary token",
@@ -161,7 +170,7 @@ async def verify_2fa_and_get_token(
 
     logger.info(f"2FA verified, access token created for user: {user.email}")
 
-    return Token(
+    return Token(  # nosec B106 - "Bearer" is standard OAuth2 token type
         access_token=access_token,
         token_type="Bearer",
         expires_in=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
@@ -169,8 +178,11 @@ async def verify_2fa_and_get_token(
 
 
 @router.post("/logout", status_code=status.HTTP_200_OK)
+@limiter.limit("30/minute")  # Moderate rate limit for logout
 async def logout(
-    current_user: User = Depends(get_current_user), x_session_id: str | None = Header(None, alias="X-Session-ID")
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    x_session_id: str | None = Header(None, alias="X-Session-ID"),
 ):
     """
     Logout endpoint - invalidates the current session.
@@ -188,7 +200,8 @@ async def logout(
 
 
 @router.post("/logout-all", status_code=status.HTTP_200_OK)
-async def logout_all_sessions(current_user: User = Depends(get_current_user)):
+@limiter.limit("10/minute")  # Rate limit to prevent abuse
+async def logout_all_sessions(request: Request, current_user: User = Depends(get_current_user)):
     """
     Logout from all devices - invalidates all sessions for the current user.
     """
@@ -200,7 +213,8 @@ async def logout_all_sessions(current_user: User = Depends(get_current_user)):
 
 
 @router.get("/sessions", status_code=status.HTTP_200_OK)
-async def get_active_sessions(current_user: User = Depends(get_current_user)):
+@limiter.limit("30/minute")  # Moderate rate limit for session queries
+async def get_active_sessions(request: Request, current_user: User = Depends(get_current_user)):
     """
     Get all active sessions for the current user.
     """

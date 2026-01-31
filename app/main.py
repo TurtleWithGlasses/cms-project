@@ -7,6 +7,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.exception_handlers import register_exception_handlers
+from app.middleware.rate_limit import configure_rate_limiting
 from app.middleware.rbac import RBACMiddleware
 from app.routes import auth, category, password_reset, roles, user
 from app.routes.content import router as content_router
@@ -44,6 +45,9 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
+
+# Configure rate limiting (must be before middleware)
+configure_rate_limiting(app)
 
 app.add_middleware(RBACMiddleware, allowed_roles=["user", "admin", "superadmin"])
 

