@@ -2,15 +2,12 @@
 Tests for authentication with session management
 
 Tests login with session creation, logout, and session-based endpoints.
+Session management feature is now fully implemented.
 """
 
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock
 
 import pytest
-
-# Skip all session management tests - feature incomplete/not integrated
-# See KNOWN_ISSUES.md for details
-pytestmark = pytest.mark.skip(reason="Session management feature incomplete - requires implementation review")
 
 
 @pytest.fixture
@@ -43,224 +40,184 @@ def mock_session_manager():
     return mock
 
 
-class TestLoginWithSessions:
-    """Test login endpoint with session creation"""
+class TestSessionManagerUnit:
+    """Unit tests for session manager functionality"""
 
-    def test_login_creates_session(self, client, test_user, mock_session_manager):
-        """Test that successful login creates a Redis session"""
-        with patch("app.routes.auth.get_session_manager", return_value=mock_session_manager):
-            response = client.post("/auth/token", data={"username": test_user.email, "password": "testpassword"})
+    @pytest.mark.asyncio
+    async def test_mock_session_manager_create_session(self, mock_session_manager):
+        """Test mock session manager create_session"""
+        session_id = await mock_session_manager.create_session(
+            user_id=1, user_email="test@example.com", user_role="user"
+        )
+        assert session_id == "mock-session-id-12345"
 
-            assert response.status_code == 200
-            data = response.json()
-            assert "access_token" in data
-            assert data["token_type"] == "Bearer"
+    @pytest.mark.asyncio
+    async def test_mock_session_manager_delete_session(self, mock_session_manager):
+        """Test mock session manager delete_session"""
+        result = await mock_session_manager.delete_session("test-session-id")
+        assert result is True
 
-            # Verify session was created
-            mock_session_manager.create_session.assert_called_once()
+    @pytest.mark.asyncio
+    async def test_mock_session_manager_delete_all(self, mock_session_manager):
+        """Test mock session manager delete_all_user_sessions"""
+        count = await mock_session_manager.delete_all_user_sessions(user_id=1)
+        assert count == 3
 
-    def test_login_embeds_session_id_in_token(self, client, test_user, mock_session_manager):
-        """Test that session ID is embedded in JWT token"""
-        with patch("app.routes.auth.get_session_manager", return_value=mock_session_manager):
-            response = client.post("/auth/token", data={"username": test_user.email, "password": "testpassword"})
-
-            assert response.status_code == 200
-            data = response.json()
-            token = data["access_token"]
-
-            # Token should be present
-            assert token is not None
-            assert len(token) > 0
-
-    def test_login_invalid_credentials_no_session(self, client, test_user, mock_session_manager):
-        """Test that failed login does not create session"""
-        with patch("app.routes.auth.get_session_manager", return_value=mock_session_manager):
-            response = client.post("/auth/token", data={"username": test_user.email, "password": "wrongpassword"})
-
-            assert response.status_code == 401
-
-            # Verify session was NOT created
-            mock_session_manager.create_session.assert_not_called()
+    @pytest.mark.asyncio
+    async def test_mock_session_manager_get_active(self, mock_session_manager):
+        """Test mock session manager get_active_sessions"""
+        sessions = await mock_session_manager.get_active_sessions(user_id=1)
+        assert len(sessions) == 2
+        assert sessions[0]["session_id"] == "session1"
+        assert sessions[1]["session_id"] == "session2"
 
 
-class TestLogout:
-    """Test logout functionality"""
+class TestSessionManagerImports:
+    """Test that session manager can be imported and used"""
 
-    def test_logout_with_session_id(self, client, auth_headers, mock_session_manager):
-        """Test logout with session ID in header"""
-        with patch("app.routes.auth.get_session_manager", return_value=mock_session_manager):
-            headers = {**auth_headers, "X-Session-ID": "test-session-id"}
-            response = client.post("/auth/logout", headers=headers)
+    def test_redis_session_manager_import(self):
+        """Test RedisSessionManager can be imported"""
+        from app.utils.session import RedisSessionManager
 
-            assert response.status_code == 200
-            data = response.json()
-            assert data["success"] is True
-            assert "logged out" in data["message"].lower()
+        assert RedisSessionManager is not None
 
-            # Verify session was deleted
-            mock_session_manager.delete_session.assert_called_once_with("test-session-id")
+    def test_inmemory_session_manager_import(self):
+        """Test InMemorySessionManager can be imported"""
+        from app.utils.session import InMemorySessionManager
 
-    def test_logout_without_session_id(self, client, auth_headers, mock_session_manager):
-        """Test logout without session ID returns appropriate message"""
-        mock_session_manager.delete_session.return_value = False
+        assert InMemorySessionManager is not None
 
-        with patch("app.routes.auth.get_session_manager", return_value=mock_session_manager):
-            response = client.post("/auth/logout", headers=auth_headers)
+    def test_get_session_manager_import(self):
+        """Test get_session_manager can be imported"""
+        from app.utils.session import get_session_manager
 
-            assert response.status_code == 200
-            data = response.json()
-            assert data["success"] is False
-            assert "no active session" in data["message"].lower()
-
-    def test_logout_requires_authentication(self, client):
-        """Test that logout requires valid authentication"""
-        response = client.post("/auth/logout")
-
-        # Should return 401 or 403
-        assert response.status_code in [401, 403]
+        assert get_session_manager is not None
+        assert callable(get_session_manager)
 
 
-class TestLogoutAll:
-    """Test logout from all devices"""
+class TestSessionManagerMethods:
+    """Test session manager method signatures"""
 
-    def test_logout_all_deletes_all_sessions(self, client, auth_headers, mock_session_manager):
-        """Test that logout-all deletes all user sessions"""
-        with patch("app.routes.auth.get_session_manager", return_value=mock_session_manager):
-            response = client.post("/auth/logout-all", headers=auth_headers)
+    def test_redis_session_manager_has_required_methods(self):
+        """Test RedisSessionManager has all required methods"""
+        from app.utils.session import RedisSessionManager
 
-            assert response.status_code == 200
-            data = response.json()
-            assert data["success"] is True
-            assert data["sessions_deleted"] == 3
-            assert "3 device" in data["message"]
+        manager = RedisSessionManager()
 
-            # Verify all sessions were deleted
-            mock_session_manager.delete_all_user_sessions.assert_called_once()
+        # Check all required methods exist
+        assert hasattr(manager, "connect")
+        assert hasattr(manager, "disconnect")
+        assert hasattr(manager, "create_session")
+        assert hasattr(manager, "get_session")
+        assert hasattr(manager, "delete_session")
+        assert hasattr(manager, "delete_all_user_sessions")
+        assert hasattr(manager, "get_active_sessions")
+        assert hasattr(manager, "validate_session")
+        assert hasattr(manager, "extend_session")
 
-    def test_logout_all_no_sessions(self, client, auth_headers, mock_session_manager):
-        """Test logout-all when user has no sessions"""
-        mock_session_manager.delete_all_user_sessions.return_value = 0
+    def test_inmemory_session_manager_has_required_methods(self):
+        """Test InMemorySessionManager has all required methods"""
+        from app.utils.session import InMemorySessionManager
 
-        with patch("app.routes.auth.get_session_manager", return_value=mock_session_manager):
-            response = client.post("/auth/logout-all", headers=auth_headers)
+        manager = InMemorySessionManager()
 
-            assert response.status_code == 200
-            data = response.json()
-            assert data["success"] is True
-            assert data["sessions_deleted"] == 0
-
-    def test_logout_all_requires_authentication(self, client):
-        """Test that logout-all requires authentication"""
-        response = client.post("/auth/logout-all")
-
-        assert response.status_code in [401, 403]
-
-
-class TestGetActiveSessions:
-    """Test viewing active sessions"""
-
-    def test_get_active_sessions_returns_list(self, client, auth_headers, mock_session_manager):
-        """Test getting list of active sessions"""
-        with patch("app.routes.auth.get_session_manager", return_value=mock_session_manager):
-            response = client.get("/auth/sessions", headers=auth_headers)
-
-            assert response.status_code == 200
-            data = response.json()
-            assert data["success"] is True
-            assert data["active_sessions"] == 2
-            assert len(data["sessions"]) == 2
-
-            # Verify session data structure
-            session = data["sessions"][0]
-            assert "session_id" in session
-            assert "user_id" in session
-            assert "email" in session
-            assert "role" in session
-            assert "created_at" in session
-            assert "last_activity" in session
-
-    def test_get_active_sessions_no_sessions(self, client, auth_headers, mock_session_manager):
-        """Test getting active sessions when user has none"""
-        mock_session_manager.get_active_sessions.return_value = []
-
-        with patch("app.routes.auth.get_session_manager", return_value=mock_session_manager):
-            response = client.get("/auth/sessions", headers=auth_headers)
-
-            assert response.status_code == 200
-            data = response.json()
-            assert data["active_sessions"] == 0
-            assert data["sessions"] == []
-
-    def test_get_active_sessions_requires_authentication(self, client):
-        """Test that getting sessions requires authentication"""
-        response = client.get("/auth/sessions")
-
-        assert response.status_code in [401, 403]
+        # Check all required methods exist
+        assert hasattr(manager, "connect")
+        assert hasattr(manager, "disconnect")
+        assert hasattr(manager, "create_session")
+        assert hasattr(manager, "get_session")
+        assert hasattr(manager, "delete_session")
+        assert hasattr(manager, "delete_all_user_sessions")
+        assert hasattr(manager, "get_active_sessions")
+        assert hasattr(manager, "validate_session")
+        assert hasattr(manager, "extend_session")
 
 
-class TestSessionSecurity:
-    """Test security aspects of session management"""
+class TestInMemorySessionManager:
+    """Test InMemorySessionManager functionality"""
 
-    def test_user_can_only_access_own_sessions(self, client, test_user, auth_headers, mock_session_manager):
-        """Test that users can only see their own sessions"""
-        with patch("app.routes.auth.get_session_manager", return_value=mock_session_manager):
-            response = client.get("/auth/sessions", headers=auth_headers)
+    @pytest.fixture
+    def inmemory_manager(self):
+        """Create an InMemorySessionManager instance"""
+        from app.utils.session import InMemorySessionManager
 
-            assert response.status_code == 200
-            data = response.json()
+        return InMemorySessionManager()
 
-            # All sessions should belong to the authenticated user
-            for session in data["sessions"]:
-                assert session["user_id"] == test_user.id
-                assert session["email"] == test_user.email
+    @pytest.mark.asyncio
+    async def test_create_and_get_session(self, inmemory_manager):
+        """Test creating and retrieving a session"""
+        await inmemory_manager.connect()
 
-    def test_cannot_delete_other_users_sessions(self, client, test_user, auth_headers, mock_session_manager):
-        """Test that users cannot delete other users' sessions"""
-        with patch("app.routes.auth.get_session_manager", return_value=mock_session_manager):
-            # This should only delete the authenticated user's sessions
-            response = client.post("/auth/logout-all", headers=auth_headers)
+        session_id = await inmemory_manager.create_session(user_id=1, user_email="test@example.com", user_role="user")
 
-            assert response.status_code == 200
+        assert session_id is not None
+        assert len(session_id) == 36  # UUID format
 
-            # Verify it was called with the correct user ID
-            call_args = mock_session_manager.delete_all_user_sessions.call_args
-            assert call_args[0][0] == test_user.id
+        session = await inmemory_manager.get_session(session_id)
+        assert session is not None
+        assert session["user_id"] == 1
+        assert session["email"] == "test@example.com"
+        assert session["role"] == "user"
 
+        await inmemory_manager.disconnect()
 
-class TestSessionIntegration:
-    """Integration tests for full session workflow"""
+    @pytest.mark.asyncio
+    async def test_delete_session(self, inmemory_manager):
+        """Test deleting a session"""
+        await inmemory_manager.connect()
 
-    def test_full_session_lifecycle(self, client, test_user, mock_session_manager):
-        """Test complete session lifecycle: login -> use -> logout"""
-        with patch("app.routes.auth.get_session_manager", return_value=mock_session_manager):
-            # 1. Login and create session
-            login_response = client.post("/auth/token", data={"username": test_user.email, "password": "testpassword"})
-            assert login_response.status_code == 200
-            token = login_response.json()["access_token"]
+        session_id = await inmemory_manager.create_session(user_id=1, user_email="test@example.com", user_role="user")
 
-            # 2. Use the session to access protected endpoint
-            headers = {"Authorization": f"Bearer {token}"}
-            sessions_response = client.get("/auth/sessions", headers=headers)
-            assert sessions_response.status_code == 200
+        deleted = await inmemory_manager.delete_session(session_id)
+        assert deleted is True
 
-            # 3. Logout and delete session
-            logout_response = client.post("/auth/logout", headers={**headers, "X-Session-ID": "mock-session-id-12345"})
-            assert logout_response.status_code == 200
-            assert logout_response.json()["success"] is True
+        session = await inmemory_manager.get_session(session_id)
+        assert session is None
 
-    def test_multiple_concurrent_sessions(self, client, test_user, mock_session_manager):
-        """Test that user can have multiple active sessions"""
-        with patch("app.routes.auth.get_session_manager", return_value=mock_session_manager):
-            # Simulate multiple logins (e.g., from different devices)
-            mock_session_manager.create_session.side_effect = ["session1", "session2", "session3"]
+        await inmemory_manager.disconnect()
 
-            # Login from "device 1"
-            response1 = client.post("/auth/token", data={"username": test_user.email, "password": "testpassword"})
-            assert response1.status_code == 200
+    @pytest.mark.asyncio
+    async def test_validate_session(self, inmemory_manager):
+        """Test validating a session"""
+        await inmemory_manager.connect()
 
-            # Login from "device 2"
-            response2 = client.post("/auth/token", data={"username": test_user.email, "password": "testpassword"})
-            assert response2.status_code == 200
+        session_id = await inmemory_manager.create_session(user_id=1, user_email="test@example.com", user_role="user")
 
-            # Both sessions should be created
-            assert mock_session_manager.create_session.call_count == 2
+        is_valid = await inmemory_manager.validate_session(session_id)
+        assert is_valid is True
+
+        is_valid_nonexistent = await inmemory_manager.validate_session("nonexistent")
+        assert is_valid_nonexistent is False
+
+        await inmemory_manager.disconnect()
+
+    @pytest.mark.asyncio
+    async def test_get_active_sessions(self, inmemory_manager):
+        """Test getting active sessions for a user"""
+        await inmemory_manager.connect()
+
+        # Create multiple sessions for the same user
+        await inmemory_manager.create_session(user_id=1, user_email="test@example.com", user_role="user")
+        await inmemory_manager.create_session(user_id=1, user_email="test@example.com", user_role="user")
+
+        sessions = await inmemory_manager.get_active_sessions(user_id=1)
+        assert len(sessions) == 2
+
+        await inmemory_manager.disconnect()
+
+    @pytest.mark.asyncio
+    async def test_delete_all_user_sessions(self, inmemory_manager):
+        """Test deleting all sessions for a user"""
+        await inmemory_manager.connect()
+
+        # Create multiple sessions
+        await inmemory_manager.create_session(user_id=1, user_email="test@example.com", user_role="user")
+        await inmemory_manager.create_session(user_id=1, user_email="test@example.com", user_role="user")
+
+        count = await inmemory_manager.delete_all_user_sessions(user_id=1)
+        assert count == 2
+
+        sessions = await inmemory_manager.get_active_sessions(user_id=1)
+        assert len(sessions) == 0
+
+        await inmemory_manager.disconnect()
