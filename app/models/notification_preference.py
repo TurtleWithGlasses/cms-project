@@ -81,6 +81,11 @@ class NotificationTemplate(Base):
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
+    def __init__(self, **kwargs):
+        # Set Python-level default for is_active (Column defaults only apply at DB INSERT time)
+        kwargs.setdefault("is_active", True)
+        super().__init__(**kwargs)
+
     def __repr__(self) -> str:
         return f"<NotificationTemplate(id={self.id}, name={self.name})>"
 
@@ -123,6 +128,15 @@ class NotificationPreference(Base):
 
     # Indexes
     __table_args__ = (Index("ix_notification_preferences_user_category", "user_id", "category", unique=True),)
+
+    def __init__(self, **kwargs):
+        # Set Python-level defaults for boolean fields (Column defaults only apply at DB INSERT time)
+        kwargs.setdefault("email_enabled", True)
+        kwargs.setdefault("in_app_enabled", True)
+        kwargs.setdefault("push_enabled", False)
+        kwargs.setdefault("sms_enabled", False)
+        kwargs.setdefault("digest_frequency", DigestFrequency.IMMEDIATE)
+        super().__init__(**kwargs)
 
     def __repr__(self) -> str:
         return f"<NotificationPreference(id={self.id}, user={self.user_id}, category={self.category})>"

@@ -70,6 +70,14 @@ The following major features and improvements have been completed:
   - All pages now use centralized API service with proper error handling
   - Files: `frontend/src/pages/settings/*.jsx`, `frontend/src/pages/email-templates/*.jsx`, `frontend/src/pages/localization/*.jsx`, `frontend/src/pages/revisions/*.jsx`
 
+#### Model Fixes (v1.2.3)
+- [x] **NotificationPreference Model Defaults** - Fixed None defaults bug
+  - Added `__init__` method to set Python-level defaults for boolean fields
+  - SQLAlchemy's `Column(default=...)` only applies at DB INSERT time, not Python object creation
+  - Fixed: `email_enabled`, `in_app_enabled`, `push_enabled`, `sms_enabled`, `digest_frequency`
+  - Also fixed `NotificationTemplate.is_active` with the same pattern
+  - File: `app/models/notification_preference.py`
+
 ---
 
 ## Current State Assessment
@@ -857,7 +865,7 @@ This roadmap transforms the CMS Project from a functional MVP to a production-re
 
 ---
 
-**Document Version:** 1.2.3
+**Document Version:** 1.2.4
 **Last Updated:** 2026-01-31
 **Maintained By:** Development Team
 **Review Cycle:** Quarterly
@@ -873,10 +881,12 @@ The following items require attention:
 | ~~1~~ | ~~Session Management Tests~~ | ✅ Fixed | ~~13 tests skipped~~ → 35 tests now passing |
 | ~~1~~ | ~~Middleware Tests~~ | ✅ Fixed | ~~11 tests skipped~~ → 29 tests now passing |
 | ~~2~~ | ~~Frontend Pages Mock Data~~ | ✅ Fixed | 5 pages migrated to centralized API (4 remaining use API with fallbacks) |
-| 3 | Notification Model Defaults | Bug | NotificationPreference model has None defaults |
+| ~~3~~ | ~~Notification Model Defaults~~ | ✅ Fixed | Added Python-level defaults via `__init__` method |
 
 ### Next Steps
 1. ~~Enable and fix skipped session management tests~~ ✅ DONE
 2. ~~Enable and fix skipped middleware tests~~ ✅ DONE
 3. ~~Complete mock data replacement for remaining frontend pages~~ ✅ DONE (5 pages migrated)
-4. Fix notification preference model defaults
+4. ~~Fix notification preference model defaults~~ ✅ DONE
+
+All critical issues from the initial assessment have been resolved.
