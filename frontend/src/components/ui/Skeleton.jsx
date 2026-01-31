@@ -1,4 +1,4 @@
-import { cn } from '../../lib/utils'
+import { cn } from '../../utils/cn'
 
 // Base skeleton component
 function Skeleton({ className, ...props }) {
