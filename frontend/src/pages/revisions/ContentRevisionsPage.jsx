@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { contentApi } from '../../services/api'
+import { contentApi, revisionsApi } from '../../services/api'
 import { useToast } from '../../components/ui/Toast'
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
@@ -18,56 +18,6 @@ import {
   ArrowLeft,
 } from 'lucide-react'
 
-// Mock data for demo
-const mockRevisions = [
-  {
-    id: 1,
-    version: 5,
-    createdAt: '2024-01-18T14:30:00Z',
-    author: 'John Doe',
-    changes: 'Updated introduction paragraph and fixed typos',
-    isCurrent: true,
-  },
-  {
-    id: 2,
-    version: 4,
-    createdAt: '2024-01-17T10:15:00Z',
-    author: 'Sarah Smith',
-    changes: 'Added new section about features',
-    isCurrent: false,
-  },
-  {
-    id: 3,
-    version: 3,
-    createdAt: '2024-01-15T16:45:00Z',
-    author: 'John Doe',
-    changes: 'Restructured content layout',
-    isCurrent: false,
-  },
-  {
-    id: 4,
-    version: 2,
-    createdAt: '2024-01-12T09:00:00Z',
-    author: 'Mike Johnson',
-    changes: 'Initial content draft',
-    isCurrent: false,
-  },
-  {
-    id: 5,
-    version: 1,
-    createdAt: '2024-01-10T11:30:00Z',
-    author: 'John Doe',
-    changes: 'Created content',
-    isCurrent: false,
-  },
-]
-
-const mockContent = {
-  id: 1,
-  title: 'Getting Started with React',
-  status: 'published',
-}
-
 function ContentRevisionsPage() {
   const { id } = useParams()
   const queryClient = useQueryClient()
@@ -77,24 +27,20 @@ function ContentRevisionsPage() {
   const [compareWith, setCompareWith] = useState(null)
 
   // Fetch content details
-  const { data: content = mockContent } = useQuery({
+  const { data: content } = useQuery({
     queryKey: ['content', id],
-    queryFn: () => contentApi.getById(id),
-    select: (res) => res.data || mockContent,
-    placeholderData: mockContent,
+    queryFn: () => contentApi.getById(id).then(res => res.data),
   })
 
-  // Fetch revisions
-  const { data: revisions = mockRevisions, isLoading } = useQuery({
+  // Fetch revisions using revisionsApi
+  const { data: revisions = [], isLoading } = useQuery({
     queryKey: ['content-revisions', id],
-    queryFn: () => contentApi.getRevisions(id),
-    select: (res) => res.data || mockRevisions,
-    placeholderData: mockRevisions,
+    queryFn: () => revisionsApi.getByContent(id).then(res => res.data),
   })
 
   // Restore revision mutation
   const restoreMutation = useMutation({
-    mutationFn: (revisionId) => contentApi.restoreRevision(id, revisionId),
+    mutationFn: (revisionId) => revisionsApi.restore(id, revisionId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['content-revisions', id] })
       queryClient.invalidateQueries({ queryKey: ['content', id] })
@@ -141,12 +87,12 @@ function ContentRevisionsPage() {
           <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">
             <Link to="/content" className="hover:text-gray-700">Content</Link>
             <ChevronLeft className="h-4 w-4 rotate-180" />
-            <Link to={`/content/${id}`} className="hover:text-gray-700">{content.title}</Link>
+            <Link to={`/content/${id}`} className="hover:text-gray-700">{content?.title || 'Loading...'}</Link>
             <ChevronLeft className="h-4 w-4 rotate-180" />
             <span>Revisions</span>
           </div>
           <h1 className="text-2xl font-bold text-gray-900">Revision History</h1>
-          <p className="text-gray-500 mt-1">{revisions.length} versions available</p>
+          <p className="text-gray-500 mt-1">{revisions?.length || 0} versions available</p>
         </div>
         <div className="flex items-center gap-3">
           <Button

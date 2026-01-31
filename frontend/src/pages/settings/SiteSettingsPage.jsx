@@ -18,6 +18,7 @@ import {
   RefreshCw,
 } from 'lucide-react'
 import { useToast } from '../../components/ui/Toast'
+import { siteSettingsApi } from '../../services/api'
 
 // Validation schemas for each section
 const generalSchema = z.object({
@@ -91,42 +92,37 @@ const settingsSchema = z.object({
   advanced: advancedSchema,
 })
 
-// Mock Site Settings API (replace with real API when backend endpoint is available)
-const siteSettingsApi = {
-  get: () => Promise.resolve({
-    general: {
-      siteName: 'My CMS Website',
-      tagline: 'A modern content management system',
-      siteUrl: 'https://example.com',
-      adminEmail: 'admin@example.com',
-      timezone: 'America/New_York',
-      dateFormat: 'MMMM d, yyyy',
-      timeFormat: 'h:mm a',
-    },
-    branding: {
-      logo: null,
-      favicon: null,
-      primaryColor: '#3b82f6',
-      secondaryColor: '#64748b',
-    },
-    social: {
-      facebook: '',
-      twitter: '',
-      instagram: '',
-      linkedin: '',
-      youtube: '',
-    },
-    advanced: {
-      maintenanceMode: false,
-      maintenanceMessage: 'We are currently performing scheduled maintenance. Please check back soon.',
-      allowRegistration: true,
-      requireEmailVerification: true,
-      defaultUserRole: 'subscriber',
-    },
-  }),
-  update: (data) => Promise.resolve(data),
-  uploadLogo: (file) => Promise.resolve({ url: '/uploads/logo.png' }),
-  uploadFavicon: (file) => Promise.resolve({ url: '/uploads/favicon.ico' }),
+// Default settings for form initialization
+const defaultSettings = {
+  general: {
+    siteName: '',
+    tagline: '',
+    siteUrl: '',
+    adminEmail: '',
+    timezone: 'America/New_York',
+    dateFormat: 'MMMM d, yyyy',
+    timeFormat: 'h:mm a',
+  },
+  branding: {
+    logo: null,
+    favicon: null,
+    primaryColor: '#3b82f6',
+    secondaryColor: '#64748b',
+  },
+  social: {
+    facebook: '',
+    twitter: '',
+    instagram: '',
+    linkedin: '',
+    youtube: '',
+  },
+  advanced: {
+    maintenanceMode: false,
+    maintenanceMessage: 'We are currently performing scheduled maintenance. Please check back soon.',
+    allowRegistration: true,
+    requireEmailVerification: true,
+    defaultUserRole: 'subscriber',
+  },
 }
 
 const timezones = [
@@ -164,7 +160,8 @@ function SiteSettingsPage() {
 
   const { data: settings, isLoading, error, refetch } = useQuery({
     queryKey: ['site-settings'],
-    queryFn: siteSettingsApi.get,
+    queryFn: () => siteSettingsApi.get().then(res => res.data),
+    placeholderData: defaultSettings,
   })
 
   const {
@@ -221,9 +218,9 @@ function SiteSettingsPage() {
   }, [settings, reset])
 
   const updateMutation = useMutation({
-    mutationFn: siteSettingsApi.update,
+    mutationFn: (data) => siteSettingsApi.update(data),
     onSuccess: () => {
-      queryClient.invalidateQueries(['site-settings'])
+      queryClient.invalidateQueries({ queryKey: ['site-settings'] })
       toast({
         title: 'Settings saved',
         description: 'Your site settings have been updated successfully.',
@@ -233,7 +230,7 @@ function SiteSettingsPage() {
     onError: (error) => {
       toast({
         title: 'Error saving settings',
-        description: error.message || 'Failed to save settings. Please try again.',
+        description: error.response?.data?.detail || error.message || 'Failed to save settings. Please try again.',
         variant: 'error',
       })
     },

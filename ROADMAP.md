@@ -60,6 +60,16 @@ The following major features and improvements have been completed:
   - All tests passing with proper TestClient usage
   - File: `test/test_middleware.py`
 
+#### Frontend API Integration (v1.2.2)
+- [x] **Mock Data Replacement** - Connected 5 more frontend pages to centralized API
+  - SiteSettingsPage: Replaced inline mock with `siteSettingsApi`
+  - EmailTemplatesPage: Replaced inline mock with `emailTemplatesApi`
+  - LocalizationPage: Replaced inline mock with `localizationApi`
+  - TwoFactorSettingsPage: Replaced inline mock with `twoFactorApi`
+  - ContentRevisionsPage: Updated to use `revisionsApi`
+  - All pages now use centralized API service with proper error handling
+  - Files: `frontend/src/pages/settings/*.jsx`, `frontend/src/pages/email-templates/*.jsx`, `frontend/src/pages/localization/*.jsx`, `frontend/src/pages/revisions/*.jsx`
+
 ---
 
 ## Current State Assessment
@@ -847,7 +857,7 @@ This roadmap transforms the CMS Project from a functional MVP to a production-re
 
 ---
 
-**Document Version:** 1.2.2
+**Document Version:** 1.2.3
 **Last Updated:** 2026-01-31
 **Maintained By:** Development Team
 **Review Cycle:** Quarterly
@@ -862,11 +872,11 @@ The following items require attention:
 |----------|-------|--------|-------------|
 | ~~1~~ | ~~Session Management Tests~~ | ✅ Fixed | ~~13 tests skipped~~ → 35 tests now passing |
 | ~~1~~ | ~~Middleware Tests~~ | ✅ Fixed | ~~11 tests skipped~~ → 29 tests now passing |
-| 2 | Frontend Pages Mock Data | Partial | 6 pages still use some mock data |
+| ~~2~~ | ~~Frontend Pages Mock Data~~ | ✅ Fixed | 5 pages migrated to centralized API (4 remaining use API with fallbacks) |
 | 3 | Notification Model Defaults | Bug | NotificationPreference model has None defaults |
 
 ### Next Steps
 1. ~~Enable and fix skipped session management tests~~ ✅ DONE
 2. ~~Enable and fix skipped middleware tests~~ ✅ DONE
-3. Complete mock data replacement for remaining frontend pages
+3. ~~Complete mock data replacement for remaining frontend pages~~ ✅ DONE (5 pages migrated)
 4. Fix notification preference model defaults

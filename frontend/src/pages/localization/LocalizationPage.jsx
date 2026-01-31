@@ -17,59 +17,23 @@ import {
   AlertCircle,
 } from 'lucide-react'
 import { useToast } from '../../components/ui/Toast'
+import { localizationApi } from '../../services/api'
 
-// Mock Localization API
-const localizationApi = {
-  getLanguages: () => Promise.resolve([
-    { code: 'en', name: 'English', nativeName: 'English', isDefault: true, isEnabled: true, progress: 100 },
-    { code: 'es', name: 'Spanish', nativeName: 'Español', isDefault: false, isEnabled: true, progress: 85 },
-    { code: 'fr', name: 'French', nativeName: 'Français', isDefault: false, isEnabled: true, progress: 72 },
-    { code: 'de', name: 'German', nativeName: 'Deutsch', isDefault: false, isEnabled: false, progress: 45 },
-    { code: 'zh', name: 'Chinese', nativeName: '中文', isDefault: false, isEnabled: false, progress: 30 },
-  ]),
-  getAvailableLanguages: () => Promise.resolve([
-    { code: 'en', name: 'English', nativeName: 'English' },
-    { code: 'es', name: 'Spanish', nativeName: 'Español' },
-    { code: 'fr', name: 'French', nativeName: 'Français' },
-    { code: 'de', name: 'German', nativeName: 'Deutsch' },
-    { code: 'it', name: 'Italian', nativeName: 'Italiano' },
-    { code: 'pt', name: 'Portuguese', nativeName: 'Português' },
-    { code: 'zh', name: 'Chinese', nativeName: '中文' },
-    { code: 'ja', name: 'Japanese', nativeName: '日本語' },
-    { code: 'ko', name: 'Korean', nativeName: '한국어' },
-    { code: 'ar', name: 'Arabic', nativeName: 'العربية' },
-    { code: 'ru', name: 'Russian', nativeName: 'Русский' },
-    { code: 'hi', name: 'Hindi', nativeName: 'हिन्दी' },
-  ]),
-  addLanguage: (code) => Promise.resolve({ success: true }),
-  removeLanguage: (code) => Promise.resolve({ success: true }),
-  setDefault: (code) => Promise.resolve({ success: true }),
-  toggleEnabled: (code, enabled) => Promise.resolve({ success: true }),
-  getTranslations: (lang) => Promise.resolve({
-    'common.save': 'Save',
-    'common.cancel': 'Cancel',
-    'common.delete': 'Delete',
-    'common.edit': 'Edit',
-    'common.search': 'Search',
-    'common.loading': 'Loading...',
-    'nav.dashboard': 'Dashboard',
-    'nav.content': 'Content',
-    'nav.media': 'Media',
-    'nav.users': 'Users',
-    'nav.settings': 'Settings',
-    'auth.login': 'Login',
-    'auth.logout': 'Logout',
-    'auth.register': 'Register',
-    'auth.forgot_password': 'Forgot Password',
-    'content.title': 'Title',
-    'content.body': 'Body',
-    'content.publish': 'Publish',
-    'content.draft': 'Draft',
-  }),
-  updateTranslation: (lang, key, value) => Promise.resolve({ success: true }),
-  exportTranslations: (lang) => Promise.resolve(new Blob(['{}'], { type: 'application/json' })),
-  importTranslations: (lang, file) => Promise.resolve({ success: true, imported: 45 }),
-}
+// Available languages list (static reference data)
+const availableLanguagesList = [
+  { code: 'en', name: 'English', nativeName: 'English' },
+  { code: 'es', name: 'Spanish', nativeName: 'Español' },
+  { code: 'fr', name: 'French', nativeName: 'Français' },
+  { code: 'de', name: 'German', nativeName: 'Deutsch' },
+  { code: 'it', name: 'Italian', nativeName: 'Italiano' },
+  { code: 'pt', name: 'Portuguese', nativeName: 'Português' },
+  { code: 'zh', name: 'Chinese', nativeName: '中文' },
+  { code: 'ja', name: 'Japanese', nativeName: '日本語' },
+  { code: 'ko', name: 'Korean', nativeName: '한국어' },
+  { code: 'ar', name: 'Arabic', nativeName: 'العربية' },
+  { code: 'ru', name: 'Russian', nativeName: 'Русский' },
+  { code: 'hi', name: 'Hindi', nativeName: 'हिन्दी' },
+]
 
 function LocalizationPage() {
   const [showAddLanguage, setShowAddLanguage] = useState(false)
@@ -84,58 +48,71 @@ function LocalizationPage() {
 
   const { data: languages, isLoading: loadingLanguages } = useQuery({
     queryKey: ['languages'],
-    queryFn: localizationApi.getLanguages,
+    queryFn: () => localizationApi.getLanguages().then(res => res.data),
   })
 
-  const { data: availableLanguages } = useQuery({
-    queryKey: ['available-languages'],
-    queryFn: localizationApi.getAvailableLanguages,
-  })
+  // Use static list for available languages (reference data)
+  const availableLanguages = availableLanguagesList
 
   const { data: translations, isLoading: loadingTranslations } = useQuery({
     queryKey: ['translations', selectedLanguage],
-    queryFn: () => localizationApi.getTranslations(selectedLanguage),
+    queryFn: () => localizationApi.getTranslations(selectedLanguage).then(res => res.data),
     enabled: !!selectedLanguage,
   })
 
   const addLanguageMutation = useMutation({
-    mutationFn: localizationApi.addLanguage,
+    mutationFn: (code) => localizationApi.addLanguage(code),
     onSuccess: () => {
-      queryClient.invalidateQueries(['languages'])
+      queryClient.invalidateQueries({ queryKey: ['languages'] })
       setShowAddLanguage(false)
       toast({ title: 'Language added successfully', variant: 'success' })
+    },
+    onError: () => {
+      toast({ title: 'Failed to add language', variant: 'error' })
     },
   })
 
   const removeLanguageMutation = useMutation({
-    mutationFn: localizationApi.removeLanguage,
+    mutationFn: (code) => localizationApi.removeLanguage(code),
     onSuccess: () => {
-      queryClient.invalidateQueries(['languages'])
+      queryClient.invalidateQueries({ queryKey: ['languages'] })
       toast({ title: 'Language removed', variant: 'success' })
+    },
+    onError: () => {
+      toast({ title: 'Failed to remove language', variant: 'error' })
     },
   })
 
   const setDefaultMutation = useMutation({
-    mutationFn: localizationApi.setDefault,
+    mutationFn: (code) => localizationApi.setDefault(code),
     onSuccess: () => {
-      queryClient.invalidateQueries(['languages'])
+      queryClient.invalidateQueries({ queryKey: ['languages'] })
       toast({ title: 'Default language updated', variant: 'success' })
+    },
+    onError: () => {
+      toast({ title: 'Failed to set default language', variant: 'error' })
     },
   })
 
   const toggleEnabledMutation = useMutation({
     mutationFn: ({ code, enabled }) => localizationApi.toggleEnabled(code, enabled),
     onSuccess: () => {
-      queryClient.invalidateQueries(['languages'])
+      queryClient.invalidateQueries({ queryKey: ['languages'] })
+    },
+    onError: () => {
+      toast({ title: 'Failed to update language', variant: 'error' })
     },
   })
 
   const updateTranslationMutation = useMutation({
     mutationFn: ({ key, value }) => localizationApi.updateTranslation(selectedLanguage, key, value),
     onSuccess: () => {
-      queryClient.invalidateQueries(['translations', selectedLanguage])
+      queryClient.invalidateQueries({ queryKey: ['translations', selectedLanguage] })
       setEditingKey(null)
       toast({ title: 'Translation updated', variant: 'success' })
+    },
+    onError: () => {
+      toast({ title: 'Failed to update translation', variant: 'error' })
     },
   })
 

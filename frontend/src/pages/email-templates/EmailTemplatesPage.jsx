@@ -17,147 +17,7 @@ import {
   Variable,
 } from 'lucide-react'
 import { useToast } from '../../components/ui/Toast'
-
-// Mock Email Templates API
-const emailTemplatesApi = {
-  getAll: () => Promise.resolve([
-    {
-      id: 'welcome',
-      name: 'Welcome Email',
-      description: 'Sent when a new user registers',
-      subject: 'Welcome to {{site_name}}!',
-      category: 'authentication',
-      lastModified: '2024-01-10T14:30:00Z',
-      isActive: true,
-    },
-    {
-      id: 'password-reset',
-      name: 'Password Reset',
-      description: 'Sent when a user requests password reset',
-      subject: 'Reset your {{site_name}} password',
-      category: 'authentication',
-      lastModified: '2024-01-08T09:15:00Z',
-      isActive: true,
-    },
-    {
-      id: 'email-verification',
-      name: 'Email Verification',
-      description: 'Sent to verify email address',
-      subject: 'Verify your email address',
-      category: 'authentication',
-      lastModified: '2024-01-05T11:00:00Z',
-      isActive: true,
-    },
-    {
-      id: 'comment-notification',
-      name: 'New Comment',
-      description: 'Notify author of new comment',
-      subject: 'New comment on "{{post_title}}"',
-      category: 'notifications',
-      lastModified: '2024-01-12T16:45:00Z',
-      isActive: true,
-    },
-    {
-      id: 'content-published',
-      name: 'Content Published',
-      description: 'Notify author when content is published',
-      subject: 'Your content "{{content_title}}" has been published',
-      category: 'notifications',
-      lastModified: '2024-01-11T10:30:00Z',
-      isActive: false,
-    },
-    {
-      id: 'team-invitation',
-      name: 'Team Invitation',
-      description: 'Invite users to join a team',
-      subject: 'You\'ve been invited to join {{team_name}}',
-      category: 'teams',
-      lastModified: '2024-01-09T13:20:00Z',
-      isActive: true,
-    },
-    {
-      id: 'workflow-approval',
-      name: 'Workflow Approval Request',
-      description: 'Request content approval',
-      subject: 'Content approval requested: "{{content_title}}"',
-      category: 'workflow',
-      lastModified: '2024-01-07T08:00:00Z',
-      isActive: true,
-    },
-    {
-      id: 'workflow-approved',
-      name: 'Content Approved',
-      description: 'Notify when content is approved',
-      subject: 'Your content "{{content_title}}" has been approved',
-      category: 'workflow',
-      lastModified: '2024-01-07T08:00:00Z',
-      isActive: true,
-    },
-  ]),
-  getById: (id) => Promise.resolve({
-    id,
-    name: 'Welcome Email',
-    subject: 'Welcome to {{site_name}}!',
-    htmlContent: `<!DOCTYPE html>
-<html>
-<head>
-  <style>
-    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-    .header { background: #3b82f6; color: white; padding: 20px; text-align: center; }
-    .content { padding: 30px 20px; background: #f9fafb; }
-    .button { display: inline-block; background: #3b82f6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; }
-    .footer { padding: 20px; text-align: center; color: #6b7280; font-size: 12px; }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="header">
-      <h1>Welcome to {{site_name}}!</h1>
-    </div>
-    <div class="content">
-      <p>Hi {{user_name}},</p>
-      <p>Thank you for joining {{site_name}}! We're excited to have you on board.</p>
-      <p>To get started, click the button below to verify your email address:</p>
-      <p style="text-align: center; margin: 30px 0;">
-        <a href="{{verification_url}}" class="button">Verify Email Address</a>
-      </p>
-      <p>If you didn't create an account, you can safely ignore this email.</p>
-      <p>Best regards,<br>The {{site_name}} Team</p>
-    </div>
-    <div class="footer">
-      <p>© {{current_year}} {{site_name}}. All rights reserved.</p>
-      <p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>
-    </div>
-  </div>
-</body>
-</html>`,
-    textContent: `Welcome to {{site_name}}!
-
-Hi {{user_name}},
-
-Thank you for joining {{site_name}}! We're excited to have you on board.
-
-To get started, verify your email address by visiting:
-{{verification_url}}
-
-If you didn't create an account, you can safely ignore this email.
-
-Best regards,
-The {{site_name}} Team`,
-    variables: [
-      { name: 'site_name', description: 'Your website name' },
-      { name: 'user_name', description: 'Recipient\'s name' },
-      { name: 'user_email', description: 'Recipient\'s email' },
-      { name: 'verification_url', description: 'Email verification link' },
-      { name: 'current_year', description: 'Current year' },
-      { name: 'unsubscribe_url', description: 'Unsubscribe link' },
-    ],
-  }),
-  update: (id, data) => Promise.resolve({ success: true }),
-  sendTest: (id, email) => Promise.resolve({ success: true }),
-  resetToDefault: (id) => Promise.resolve({ success: true }),
-}
+import { emailTemplatesApi } from '../../services/api'
 
 const categories = [
   { id: 'all', name: 'All Templates' },
@@ -181,21 +41,24 @@ function EmailTemplatesPage() {
 
   const { data: templates, isLoading: loadingTemplates } = useQuery({
     queryKey: ['email-templates'],
-    queryFn: emailTemplatesApi.getAll,
+    queryFn: () => emailTemplatesApi.getAll().then(res => res.data),
   })
 
   const { data: templateDetail, isLoading: loadingDetail } = useQuery({
     queryKey: ['email-template', selectedTemplate],
-    queryFn: () => emailTemplatesApi.getById(selectedTemplate),
+    queryFn: () => emailTemplatesApi.getById(selectedTemplate).then(res => res.data),
     enabled: !!selectedTemplate,
   })
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }) => emailTemplatesApi.update(id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries(['email-templates'])
-      queryClient.invalidateQueries(['email-template', selectedTemplate])
+      queryClient.invalidateQueries({ queryKey: ['email-templates'] })
+      queryClient.invalidateQueries({ queryKey: ['email-template', selectedTemplate] })
       toast({ title: 'Template saved', variant: 'success' })
+    },
+    onError: () => {
+      toast({ title: 'Failed to save template', variant: 'error' })
     },
   })
 
@@ -206,14 +69,20 @@ function EmailTemplatesPage() {
       setTestEmail('')
       toast({ title: 'Test email sent', description: `Check ${testEmail}`, variant: 'success' })
     },
+    onError: () => {
+      toast({ title: 'Failed to send test email', variant: 'error' })
+    },
   })
 
   const resetMutation = useMutation({
-    mutationFn: emailTemplatesApi.resetToDefault,
+    mutationFn: (id) => emailTemplatesApi.resetToDefault(id),
     onSuccess: () => {
-      queryClient.invalidateQueries(['email-template', selectedTemplate])
+      queryClient.invalidateQueries({ queryKey: ['email-template', selectedTemplate] })
       setEditedContent(null)
       toast({ title: 'Template reset to default', variant: 'success' })
+    },
+    onError: () => {
+      toast({ title: 'Failed to reset template', variant: 'error' })
     },
   })
 

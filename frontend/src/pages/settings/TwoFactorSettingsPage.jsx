@@ -14,38 +14,7 @@ import {
   Unlock,
 } from 'lucide-react'
 import { useToast } from '../../components/ui/Toast'
-
-// Mock 2FA API
-const twoFactorApi = {
-  getStatus: () => Promise.resolve({
-    enabled: false,
-    method: null, // 'authenticator' | 'sms' | 'email'
-    phone: null,
-    email: 'user@example.com',
-    backupCodesRemaining: 0,
-    lastUsed: null,
-  }),
-  setup: (method) => Promise.resolve({
-    secret: 'JBSWY3DPEHPK3PXP',
-    qrCode: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
-    backupCodes: [
-      'ABC12-DEF34', 'GHI56-JKL78', 'MNO90-PQR12',
-      'STU34-VWX56', 'YZA78-BCD90', 'EFG12-HIJ34',
-      'KLM56-NOP78', 'QRS90-TUV12', 'WXY34-ZAB56',
-      'CDE78-FGH90',
-    ],
-  }),
-  verify: (code) => Promise.resolve({ success: true }),
-  disable: (code) => Promise.resolve({ success: true }),
-  regenerateBackupCodes: () => Promise.resolve({
-    backupCodes: [
-      'NEW12-ABC34', 'DEF56-GHI78', 'JKL90-MNO12',
-      'PQR34-STU56', 'VWX78-YZA90', 'BCD12-EFG34',
-      'HIJ56-KLM78', 'NOP90-QRS12', 'TUV34-WXY56',
-      'ZAB78-CDE90',
-    ],
-  }),
-}
+import { twoFactorApi } from '../../services/api'
 
 function TwoFactorSettingsPage() {
   const [setupStep, setSetupStep] = useState(null) // null | 'choose' | 'setup' | 'verify' | 'backup'
@@ -61,19 +30,26 @@ function TwoFactorSettingsPage() {
 
   const { data: status, isLoading } = useQuery({
     queryKey: ['2fa-status'],
-    queryFn: twoFactorApi.getStatus,
+    queryFn: () => twoFactorApi.getStatus().then(res => res.data),
   })
 
   const setupMutation = useMutation({
-    mutationFn: twoFactorApi.setup,
+    mutationFn: (method) => twoFactorApi.setup(method).then(res => res.data),
     onSuccess: (data) => {
       setSetupData(data)
       setSetupStep('setup')
     },
+    onError: () => {
+      toast({
+        title: 'Setup failed',
+        description: 'Failed to initialize 2FA setup. Please try again.',
+        variant: 'error',
+      })
+    },
   })
 
   const verifyMutation = useMutation({
-    mutationFn: twoFactorApi.verify,
+    mutationFn: (code) => twoFactorApi.verify(code),
     onSuccess: () => {
       setSetupStep('backup')
     },
@@ -87,9 +63,9 @@ function TwoFactorSettingsPage() {
   })
 
   const disableMutation = useMutation({
-    mutationFn: twoFactorApi.disable,
+    mutationFn: (code) => twoFactorApi.disable(code),
     onSuccess: () => {
-      queryClient.invalidateQueries(['2fa-status'])
+      queryClient.invalidateQueries({ queryKey: ['2fa-status'] })
       setShowDisableModal(false)
       setDisableCode('')
       toast({
@@ -108,7 +84,7 @@ function TwoFactorSettingsPage() {
   })
 
   const regenerateMutation = useMutation({
-    mutationFn: twoFactorApi.regenerateBackupCodes,
+    mutationFn: () => twoFactorApi.regenerateBackupCodes().then(res => res.data),
     onSuccess: (data) => {
       setSetupData(data)
       setSetupStep('backup')
@@ -116,6 +92,13 @@ function TwoFactorSettingsPage() {
         title: 'Backup codes regenerated',
         description: 'Your old backup codes are no longer valid.',
         variant: 'success',
+      })
+    },
+    onError: () => {
+      toast({
+        title: 'Failed to regenerate codes',
+        description: 'Please try again later.',
+        variant: 'error',
       })
     },
   })
