@@ -6,7 +6,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from ..auth import create_access_token, get_current_user, verify_password
+from ..auth import create_access_token, get_current_user, require_role, verify_password  # noqa: F401
 from ..constants import ACCESS_TOKEN_EXPIRE_MINUTES
 from ..database import get_db
 from ..exceptions import DatabaseError, InvalidCredentialsError
