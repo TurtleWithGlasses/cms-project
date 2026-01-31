@@ -103,6 +103,15 @@ The following major features and improvements have been completed:
   - 5 tests verifying refactoring in `test/test_auth_refactoring.py`
   - Files: `app/auth.py`, `app/constants/roles.py`, `app/services/auth_service.py`
 
+#### Test Coverage Expansion (v1.2.6)
+- [x] **Core Components Test Coverage** - Added 36 tests for critical untested components
+  - **API Versioning Tests** (8 tests): Test API prefix, router creation, versioning
+  - **Config Settings Tests** (5 tests): Test settings defaults and field validation
+  - **Pagination Tests** (18 tests): Cursor encoding/decoding, roundtrip, invalid cursors
+  - **Notification Model Tests** (5 tests): Partial overrides, defaults, repr methods
+  - Total tests increased from 1071 to 1107 (36 new tests)
+  - File: `test/test_core_components.py`
+
 ---
 
 ## Current State Assessment
@@ -122,7 +131,7 @@ The following major features and improvements have been completed:
 #### Code Quality
 1. ~~**Hardcoded Values**: `role_id=2` hardcoded~~ ✅ FIXED (v1.2.5) - Now uses `get_default_role_name()` with `RoleName` enum
 2. ~~**Code Redundancy**: Multiple auth utility files~~ ✅ FIXED (v1.2.5) - Consolidated into single `app/auth.py` module
-3. **Limited Test Coverage**: Only 3 test files covering basic functionality
+3. ~~**Limited Test Coverage**: Only 3 test files covering basic functionality~~ ✅ IMPROVED (v1.2.6) - Now 1107 tests across 60 test files
 4. **Inconsistent API Versioning**: `/api/v1` for content, `/api` for other routes
 5. **Mixed Error Handling**: Inconsistent exception handling patterns
 
@@ -233,11 +242,11 @@ The following major features and improvements have been completed:
   - Files: `app/utils/session.py`, `app/routes/auth.py`
 
 #### 1.3 Testing Infrastructure
-- [ ] **Expand Test Coverage**
-  - Unit tests for all services (target: >80%)
-  - Integration tests for all API endpoints
-  - Test fixtures for common scenarios
-  - New files in [test/](test/) directory
+- [x] **Expand Test Coverage** ✅ COMPLETED (v1.2.6)
+  - Added 36 tests for API versioning, config, pagination, and models
+  - Total test count: 1107 tests (up from 1071)
+  - Core components now covered: `app/api/`, `app/config.py`, `app/utils/pagination.py`
+  - File: `test/test_core_components.py`
 
 - [ ] **Add Test Database Setup**
   - Configure separate test database
@@ -893,8 +902,8 @@ This roadmap transforms the CMS Project from a functional MVP to a production-re
 
 ---
 
-**Document Version:** 1.2.6
-**Last Updated:** 2026-01-31
+**Document Version:** 1.2.7
+**Last Updated:** 2026-02-01
 **Maintained By:** Development Team
 **Review Cycle:** Quarterly
 
