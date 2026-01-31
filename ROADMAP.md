@@ -53,6 +53,13 @@ The following major features and improvements have been completed:
   - Added InMemorySessionManager tests for non-Redis environments
   - Files: `test/test_auth_sessions.py`, `test/test_session_management.py`
 
+- [x] **Middleware Tests** - Enabled 29 middleware integration tests
+  - CSRF middleware tests (token generation, validation, exempt paths, Bearer token handling)
+  - Security headers middleware tests (all standard headers, HSTS, custom CSP)
+  - RBAC middleware tests (public paths, protected paths, token handling)
+  - All tests passing with proper TestClient usage
+  - File: `test/test_middleware.py`
+
 ---
 
 ## Current State Assessment
@@ -840,7 +847,7 @@ This roadmap transforms the CMS Project from a functional MVP to a production-re
 
 ---
 
-**Document Version:** 1.2
+**Document Version:** 1.2.2
 **Last Updated:** 2026-01-31
 **Maintained By:** Development Team
 **Review Cycle:** Quarterly
@@ -854,12 +861,12 @@ The following items require attention:
 | Priority | Issue | Status | Description |
 |----------|-------|--------|-------------|
 | ~~1~~ | ~~Session Management Tests~~ | ✅ Fixed | ~~13 tests skipped~~ → 35 tests now passing |
-| 1 | Middleware Tests | Skipped | 11 tests skipped in middleware integration |
+| ~~1~~ | ~~Middleware Tests~~ | ✅ Fixed | ~~11 tests skipped~~ → 29 tests now passing |
 | 2 | Frontend Pages Mock Data | Partial | 6 pages still use some mock data |
 | 3 | Notification Model Defaults | Bug | NotificationPreference model has None defaults |
 
 ### Next Steps
 1. ~~Enable and fix skipped session management tests~~ ✅ DONE
-2. Enable and fix skipped middleware tests
+2. ~~Enable and fix skipped middleware tests~~ ✅ DONE
 3. Complete mock data replacement for remaining frontend pages
 4. Fix notification preference model defaults
