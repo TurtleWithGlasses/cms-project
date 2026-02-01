@@ -10,7 +10,7 @@ from app.exceptions import (
     AuthenticationError,
     AuthorizationError,
     CategoryNotFoundError,
-    CMSException,
+    CMSError,
     ContentNotFoundError,
     CSRFError,
     DatabaseError,
@@ -31,26 +31,26 @@ from app.exceptions import (
 )
 
 
-class TestCMSException:
-    """Test base CMSException class"""
+class TestCMSError:
+    """Test base CMSError class"""
 
     def test_cms_exception_default(self):
-        """Test CMSException with default values"""
-        exc = CMSException("Test error")
+        """Test CMSError with default values"""
+        exc = CMSError("Test error")
         assert str(exc) == "Test error"
         assert exc.message == "Test error"
         assert exc.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
         assert exc.details == {}
 
     def test_cms_exception_with_custom_status(self):
-        """Test CMSException with custom status code"""
-        exc = CMSException("Test error", status_code=status.HTTP_400_BAD_REQUEST)
+        """Test CMSError with custom status code"""
+        exc = CMSError("Test error", status_code=status.HTTP_400_BAD_REQUEST)
         assert exc.status_code == status.HTTP_400_BAD_REQUEST
 
     def test_cms_exception_with_details(self):
-        """Test CMSException with details"""
+        """Test CMSError with details"""
         details = {"key": "value", "count": 42}
-        exc = CMSException("Test error", details=details)
+        exc = CMSError("Test error", details=details)
         assert exc.details == details
         assert exc.details["key"] == "value"
         assert exc.details["count"] == 42
@@ -282,7 +282,7 @@ class TestExceptionInheritance:
     """Test exception inheritance hierarchy"""
 
     def test_all_exceptions_inherit_from_cms_exception(self):
-        """Test that all custom exceptions inherit from CMSException"""
+        """Test that all custom exceptions inherit from CMSError"""
         exceptions = [
             AuthenticationError(),
             AuthorizationError(),
@@ -307,7 +307,7 @@ class TestExceptionInheritance:
         ]
 
         for exc in exceptions:
-            assert isinstance(exc, CMSException)
+            assert isinstance(exc, CMSError)
             assert isinstance(exc, Exception)
 
     def test_authentication_exceptions_inherit_correctly(self):

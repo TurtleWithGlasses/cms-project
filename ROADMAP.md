@@ -126,6 +126,28 @@ The following major features and improvements have been completed:
     - SEO: `/sitemap.xml`, `/robots.txt`, `/feed.xml` (root level for search engines)
   - Files: `app/main.py`, all files in `app/routes/`
 
+#### Error Handling Improvements (v1.2.9)
+- [x] **Improve Error Handling** - Standardized error responses with i18n support
+  - Added `ErrorCode` enum with ~40 machine-readable error codes for frontend i18n
+  - Error codes organized by category: AUTH_*, RESOURCE_*, VALIDATION_*, RATE_LIMIT_*, etc.
+  - Enhanced `CMSError` base class with `error_code` attribute
+  - Added new exception classes: `RateLimitExceededException`, `ServiceUnavailableException`, `DatabaseException`, `ConfigurationException`, `MediaException`, `WorkflowException`, `ImportExportException`, `WebhookException`, `CacheException`
+  - Updated all exception handlers to include `error_code` in responses
+  - Standardized error response format:
+    ```json
+    {
+      "error": {
+        "status_code": 404,
+        "error_code": "RESOURCE_USER_NOT_FOUND",
+        "message": "User with id '123' not found",
+        "type": "Not Found",
+        "details": {"resource_type": "User", "resource_id": 123},
+        "path": "/api/v1/users/123"
+      }
+    }
+    ```
+  - Files: `app/exceptions.py`, `app/exception_handlers.py`
+
 ---
 
 ## Current State Assessment
@@ -147,7 +169,7 @@ The following major features and improvements have been completed:
 2. ~~**Code Redundancy**: Multiple auth utility files~~ ✅ FIXED (v1.2.5) - Consolidated into single `app/auth.py` module
 3. ~~**Limited Test Coverage**: Only 3 test files covering basic functionality~~ ✅ IMPROVED (v1.2.6) - Now 1107 tests across 60 test files
 4. ~~**Inconsistent API Versioning**: `/api/v1` for content, `/api` for other routes~~ ✅ FIXED (v1.2.8) - All routes now use `/api/v1` prefix
-5. **Mixed Error Handling**: Inconsistent exception handling patterns
+5. ~~**Mixed Error Handling**: Inconsistent exception handling patterns~~ ✅ FIXED (v1.2.9) - Standardized error responses with `ErrorCode` enum for i18n
 
 #### Security Vulnerabilities
 1. **No CSRF Protection**: Form submissions lack CSRF tokens
@@ -206,11 +228,11 @@ The following major features and improvements have been completed:
   - Kept `/auth` for OAuth2 compatibility, root-level for monitoring & SEO routes
   - Files: `app/main.py`, all files in `app/routes/`
 
-- [ ] **Improve Error Handling**
-  - Create custom exception classes
-  - Implement global exception handler middleware
-  - Standardize error response format
-  - Add error codes and i18n support
+- [x] **Improve Error Handling** ✅ COMPLETED
+  - Created custom exception classes with `ErrorCode` enum (~40 codes) ✅
+  - Global exception handlers already in place ✅
+  - Standardized error response format with `error_code` for i18n ✅
+  - Files: `app/exceptions.py`, `app/exception_handlers.py`
 
 - [ ] **Code Cleanup**
   - Remove unused imports and commented code
@@ -918,7 +940,7 @@ This roadmap transforms the CMS Project from a functional MVP to a production-re
 
 ---
 
-**Document Version:** 1.2.8
+**Document Version:** 1.2.9
 **Last Updated:** 2026-02-01
 **Maintained By:** Development Team
 **Review Cycle:** Quarterly
