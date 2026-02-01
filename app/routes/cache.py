@@ -14,7 +14,7 @@ from app.models.user import User
 from app.services.cache_service import CacheService, get_cache_service
 from app.utils.cache import CacheManager
 
-router = APIRouter(prefix="/cache", tags=["Cache"])
+router = APIRouter(tags=["Cache"])
 
 
 # ============== Schemas ==============

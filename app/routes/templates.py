@@ -10,7 +10,7 @@ from app.models.user import User
 from app.routes.auth import get_current_user, require_role
 from app.services import template_service
 
-router = APIRouter(prefix="/templates", tags=["Content Templates"])
+router = APIRouter(tags=["Content Templates"])
 
 
 # Pydantic schemas

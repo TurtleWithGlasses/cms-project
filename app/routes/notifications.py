@@ -14,7 +14,7 @@ from app.models.notification_preference import DigestFrequency, NotificationCate
 from app.models.user import User
 from app.services.notification_service import NotificationService
 
-router = APIRouter(prefix="/notifications", tags=["Notifications"])
+router = APIRouter(tags=["Notifications"])
 
 
 # ============== Schemas ==============

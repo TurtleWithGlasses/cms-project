@@ -20,7 +20,7 @@ from app.services.websocket_manager import WebSocketManager, get_websocket_manag
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/ws", tags=["WebSocket"])
+router = APIRouter(tags=["WebSocket"])
 
 
 async def get_user_from_token(token: str, db: AsyncSession) -> User | None:

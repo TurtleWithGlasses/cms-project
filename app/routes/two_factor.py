@@ -13,7 +13,7 @@ from app.database import get_db
 from app.models.user import User
 from app.services.two_factor_service import TwoFactorService
 
-router = APIRouter(prefix="/2fa", tags=["Two-Factor Authentication"])
+router = APIRouter(tags=["Two-Factor Authentication"])
 
 
 # ============== Schemas ==============

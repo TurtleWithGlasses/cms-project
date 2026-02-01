@@ -112,6 +112,20 @@ The following major features and improvements have been completed:
   - Total tests increased from 1071 to 1107 (36 new tests)
   - File: `test/test_core_components.py`
 
+#### API Versioning Standardization (v1.2.8)
+- [x] **Standardize API Versioning** - All routes now use consistent `/api/v1` prefix
+  - Removed internal prefixes from 17 route files (analytics, api_keys, bulk, cache, comments, dashboard, export, imports, media, notifications, privacy, teams, templates, two_factor, webhooks, websocket, workflow)
+  - Registered all 24 route modules in `main.py` with proper prefixes
+  - Route organization:
+    - Core resources: `/api/v1/users`, `/api/v1/content`, `/api/v1/categories`, etc.
+    - Authentication: `/auth` (OAuth2 compatibility), `/api/v1/2fa`, `/api/v1/api-keys`
+    - Content management: `/api/v1/templates`, `/api/v1/workflow`, `/api/v1/bulk`
+    - Communication: `/api/v1/notifications`, `/api/v1/webhooks`, `/api/v1/ws`
+    - Analytics: `/api/v1/analytics`, `/api/v1/dashboard`, `/api/v1/cache`
+    - Monitoring: `/health`, `/ready`, `/metrics` (root level for infrastructure)
+    - SEO: `/sitemap.xml`, `/robots.txt`, `/feed.xml` (root level for search engines)
+  - Files: `app/main.py`, all files in `app/routes/`
+
 ---
 
 ## Current State Assessment
@@ -132,7 +146,7 @@ The following major features and improvements have been completed:
 1. ~~**Hardcoded Values**: `role_id=2` hardcoded~~ ✅ FIXED (v1.2.5) - Now uses `get_default_role_name()` with `RoleName` enum
 2. ~~**Code Redundancy**: Multiple auth utility files~~ ✅ FIXED (v1.2.5) - Consolidated into single `app/auth.py` module
 3. ~~**Limited Test Coverage**: Only 3 test files covering basic functionality~~ ✅ IMPROVED (v1.2.6) - Now 1107 tests across 60 test files
-4. **Inconsistent API Versioning**: `/api/v1` for content, `/api` for other routes
+4. ~~**Inconsistent API Versioning**: `/api/v1` for content, `/api` for other routes~~ ✅ FIXED (v1.2.8) - All routes now use `/api/v1` prefix
 5. **Mixed Error Handling**: Inconsistent exception handling patterns
 
 #### Security Vulnerabilities
@@ -185,10 +199,12 @@ The following major features and improvements have been completed:
   - 5 tests verifying refactoring in `test/test_auth_refactoring.py` ✅
   - Files: `app/auth.py`, `app/constants/roles.py`, `app/services/auth_service.py`
 
-- [ ] **Standardize API Versioning**
-  - Apply `/api/v1` prefix to all routes
-  - Create version router wrapper
-  - Update all route files in [routes/](app/routes/)
+- [x] **Standardize API Versioning** ✅ COMPLETED
+  - Applied `/api/v1` prefix to all routes ✅
+  - Removed internal prefixes from 17 route files ✅
+  - Registered all 24 route modules in `main.py` with consistent prefixes ✅
+  - Kept `/auth` for OAuth2 compatibility, root-level for monitoring & SEO routes
+  - Files: `app/main.py`, all files in `app/routes/`
 
 - [ ] **Improve Error Handling**
   - Create custom exception classes
@@ -902,7 +918,7 @@ This roadmap transforms the CMS Project from a functional MVP to a production-re
 
 ---
 
-**Document Version:** 1.2.7
+**Document Version:** 1.2.8
 **Last Updated:** 2026-02-01
 **Maintained By:** Development Team
 **Review Cycle:** Quarterly

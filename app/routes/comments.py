@@ -16,7 +16,7 @@ from app.models.comment import CommentStatus
 from app.models.user import User
 from app.services.comment_service import CommentService
 
-router = APIRouter(prefix="/comments", tags=["Comments"])
+router = APIRouter(tags=["Comments"])
 
 
 # ============== Schemas ==============

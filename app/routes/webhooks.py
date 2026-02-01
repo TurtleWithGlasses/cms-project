@@ -14,7 +14,7 @@ from app.models.user import User
 from app.models.webhook import WebhookEvent
 from app.services.webhook_service import WebhookService
 
-router = APIRouter(prefix="/webhooks", tags=["Webhooks"])
+router = APIRouter(tags=["Webhooks"])
 
 
 # ============== Schemas ==============

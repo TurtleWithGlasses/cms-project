@@ -16,7 +16,7 @@ from app.schemas.media import MediaListResponse, MediaResponse, MediaUploadRespo
 from app.services.upload_service import UPLOAD_DIR, upload_service
 from app.utils.security import validate_file_path
 
-router = APIRouter(prefix="/media", tags=["Media"])
+router = APIRouter(tags=["Media"])
 
 
 @router.post("/upload", response_model=MediaUploadResponse, status_code=status.HTTP_201_CREATED)

@@ -12,7 +12,7 @@ from app.models.user import User
 from app.routes.auth import get_current_user, require_role
 from app.services import import_service
 
-router = APIRouter(prefix="/import", tags=["Import"])
+router = APIRouter(tags=["Import"])
 
 
 # Pydantic schemas

@@ -14,7 +14,7 @@ from app.models.user import User
 from app.models.workflow import WorkflowType
 from app.services.workflow_service import WorkflowService
 
-router = APIRouter(prefix="/workflow", tags=["Workflow"])
+router = APIRouter(tags=["Workflow"])
 
 
 # ============== Schemas ==============

@@ -9,7 +9,7 @@ from app.models.user import User
 from app.routes.auth import get_current_user, require_role
 from app.services import dashboard_service
 
-router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
+router = APIRouter(tags=["Dashboard"])
 
 
 # Pydantic schemas

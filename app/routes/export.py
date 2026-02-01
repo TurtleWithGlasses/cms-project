@@ -13,7 +13,7 @@ from app.database import get_db
 from app.models.user import User
 from app.services.export_service import export_service
 
-router = APIRouter(prefix="/export", tags=["Export"])
+router = APIRouter(tags=["Export"])
 
 
 @router.get("/content/json")

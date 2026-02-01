@@ -14,7 +14,7 @@ from app.models.api_key import APIKeyScope
 from app.models.user import User
 from app.services.api_key_service import APIKeyService
 
-router = APIRouter(prefix="/api-keys", tags=["API Keys"])
+router = APIRouter(tags=["API Keys"])
 
 
 # ============== Schemas ==============

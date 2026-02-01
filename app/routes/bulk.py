@@ -22,7 +22,7 @@ from app.schemas.bulk_operations import (
 )
 from app.services.bulk_operations_service import bulk_operations_service
 
-router = APIRouter(prefix="/bulk", tags=["Bulk Operations"])
+router = APIRouter(tags=["Bulk Operations"])
 
 
 @router.post("/content/publish", response_model=BulkOperationResponse)

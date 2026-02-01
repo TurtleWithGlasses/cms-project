@@ -29,7 +29,7 @@ from app.models.media import Media
 from app.models.notification import Notification
 from app.models.user import User
 
-router = APIRouter(prefix="/privacy", tags=["Privacy & GDPR"])
+router = APIRouter(tags=["Privacy & GDPR"])
 
 logger = logging.getLogger(__name__)
 

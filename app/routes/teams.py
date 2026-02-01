@@ -10,7 +10,7 @@ from app.models.user import User
 from app.routes.auth import get_current_user
 from app.services import team_service
 
-router = APIRouter(prefix="/teams", tags=["Teams"])
+router = APIRouter(tags=["Teams"])
 
 
 # Pydantic schemas
