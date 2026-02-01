@@ -177,6 +177,20 @@ The following major features and improvements have been completed:
   - 9 tests covering all security header functionality
   - Files: `app/middleware/security_headers.py`, `main.py`
 
+#### Input Sanitization (v1.2.13)
+- [x] **Input Sanitization** - Comprehensive input sanitization already implemented
+  - Sanitization module at `app/utils/sanitize.py` with bleach library
+  - HTML sanitization: `sanitize_html()`, `sanitize_rich_content()`, `sanitize_comment()`
+  - Plain text sanitization: `sanitize_plain_text()`, `sanitize_content_title()`
+  - URL sanitization: `sanitize_url()` - blocks javascript:, data:, vbscript: URLs
+  - Filename sanitization: `sanitize_filename()` - removes path traversal, dangerous chars
+  - SQL injection prevention: `sanitize_sql_like_pattern()` - escapes wildcards
+  - User input sanitization: `sanitize_username()`, `sanitize_email()`
+  - JSON sanitization: `sanitize_json_string()` - escapes special characters
+  - Schema integration: Pydantic validators use sanitizers for automatic input cleaning
+  - 65 tests covering all sanitization functions in `test/test_sanitize.py`
+  - Files: `app/utils/sanitize.py`, `test/test_sanitize.py`
+
 ---
 
 ## Current State Assessment
@@ -205,7 +219,7 @@ The following major features and improvements have been completed:
 2. ~~**No Rate Limiting**: Vulnerable to brute force attacks~~ ✅ FIXED (v1.2.4)
 3. ~~**Missing Security Headers**: No helmet-style security headers~~ ✅ FIXED (v1.2.12) - Full security headers middleware with CSP, HSTS, etc.
 4. ~~**Session Management**: Cookie-based auth without proper session store~~ ✅ FIXED (v1.2.0)
-5. **No Input Sanitization**: XSS vulnerabilities in content fields
+5. ~~**No Input Sanitization**: XSS vulnerabilities in content fields~~ ✅ FIXED (v1.2.13) - Comprehensive sanitization with bleach library
 6. ~~**Password Reset**: No password recovery mechanism~~ ✅ FIXED (v1.2.0)
 7. ~~**No 2FA/MFA**: Single-factor authentication only~~ ✅ FIXED (v1.2.0)
 
@@ -290,11 +304,13 @@ The following major features and improvements have been completed:
   - 9 tests passing for security headers ✅
   - Files: `app/middleware/security_headers.py`, `main.py`
 
-- [ ] **Input Sanitization**
-  - Add HTML sanitization for content fields
-  - Implement SQL injection prevention validation
-  - Add XSS protection layer
-  - Install `bleach` or similar library
+- [x] **Input Sanitization** ✅ COMPLETED
+  - HTML sanitization with bleach library (`sanitize_html`, `sanitize_rich_content`) ✅
+  - SQL injection prevention (`sanitize_sql_like_pattern`) ✅
+  - XSS protection layer (`sanitize_plain_text`, `sanitize_comment`) ✅
+  - URL, filename, username, email sanitizers ✅
+  - 65 tests in `test/test_sanitize.py` ✅
+  - Files: `app/utils/sanitize.py`, `test/test_sanitize.py`
 
 - [x] **Password Reset Flow** ✅ COMPLETED
   - Create password reset request endpoint ✅
@@ -971,7 +987,7 @@ This roadmap transforms the CMS Project from a functional MVP to a production-re
 
 ---
 
-**Document Version:** 1.2.12
+**Document Version:** 1.2.13
 **Last Updated:** 2026-02-01
 **Maintained By:** Development Team
 **Review Cycle:** Quarterly
