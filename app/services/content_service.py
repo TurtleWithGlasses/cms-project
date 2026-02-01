@@ -6,7 +6,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 
-# from sqlalchemy import select
 from app.auth import hash_password
 from app.models.content import Content
 from app.models.user import User

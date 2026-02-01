@@ -7,7 +7,7 @@ API endpoints for comment management with moderation support.
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import get_current_user
@@ -25,11 +25,10 @@ router = APIRouter(tags=["Comments"])
 class CommentAuthor(BaseModel):
     """Comment author information."""
 
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     username: str
-
-    class Config:
-        from_attributes = True
 
 
 class CommentCreate(BaseModel):
@@ -48,6 +47,8 @@ class CommentUpdate(BaseModel):
 class CommentResponse(BaseModel):
     """Schema for comment response."""
 
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     content_id: int
     user_id: int
@@ -61,9 +62,6 @@ class CommentResponse(BaseModel):
     edited_at: datetime | None
     author: CommentAuthor | None = None
     replies: list["CommentResponse"] = []
-
-    class Config:
-        from_attributes = True
 
 
 class CommentListResponse(BaseModel):

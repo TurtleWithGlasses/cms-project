@@ -46,8 +46,7 @@ async def request_password_reset(request: Request, email: str = Form(...), db: A
         print(f"Password reset token for {email}: {reset_token.token}")
         print(f"Reset link: http://localhost:8000/api/v1/password-reset/reset?token={reset_token.token}")
 
-        # TODO: Implement email service
-        # await email_service.send_password_reset_email(email, reset_token.token)
+        # TODO: Integrate email service for password reset emails
 
         return PasswordResetResponse(
             message="If an account exists with this email, a password reset link has been sent.", success=True
@@ -123,8 +122,7 @@ async def api_request_password_reset(
     try:
         await PasswordResetService.create_reset_token(reset_request.email, db)
 
-        # TODO: Send email with reset link
-        # await email_service.send_password_reset_email(reset_request.email, reset_token.token)
+        # TODO: Integrate email service for password reset emails
 
         return PasswordResetResponse(
             message="If an account exists with this email, a password reset link has been sent.", success=True

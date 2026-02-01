@@ -4,7 +4,7 @@ Search Schemas
 Pydantic models for search requests and responses.
 """
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.schemas.content import ContentResponse
 
@@ -26,21 +26,19 @@ class SearchRequest(BaseModel):
 class SearchResponse(BaseModel):
     """Search response with results and pagination"""
 
+    model_config = ConfigDict(from_attributes=True)
+
     results: list[ContentResponse]
     total: int = Field(..., description="Total number of matching results")
     limit: int = Field(..., description="Results per page")
     offset: int = Field(..., description="Current offset")
     has_more: bool = Field(..., description="Whether there are more results")
 
-    class Config:
-        from_attributes = True
-
 
 class PopularTagResponse(BaseModel):
     """Popular tag with usage count"""
 
+    model_config = ConfigDict(from_attributes=True)
+
     name: str
     count: int
-
-    class Config:
-        from_attributes = True

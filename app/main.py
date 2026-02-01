@@ -39,7 +39,6 @@ from app.routes.content import router as content_router
 from app.utils.session import get_session_manager
 
 logging.basicConfig()
-# logging.getLogger("sqlalchemy.engine").setLevel(logging.INFO)
 
 logger = logging.getLogger(__name__)
 
@@ -123,8 +122,6 @@ app.include_router(seo.router, prefix="", tags=["SEO"])
 
 # Register exception handlers
 register_exception_handlers(app)
-
-# Base.metadata.create_all(bind=engine)
 
 # Serve React frontend static files
 FRONTEND_DIR = Path(__file__).parent.parent / "frontend" / "dist"

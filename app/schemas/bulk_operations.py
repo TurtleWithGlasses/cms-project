@@ -6,7 +6,7 @@ Pydantic models for bulk operation requests and responses.
 
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class BulkContentPublishRequest(BaseModel):
@@ -52,11 +52,10 @@ class BulkUserRoleUpdateRequest(BaseModel):
 class BulkOperationResponse(BaseModel):
     """Generic bulk operation response"""
 
+    model_config = ConfigDict(from_attributes=True)
+
     success_count: int = Field(..., description="Number of successful operations")
     failed_count: int | None = Field(0, description="Number of failed operations")
     success_ids: list[int] | None = Field(None, description="List of successful IDs")
     failed_items: list[dict[str, Any]] | None = Field(None, description="List of failed items with reasons")
     message: str | None = Field(None, description="Additional message")
-
-    class Config:
-        from_attributes = True

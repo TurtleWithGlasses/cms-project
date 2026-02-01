@@ -316,7 +316,6 @@ async def get_user(user_id: int, db: AsyncSession = Depends(get_db)):
 @router.delete(
     "/delete/{user_id}",
     status_code=200,
-    # dependencies=[Depends(permission_required("delete_user"))]
 )
 async def delete_user(
     user_id: int,

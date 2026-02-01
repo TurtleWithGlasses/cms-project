@@ -6,11 +6,13 @@ Pydantic models for media upload and responses.
 
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class MediaResponse(BaseModel):
     """Media response schema"""
+
+    model_config = ConfigDict(from_attributes=True)
 
     id: int
     filename: str
@@ -25,12 +27,11 @@ class MediaResponse(BaseModel):
     uploaded_by: int
     uploaded_at: datetime
 
-    class Config:
-        from_attributes = True
-
 
 class MediaUploadResponse(BaseModel):
     """Response after successful upload"""
+
+    model_config = ConfigDict(from_attributes=True)
 
     id: int
     filename: str
@@ -44,17 +45,13 @@ class MediaUploadResponse(BaseModel):
     height: int | None = None
     uploaded_at: datetime
 
-    class Config:
-        from_attributes = True
-
 
 class MediaListResponse(BaseModel):
     """Response for listing media"""
+
+    model_config = ConfigDict(from_attributes=True)
 
     media: list[MediaResponse]
     total: int
     limit: int
     offset: int
-
-    class Config:
-        from_attributes = True

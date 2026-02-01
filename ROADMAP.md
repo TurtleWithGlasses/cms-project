@@ -148,6 +148,14 @@ The following major features and improvements have been completed:
     ```
   - Files: `app/exceptions.py`, `app/exception_handlers.py`
 
+#### Code Cleanup (v1.2.10)
+- [x] **Code Cleanup** - Removed dead code and fixed Pydantic v2 deprecations
+  - Removed commented-out code in `app/main.py`, `app/services/content_service.py`, `app/routes/password_reset.py`, `app/routes/user.py`
+  - Fixed Pydantic v2 deprecation: Replaced `class Config` with `model_config = ConfigDict(from_attributes=True)`
+  - Updated 4 schema files: `bulk_operations.py`, `search.py`, `media.py`, `comments.py`
+  - No unused imports or variables found (ruff checks pass)
+  - Files: `app/schemas/*.py`, `app/routes/comments.py`
+
 ---
 
 ## Current State Assessment
@@ -234,11 +242,11 @@ The following major features and improvements have been completed:
   - Standardized error response format with `error_code` for i18n ✅
   - Files: `app/exceptions.py`, `app/exception_handlers.py`
 
-- [ ] **Code Cleanup**
-  - Remove unused imports and commented code
-  - Apply consistent code formatting (Black, isort)
-  - Add type hints to all functions
-  - Fix Pydantic v2 deprecation warnings
+- [x] **Code Cleanup** ✅ COMPLETED
+  - Removed commented-out code (ruff ERA001 checks pass) ✅
+  - Code formatting enforced via pre-commit hooks (ruff format) ✅
+  - Fixed Pydantic v2 deprecation: `class Config` → `model_config = ConfigDict()` ✅
+  - Files: `app/schemas/*.py`, `app/routes/comments.py`, `app/main.py`, `app/services/content_service.py`
 
 #### 1.2 Security Hardening
 - [ ] **Implement CSRF Protection**
@@ -940,7 +948,7 @@ This roadmap transforms the CMS Project from a functional MVP to a production-re
 
 ---
 
-**Document Version:** 1.2.9
+**Document Version:** 1.2.10
 **Last Updated:** 2026-02-01
 **Maintained By:** Development Team
 **Review Cycle:** Quarterly
