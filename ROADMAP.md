@@ -223,6 +223,28 @@ The following major features and improvements have been completed:
     - PII scrubbing enabled (send_default_pii=False)
   - Files: `main.py`, `app/config.py`, `requirements.txt`, `.env.example`
 
+#### Prometheus Metrics (v1.2.16)
+- [x] **Prometheus Metrics** - Production-grade metrics collection
+  - Added `prometheus-client==0.21.1` to requirements.txt
+  - Created metrics module at `app/utils/metrics.py` with:
+    - HTTP request metrics (count, duration, in-progress)
+    - Database query metrics (count, duration)
+    - Cache metrics (hits, misses, operations)
+    - Authentication metrics (attempts, tokens issued, active sessions)
+    - Content operation metrics (create, update, delete, publish)
+    - Health check status metrics
+    - Application uptime metric
+  - PrometheusMiddleware for automatic HTTP request tracking:
+    - Request count by method, endpoint, status code
+    - Request duration histograms with configurable buckets
+    - In-progress request gauge
+    - Path normalization (IDs replaced with placeholders)
+    - Health/metrics endpoints excluded from tracking
+  - Updated `/metrics` endpoint to use `prometheus_client.generate_latest()`
+  - Health checks now update Prometheus gauges
+  - Helper functions for easy metric recording in application code
+  - Files: `app/utils/metrics.py`, `app/routes/monitoring.py`, `main.py`, `requirements.txt`
+
 ---
 
 ## Current State Assessment
@@ -1021,7 +1043,7 @@ This roadmap transforms the CMS Project from a functional MVP to a production-re
 
 ---
 
-**Document Version:** 1.2.15
+**Document Version:** 1.2.16
 **Last Updated:** 2026-02-01
 **Maintained By:** Development Team
 **Review Cycle:** Quarterly

@@ -9,27 +9,22 @@ from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, Depends, Response
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.database import get_db
+from app.utils.metrics import set_app_info, update_health_status, update_uptime
 
 router = APIRouter(tags=["Monitoring"])
 
 # Application start time for uptime calculation
 APP_START_TIME = time.time()
 
-# Simple in-memory metrics (for demonstration)
-# In production, use prometheus_client library
-METRICS = {
-    "http_requests_total": 0,
-    "http_request_duration_seconds": [],
-    "db_queries_total": 0,
-    "cache_hits_total": 0,
-    "cache_misses_total": 0,
-}
+# Initialize app info metrics
+set_app_info(version=settings.app_version, environment=settings.environment)
 
 
 class HealthStatus(BaseModel):
@@ -150,53 +145,27 @@ async def prometheus_metrics() -> Response:
     Prometheus metrics endpoint.
 
     Returns metrics in Prometheus text format for scraping.
+    Uses prometheus_client library for proper metric exposition.
     """
-    uptime = time.time() - APP_START_TIME
+    # Update uptime metric before generating output
+    update_uptime(APP_START_TIME)
 
-    # Build Prometheus metrics output
-    metrics_output = []
-
-    # Application info
-    metrics_output.append("# HELP cms_app_info Application information")
-    metrics_output.append("# TYPE cms_app_info gauge")
-    metrics_output.append(f'cms_app_info{{version="{settings.app_version}",environment="{settings.environment}"}} 1')
-
-    # Uptime
-    metrics_output.append("# HELP cms_uptime_seconds Application uptime in seconds")
-    metrics_output.append("# TYPE cms_uptime_seconds gauge")
-    metrics_output.append(f"cms_uptime_seconds {uptime:.2f}")
-
-    # HTTP requests (would be populated by middleware in production)
-    metrics_output.append("# HELP cms_http_requests_total Total HTTP requests")
-    metrics_output.append("# TYPE cms_http_requests_total counter")
-    metrics_output.append(f"cms_http_requests_total {METRICS['http_requests_total']}")
-
-    # Database queries
-    metrics_output.append("# HELP cms_db_queries_total Total database queries")
-    metrics_output.append("# TYPE cms_db_queries_total counter")
-    metrics_output.append(f"cms_db_queries_total {METRICS['db_queries_total']}")
-
-    # Cache metrics
-    metrics_output.append("# HELP cms_cache_hits_total Total cache hits")
-    metrics_output.append("# TYPE cms_cache_hits_total counter")
-    metrics_output.append(f"cms_cache_hits_total {METRICS['cache_hits_total']}")
-
-    metrics_output.append("# HELP cms_cache_misses_total Total cache misses")
-    metrics_output.append("# TYPE cms_cache_misses_total counter")
-    metrics_output.append(f"cms_cache_misses_total {METRICS['cache_misses_total']}")
-
+    # Generate Prometheus metrics output using the official library
     return Response(
-        content="\n".join(metrics_output) + "\n",
-        media_type="text/plain; version=0.0.4; charset=utf-8",
+        content=generate_latest(),
+        media_type=CONTENT_TYPE_LATEST,
     )
 
 
 async def _check_database(db: AsyncSession) -> dict[str, Any]:
-    """Check database connectivity."""
+    """Check database connectivity and update health metrics."""
     try:
         start = time.perf_counter()
         await db.execute(text("SELECT 1"))
         latency_ms = (time.perf_counter() - start) * 1000
+
+        # Update health metric
+        update_health_status("database", healthy=True)
 
         return {
             "status": "healthy",
@@ -204,6 +173,9 @@ async def _check_database(db: AsyncSession) -> dict[str, Any]:
             "message": "Database connection successful",
         }
     except Exception as e:
+        # Update health metric
+        update_health_status("database", healthy=False)
+
         return {
             "status": "unhealthy",
             "error": str(e),
@@ -212,7 +184,7 @@ async def _check_database(db: AsyncSession) -> dict[str, Any]:
 
 
 async def _check_redis() -> dict[str, Any]:
-    """Check Redis connectivity."""
+    """Check Redis connectivity and update health metrics."""
     try:
         from app.utils.session import session_manager
 
@@ -227,34 +199,28 @@ async def _check_redis() -> dict[str, Any]:
             await session_manager._redis.ping()
             latency_ms = (time.perf_counter() - start) * 1000
 
+            # Update health metric
+            update_health_status("redis", healthy=True)
+
             return {
                 "status": "healthy",
                 "latency_ms": round(latency_ms, 2),
                 "message": "Redis connection successful",
             }
         else:
+            # Update health metric
+            update_health_status("redis", healthy=False)
+
             return {
                 "status": "unhealthy",
                 "message": "Redis client not initialized",
             }
     except Exception as e:
+        # Update health metric
+        update_health_status("redis", healthy=False)
+
         return {
             "status": "unhealthy",
             "error": str(e),
             "message": "Redis connection failed",
         }
-
-
-def increment_metric(metric_name: str, value: int = 1) -> None:
-    """Increment a metric counter."""
-    if metric_name in METRICS and isinstance(METRICS[metric_name], int):
-        METRICS[metric_name] += value
-
-
-def record_duration(metric_name: str, duration: float) -> None:
-    """Record a duration metric."""
-    if metric_name in METRICS and isinstance(METRICS[metric_name], list):
-        METRICS[metric_name].append(duration)
-        # Keep only last 1000 measurements
-        if len(METRICS[metric_name]) > 1000:
-            METRICS[metric_name] = METRICS[metric_name][-1000:]

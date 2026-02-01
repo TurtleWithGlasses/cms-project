@@ -74,6 +74,7 @@ from app.scheduler import scheduler
 from app.schemas.user import UserUpdate
 from app.services.auth_service import authenticate_user, register_user
 from app.services.content_service import update_user_info
+from app.utils.metrics import PrometheusMiddleware
 
 # Configure structured logging based on environment
 if settings.environment == "production":
@@ -139,9 +140,11 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    # Add middleware (order matters: Logging -> GZip -> Security Headers -> CSRF -> RBAC -> Session)
+    # Add middleware (order matters: Logging -> Metrics -> GZip -> Security Headers -> CSRF -> RBAC -> Session)
     # Structured logging middleware for request/response tracking
     app.add_middleware(StructuredLoggingMiddleware)
+    # Prometheus metrics middleware for request tracking
+    app.add_middleware(PrometheusMiddleware)
     # GZip compression for responses over 500 bytes
     app.add_middleware(GZipMiddleware, minimum_size=500)
     app.add_middleware(SessionMiddleware, secret_key=settings.secret_key)
