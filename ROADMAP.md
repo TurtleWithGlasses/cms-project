@@ -156,6 +156,15 @@ The following major features and improvements have been completed:
   - No unused imports or variables found (ruff checks pass)
   - Files: `app/schemas/*.py`, `app/routes/comments.py`
 
+#### CSRF Protection (v1.2.11)
+- [x] **Implement CSRF Protection** - Full CSRF protection already implemented
+  - CSRF middleware at `app/middleware/csrf.py` with token generation/validation
+  - Middleware configured in `main.py` with proper exempt paths (API, docs, auth)
+  - All HTML templates include CSRF hidden input fields
+  - Bearer token authentication exempted from CSRF checks
+  - 13 tests covering all CSRF middleware functionality
+  - Files: `app/middleware/csrf.py`, `main.py`, `templates/*.html`
+
 ---
 
 ## Current State Assessment
@@ -180,7 +189,7 @@ The following major features and improvements have been completed:
 5. ~~**Mixed Error Handling**: Inconsistent exception handling patterns~~ ✅ FIXED (v1.2.9) - Standardized error responses with `ErrorCode` enum for i18n
 
 #### Security Vulnerabilities
-1. **No CSRF Protection**: Form submissions lack CSRF tokens
+1. ~~**No CSRF Protection**: Form submissions lack CSRF tokens~~ ✅ FIXED (v1.2.11) - Full CSRF middleware with token validation
 2. ~~**No Rate Limiting**: Vulnerable to brute force attacks~~ ✅ FIXED (v1.2.4)
 3. **Missing Security Headers**: No helmet-style security headers
 4. ~~**Session Management**: Cookie-based auth without proper session store~~ ✅ FIXED (v1.2.0)
@@ -249,10 +258,11 @@ The following major features and improvements have been completed:
   - Files: `app/schemas/*.py`, `app/routes/comments.py`, `app/main.py`, `app/services/content_service.py`
 
 #### 1.2 Security Hardening
-- [ ] **Implement CSRF Protection**
-  - Add CSRF token generation/validation
-  - Update all HTML forms with CSRF tokens
-  - Files: [templates/](templates/), new `middleware/csrf.py`
+- [x] **Implement CSRF Protection** ✅ COMPLETED
+  - CSRF middleware at `app/middleware/csrf.py` ✅
+  - All HTML templates have CSRF tokens ✅
+  - 13 tests passing for CSRF middleware ✅
+  - Files: `app/middleware/csrf.py`, `main.py`, `templates/*.html`
 
 - [x] **Add Rate Limiting** ✅ COMPLETED
   - Installed `slowapi` with memory storage ✅
@@ -948,7 +958,7 @@ This roadmap transforms the CMS Project from a functional MVP to a production-re
 
 ---
 
-**Document Version:** 1.2.10
+**Document Version:** 1.2.11
 **Last Updated:** 2026-02-01
 **Maintained By:** Development Team
 **Review Cycle:** Quarterly
