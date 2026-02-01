@@ -1,5 +1,6 @@
 from .activity_log import ActivityLog
 from .api_key import APIKey, APIKeyScope
+from .backup import Backup, BackupSchedule, BackupStatus, BackupType
 from .category import Category
 from .comment import Comment, CommentStatus
 from .content import Content
@@ -51,6 +52,10 @@ __all__ = [
     "ActivityLog",
     "APIKey",
     "APIKeyScope",
+    "Backup",
+    "BackupSchedule",
+    "BackupStatus",
+    "BackupType",
     "Category",
     "Comment",
     "CommentStatus",

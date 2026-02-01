@@ -47,6 +47,7 @@ from app.routes import (
     analytics,
     api_keys,
     auth,
+    backup,
     bulk,
     cache,
     category,
@@ -178,6 +179,7 @@ def create_app() -> FastAPI:
     app.include_router(bulk.router, prefix="/api/v1", tags=["Bulk Operations"])
     app.include_router(export.router, prefix="/api/v1", tags=["Export"])
     app.include_router(analytics.router, prefix="/api/v1", tags=["Analytics"])
+    app.include_router(backup.router, prefix="/api/v1/backups", tags=["Backups"])
 
     # Auth routes (keep at /auth for OAuth2 compatibility)
     app.include_router(auth.router, prefix="/auth", tags=["Auth"])

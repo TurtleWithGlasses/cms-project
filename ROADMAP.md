@@ -245,6 +245,36 @@ The following major features and improvements have been completed:
   - Helper functions for easy metric recording in application code
   - Files: `app/utils/metrics.py`, `app/routes/monitoring.py`, `main.py`, `requirements.txt`
 
+#### Database Backup API (v1.2.17)
+- [x] **Database Backup API** - Full backup management system
+  - Created Backup model at `app/models/backup.py`:
+    - `Backup` model for tracking backup metadata (filename, size, status, timestamps)
+    - `BackupSchedule` model for automated backup configuration
+    - `BackupStatus` enum: pending, in_progress, completed, failed
+    - `BackupType` enum: full, incremental, content_only, media_only
+  - Created BackupService at `app/services/backup_service.py`:
+    - `create_backup()` - Creates compressed backup archives
+    - `list_backups()` - Lists backups with filtering/pagination
+    - `delete_backup()` - Removes backup files and records
+    - `restore_backup()` - Restores from backup (framework ready)
+    - `get_storage_info()` - Disk usage statistics
+    - `cleanup_old_backups()` - Retention policy enforcement
+    - Database dump via pg_dump (with fallback for non-PostgreSQL)
+    - Media file backup and config backup support
+  - Created Backup routes at `app/routes/backup.py`:
+    - `GET /api/v1/backups` - List all backups
+    - `POST /api/v1/backups` - Create new backup
+    - `GET /api/v1/backups/{id}` - Get backup details
+    - `DELETE /api/v1/backups/{id}` - Delete backup
+    - `GET /api/v1/backups/{id}/download` - Download backup file
+    - `POST /api/v1/backups/{id}/restore` - Restore from backup
+    - `GET /api/v1/backups/schedule` - Get backup schedule
+    - `PUT /api/v1/backups/schedule` - Update backup schedule
+    - `GET /api/v1/backups/storage` - Get storage info
+  - All endpoints require admin/superadmin role
+  - Restore endpoint requires superadmin role only
+  - Files: `app/models/backup.py`, `app/services/backup_service.py`, `app/routes/backup.py`, `main.py`
+
 ---
 
 ## Current State Assessment
@@ -290,7 +320,7 @@ The following major features and improvements have been completed:
 3. **No Email System**: Notifications only in-app
 4. **No Comment System**: User engagement features missing
 5. **No Analytics**: Usage metrics not tracked
-6. **No Backup System**: Data recovery strategy missing
+6. ~~**No Backup System**: Data recovery strategy missing~~ ✅ FIXED (v1.2.17) - Full backup API with scheduling
 7. **Limited Workflow**: Only DRAFT → PENDING → PUBLISHED
 8. **No Export/Import**: Content migration tools missing
 
@@ -1043,7 +1073,7 @@ This roadmap transforms the CMS Project from a functional MVP to a production-re
 
 ---
 
-**Document Version:** 1.2.16
+**Document Version:** 1.2.17
 **Last Updated:** 2026-02-01
 **Maintained By:** Development Team
 **Review Cycle:** Quarterly
