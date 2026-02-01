@@ -37,6 +37,11 @@ class Settings(BaseSettings):
     smtp_from: str = "noreply@cms-project.com"
     app_url: str = "http://localhost:8000"
 
+    # Monitoring settings
+    sentry_dsn: str | None = None
+    sentry_traces_sample_rate: float = 0.1  # 10% of transactions
+    sentry_profiles_sample_rate: float = 0.1  # 10% of profiled transactions
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="ignore")
 
 

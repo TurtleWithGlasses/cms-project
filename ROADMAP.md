@@ -207,6 +207,22 @@ The following major features and improvements have been completed:
   - Faker library available (v26.1.0) for generating test data
   - Files: `test/conftest.py`, `test/utils/mocks.py`
 
+#### Sentry Error Tracking (v1.2.15)
+- [x] **Sentry Error Tracking** - Production error monitoring integrated
+  - Added `sentry-sdk[fastapi]==2.19.2` to requirements.txt
+  - Sentry initialization in `main.py` with environment-aware configuration
+  - Configurable via environment variables:
+    - `SENTRY_DSN`: Sentry project DSN (optional, disabled if not set)
+    - `SENTRY_TRACES_SAMPLE_RATE`: Transaction sampling rate (default: 0.1 = 10%)
+    - `SENTRY_PROFILES_SAMPLE_RATE`: Profiling sample rate (default: 0.1 = 10%)
+  - Features:
+    - Automatic exception capture with stack traces
+    - Performance monitoring (traces)
+    - Environment and release tagging
+    - Health check endpoints filtered from traces
+    - PII scrubbing enabled (send_default_pii=False)
+  - Files: `main.py`, `app/config.py`, `requirements.txt`, `.env.example`
+
 ---
 
 ## Current State Assessment
@@ -1005,7 +1021,7 @@ This roadmap transforms the CMS Project from a functional MVP to a production-re
 
 ---
 
-**Document Version:** 1.2.14
+**Document Version:** 1.2.15
 **Last Updated:** 2026-02-01
 **Maintained By:** Development Team
 **Review Cycle:** Quarterly

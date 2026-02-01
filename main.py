@@ -2,6 +2,7 @@ import logging
 from contextlib import asynccontextmanager
 from datetime import timedelta
 
+import sentry_sdk
 from fastapi import Depends, FastAPI, Form, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
@@ -15,6 +16,25 @@ from app.auth import (
     get_current_user,
 )
 from app.config import settings
+
+# Initialize Sentry for error tracking (only if DSN is configured)
+if settings.sentry_dsn:
+    sentry_sdk.init(
+        dsn=settings.sentry_dsn,
+        environment=settings.environment,
+        release=settings.app_version,
+        traces_sample_rate=settings.sentry_traces_sample_rate,
+        profiles_sample_rate=settings.sentry_profiles_sample_rate,
+        enable_tracing=True,
+        # Scrub sensitive data
+        send_default_pii=False,
+        # Capture unhandled exceptions
+        attach_stacktrace=True,
+        # Filter out health check transactions
+        traces_sampler=lambda ctx: 0
+        if ctx.get("transaction_context", {}).get("name", "").startswith("/health")
+        else settings.sentry_traces_sample_rate,
+    )
 from app.database import Base, engine, get_db
 from app.exception_handlers import register_exception_handlers
 from app.middleware.csrf import CSRFMiddleware, get_csrf_token

@@ -51,3 +51,6 @@ Pillow==11.0.0
 # Two-Factor Authentication
 pyotp==2.9.0
 qrcode[pil]==7.4.2
+
+# Monitoring & Observability
+sentry-sdk[fastapi]==2.19.2
