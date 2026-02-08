@@ -4,7 +4,7 @@
 
 This document outlines the comprehensive development roadmap for the CMS Project, a FastAPI-based content management system with role-based access control, content versioning, and scheduling capabilities. The roadmap addresses code quality improvements, security enhancements, feature additions, performance optimizations, and infrastructure modernization.
 
-**Current Version:** 1.3.0
+**Current Version:** 1.4.0
 **Target Architecture:** Production-ready, scalable CMS platform
 **Technology Stack:** FastAPI, PostgreSQL, SQLAlchemy 2.0, JWT Authentication, React 18, Vite
 
@@ -15,6 +15,22 @@ This document outlines the comprehensive development roadmap for the CMS Project
 ### Completed Work Summary
 
 The following major features and improvements have been completed:
+
+#### Search Engine (v1.4.0)
+- [x] **PostgreSQL Full-Text Search** - tsvector/tsquery with `websearch_to_tsquery` for natural language queries
+- [x] **Weighted Search Ranking** - Title (A) > Description (B) > Body (C) > Meta Keywords (D) with `ts_rank`
+- [x] **Search Result Highlighting** - `ts_headline` with `<mark>` tags for matched terms
+- [x] **GIN Index** - High-performance GIN index on `search_vector` column for fast lookups
+- [x] **Trigger-Based tsvector** - PostgreSQL trigger auto-populates search_vector on INSERT/UPDATE
+- [x] **Faceted Search** - Category, tag, status, and author facet counts with optional FTS filtering
+- [x] **Autocomplete Suggestions** - ILIKE prefix matching on published content titles
+- [x] **Search Analytics** - SearchQuery model tracks queries, results, execution time, and filters used
+- [x] **Analytics Dashboard** - Admin endpoint with top queries, zero-result queries, and daily search volume
+- [x] **Advanced Filtering** - Filter by category, tags, status, author, date range; sort by relevance/date/title
+- [x] **Configurable Settings** - 9 search settings (min/max query length, highlight words, language, etc.)
+- [x] **Alembic Migration** - search_vector column, GIN index, trigger function, search_queries table
+- [x] **Comprehensive Tests** - ~40 tests across service tests and route tests
+- Files: `app/models/search_query.py`, `app/models/content.py`, `app/services/search_service.py`, `app/routes/search.py`, `app/schemas/search.py`, `app/config.py`, `app/exceptions.py`, `main.py`
 
 #### Media Management System (v1.3.0)
 - [x] **Enhanced Media Model** - Added metadata fields (alt_text, title, description, tags), folder organization, and image size variants
@@ -328,7 +344,7 @@ The following major features and improvements have been completed:
 
 #### Feature Gaps
 1. ~~**No Media Management**: File upload/storage system missing~~ ✅ FIXED (v1.3.0) - Full media management with folders, search, bulk ops, image variants
-2. **No Search Engine**: Full-text search not implemented
+2. ~~**No Search Engine**: Full-text search not implemented~~ ✅ FIXED (v1.4.0) - PostgreSQL FTS with relevance scoring, facets, suggestions, analytics
 3. **No Email System**: Notifications only in-app
 4. **No Comment System**: User engagement features missing
 5. **No Analytics**: Usage metrics not tracked
@@ -502,23 +518,42 @@ The following major features and improvements have been completed:
   - Media folder tests: CRUD, hierarchy, permissions (~16 tests) ✅
   - Files: `test/test_upload_service.py`, `test/test_routes_media.py`, `test/test_media_folders.py`
 
-#### 2.2 Search Engine
-- [ ] **Full-Text Search**
-  - Implement PostgreSQL full-text search
-  - Create search indexes on content (title, body, description)
-  - Add search relevance scoring
-  - Update [models/content.py](app/models/content.py)
+#### 2.2 Search Engine ✅ COMPLETED (v1.4.0)
+- [x] **Full-Text Search** ✅ COMPLETED
+  - Implemented PostgreSQL full-text search with `websearch_to_tsquery` ✅
+  - Created GIN-indexed `search_vector` tsvector column on content table ✅
+  - Added weighted relevance scoring with `ts_rank` (title A, description B, body C, keywords D) ✅
+  - Trigger-based tsvector population for guaranteed consistency ✅
+  - Updated [models/content.py](app/models/content.py) with TSVECTOR column and GIN index ✅
+  - New model: [models/search_query.py](app/models/search_query.py) for analytics tracking ✅
+  - Files: `app/models/content.py`, `app/models/search_query.py`, `app/models/__init__.py`
 
-- [ ] **Advanced Search Features**
-  - Faceted search (filter by category, tags, author, date)
-  - Search suggestions/autocomplete
-  - Search result highlighting
-  - Search analytics tracking
-  - New files: `routes/search.py`, `services/search_service.py`
+- [x] **Advanced Search Features** ✅ COMPLETED
+  - Faceted search with category, tag, status, and author counts ✅
+  - Autocomplete suggestions via ILIKE prefix matching on published titles ✅
+  - Search result highlighting with `ts_headline` and `<mark>` tags ✅
+  - Search analytics tracking (query, results count, execution time, filters) ✅
+  - Analytics dashboard with top queries, zero-result queries, daily volume ✅
+  - Advanced filtering: category, tags, status, author, date range ✅
+  - Sorting: relevance, created_at, updated_at, title (asc/desc) ✅
+  - Files: `app/routes/search.py`, `app/services/search_service.py`, `app/schemas/search.py`
 
-- [ ] **Search Performance**
+- [x] **Search Configuration & Infrastructure** ✅ COMPLETED
+  - 9 configurable search settings in `app/config.py` ✅
+  - Search error codes (SEARCH_QUERY_TOO_SHORT, SEARCH_QUERY_TOO_LONG, SEARCH_INVALID_QUERY) ✅
+  - Alembic migration for search_vector, GIN index, trigger, search_queries table ✅
+  - ~40 tests across service and route test files ✅
+  - Files: `app/config.py`, `app/exceptions.py`, `alembic/versions/j1k2l3m4n5o6_add_fulltext_search.py`
+
+- [x] **API Endpoints** ✅ COMPLETED
+  - `GET /api/v1/search/` - Full-text search with relevance scoring ✅
+  - `GET /api/v1/search/facets` - Faceted search counts ✅
+  - `GET /api/v1/search/suggestions` - Autocomplete suggestions ✅
+  - `GET /api/v1/search/analytics` - Search analytics (admin/superadmin only) ✅
+  - Legacy search endpoints preserved at `/api/v1/content/search/` ✅
+
+- [ ] **Search Performance** (Deferred to future phase)
   - Add search result caching
-  - Implement search query optimization
   - Consider Elasticsearch integration for scaling
   - Add search performance metrics
 
@@ -1111,8 +1146,8 @@ This roadmap transforms the CMS Project from a functional MVP to a production-re
 
 ---
 
-**Document Version:** 1.3.0
-**Last Updated:** 2026-02-08
+**Document Version:** 1.4.0
+**Last Updated:** 2026-02-09
 **Maintained By:** Development Team
 **Review Cycle:** Quarterly
 

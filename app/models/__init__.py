@@ -35,6 +35,7 @@ from .notification_preference import (
     NotificationTemplate,
 )
 from .password_reset import PasswordResetToken
+from .search_query import SearchQuery
 from .tag import Tag
 from .team import InvitationStatus, Team, TeamInvitation, TeamMember, TeamRole
 from .two_factor import TwoFactorAuth
@@ -86,6 +87,7 @@ __all__ = [
     "NotificationTemplate",
     "PasswordResetToken",
     "Role",
+    "SearchQuery",
     "Tag",
     "Team",
     "TeamInvitation",

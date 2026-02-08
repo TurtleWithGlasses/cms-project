@@ -5,12 +5,13 @@ Tests search functionality including full-text search, filtering, and pagination
 """
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from utils.mock_utils import create_test_category, create_test_content, create_test_tag
 
 from app.models.category import Category
 from app.models.content import Content, ContentStatus
+from app.models.search_query import SearchQuery
 from app.models.tag import Tag
 from app.models.user import User
 from app.services.search_service import SearchService, search_service
@@ -287,3 +288,390 @@ class TestSearchService:
         """Test search_service singleton exists"""
         assert search_service is not None
         assert isinstance(search_service, SearchService)
+
+
+class TestFullTextSearch:
+    """Test PostgreSQL full-text search functionality"""
+
+    @pytest.fixture(autouse=True)
+    async def create_search_trigger(self, async_db_session):
+        """Create the search vector trigger for FTS tests"""
+        await async_db_session.execute(
+            text("""
+                CREATE OR REPLACE FUNCTION content_search_vector_update() RETURNS trigger AS $$
+                BEGIN
+                    NEW.search_vector :=
+                        setweight(to_tsvector('english', COALESCE(NEW.title, '')), 'A') ||
+                        setweight(to_tsvector('english', COALESCE(NEW.description, '')), 'B') ||
+                        setweight(to_tsvector('english', COALESCE(NEW.body, '')), 'C') ||
+                        setweight(to_tsvector('english', COALESCE(NEW.meta_keywords, '')), 'D');
+                    RETURN NEW;
+                END;
+                $$ LANGUAGE plpgsql;
+            """)
+        )
+        await async_db_session.execute(
+            text("""
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM pg_trigger WHERE tgname = 'content_search_vector_trigger'
+                    ) THEN
+                        CREATE TRIGGER content_search_vector_trigger
+                        BEFORE INSERT OR UPDATE OF title, body, description, meta_keywords
+                        ON content
+                        FOR EACH ROW
+                        EXECUTE FUNCTION content_search_vector_update();
+                    END IF;
+                END;
+                $$;
+            """)
+        )
+        await async_db_session.commit()
+
+    @pytest.mark.asyncio
+    async def test_fulltext_search_basic(self, async_db_session, test_user):
+        """Test basic full-text search returns matching content"""
+        await create_test_content(
+            async_db_session,
+            title="Advanced Python Programming",
+            body="This is a comprehensive guide to Python",
+            author_id=test_user.id,
+            status=ContentStatus.PUBLISHED,
+        )
+        await create_test_content(
+            async_db_session,
+            title="JavaScript Basics",
+            body="Learn JavaScript from scratch",
+            author_id=test_user.id,
+            status=ContentStatus.PUBLISHED,
+        )
+
+        result = await search_service.fulltext_search(db=async_db_session, query="python", limit=10, offset=0)
+
+        assert result["total"] >= 1
+        assert len(result["results"]) >= 1
+        assert result["query"] == "python"
+        assert result["results"][0]["relevance_score"] > 0
+
+    @pytest.mark.asyncio
+    async def test_fulltext_search_relevance_ordering(self, async_db_session, test_user):
+        """Test that title matches rank higher than body matches"""
+        # Title match (weight A)
+        await create_test_content(
+            async_db_session,
+            title="Database Administration Guide",
+            body="Some generic content about technology",
+            author_id=test_user.id,
+            status=ContentStatus.PUBLISHED,
+        )
+        # Body match only (weight C)
+        await create_test_content(
+            async_db_session,
+            title="Generic Technology Article",
+            body="This guide covers database administration and management",
+            author_id=test_user.id,
+            status=ContentStatus.PUBLISHED,
+        )
+
+        result = await search_service.fulltext_search(
+            db=async_db_session, query="database administration", limit=10, offset=0
+        )
+
+        assert result["total"] >= 2
+        if len(result["results"]) >= 2:
+            assert result["results"][0]["relevance_score"] >= result["results"][1]["relevance_score"]
+
+    @pytest.mark.asyncio
+    async def test_fulltext_search_with_status_filter(self, async_db_session, test_user):
+        """Test full-text search with status filter"""
+        await create_test_content(
+            async_db_session,
+            title="Published Python Guide",
+            body="Python content",
+            author_id=test_user.id,
+            status=ContentStatus.PUBLISHED,
+        )
+        await create_test_content(
+            async_db_session,
+            title="Draft Python Guide",
+            body="Python draft content",
+            author_id=test_user.id,
+            status=ContentStatus.DRAFT,
+        )
+
+        result = await search_service.fulltext_search(
+            db=async_db_session, query="python guide", status="published", limit=10, offset=0
+        )
+
+        assert result["total"] >= 1
+        for item in result["results"]:
+            assert item["content"].status == ContentStatus.PUBLISHED
+
+    @pytest.mark.asyncio
+    async def test_fulltext_search_highlights(self, async_db_session, test_user):
+        """Test that highlighted snippets are returned"""
+        await create_test_content(
+            async_db_session,
+            title="Machine Learning Tutorial",
+            body="This tutorial covers the basics of machine learning algorithms and techniques",
+            author_id=test_user.id,
+            status=ContentStatus.PUBLISHED,
+            description="A beginner guide to machine learning",
+        )
+
+        result = await search_service.fulltext_search(
+            db=async_db_session, query="machine learning", highlight=True, limit=10, offset=0
+        )
+
+        assert result["total"] >= 1
+        first_result = result["results"][0]
+        assert first_result["highlights"] is not None
+        assert "title" in first_result["highlights"]
+        assert "body" in first_result["highlights"]
+        assert "<mark>" in first_result["highlights"]["title"]
+
+    @pytest.mark.asyncio
+    async def test_fulltext_search_no_results(self, async_db_session, test_user):
+        """Test full-text search returns empty when no matches"""
+        result = await search_service.fulltext_search(
+            db=async_db_session, query="xyznonexistentterm", limit=10, offset=0
+        )
+
+        assert result["total"] == 0
+        assert len(result["results"]) == 0
+        assert result["has_more"] is False
+
+    @pytest.mark.asyncio
+    async def test_fulltext_search_with_category_filter(self, async_db_session, test_user):
+        """Test full-text search filtered by category"""
+        category = await create_test_category(async_db_session, name="Programming")
+
+        await create_test_content(
+            async_db_session,
+            title="Python in Programming",
+            body="Python programming content",
+            author_id=test_user.id,
+            status=ContentStatus.PUBLISHED,
+            category_id=category.id,
+        )
+        await create_test_content(
+            async_db_session,
+            title="Python Uncategorized",
+            body="Python without category",
+            author_id=test_user.id,
+            status=ContentStatus.PUBLISHED,
+        )
+
+        result = await search_service.fulltext_search(
+            db=async_db_session,
+            query="python",
+            category_id=category.id,
+            limit=10,
+            offset=0,
+        )
+
+        assert result["total"] >= 1
+        for item in result["results"]:
+            assert item["content"].category_id == category.id
+
+
+class TestSearchFacets:
+    """Test faceted search functionality"""
+
+    @pytest.fixture(autouse=True)
+    async def create_search_trigger(self, async_db_session):
+        """Create the search vector trigger"""
+        await async_db_session.execute(
+            text("""
+                CREATE OR REPLACE FUNCTION content_search_vector_update() RETURNS trigger AS $$
+                BEGIN
+                    NEW.search_vector :=
+                        setweight(to_tsvector('english', COALESCE(NEW.title, '')), 'A') ||
+                        setweight(to_tsvector('english', COALESCE(NEW.description, '')), 'B') ||
+                        setweight(to_tsvector('english', COALESCE(NEW.body, '')), 'C') ||
+                        setweight(to_tsvector('english', COALESCE(NEW.meta_keywords, '')), 'D');
+                    RETURN NEW;
+                END;
+                $$ LANGUAGE plpgsql;
+            """)
+        )
+        await async_db_session.execute(
+            text("""
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM pg_trigger WHERE tgname = 'content_search_vector_trigger'
+                    ) THEN
+                        CREATE TRIGGER content_search_vector_trigger
+                        BEFORE INSERT OR UPDATE OF title, body, description, meta_keywords
+                        ON content
+                        FOR EACH ROW
+                        EXECUTE FUNCTION content_search_vector_update();
+                    END IF;
+                END;
+                $$;
+            """)
+        )
+        await async_db_session.commit()
+
+    @pytest.mark.asyncio
+    async def test_get_facets_without_query(self, async_db_session, test_user):
+        """Test getting facets without a search query"""
+        category = await create_test_category(async_db_session, name="DevOps")
+        await create_test_content(
+            async_db_session,
+            title="DevOps Guide",
+            body="DevOps content",
+            author_id=test_user.id,
+            status=ContentStatus.PUBLISHED,
+            category_id=category.id,
+        )
+
+        facets = await search_service.get_facets(db=async_db_session)
+
+        assert "categories" in facets
+        assert "statuses" in facets
+        assert "tags" in facets
+        assert "authors" in facets
+        assert len(facets["statuses"]) >= 1
+
+    @pytest.mark.asyncio
+    async def test_get_facets_with_query(self, async_db_session, test_user):
+        """Test getting facets filtered by a search query"""
+        category = await create_test_category(async_db_session, name="WebDev")
+        await create_test_content(
+            async_db_session,
+            title="React Tutorial",
+            body="React web development",
+            author_id=test_user.id,
+            status=ContentStatus.PUBLISHED,
+            category_id=category.id,
+        )
+        await create_test_content(
+            async_db_session,
+            title="Database Design",
+            body="Database normalization",
+            author_id=test_user.id,
+            status=ContentStatus.DRAFT,
+        )
+
+        facets = await search_service.get_facets(db=async_db_session, query="react")
+
+        assert "statuses" in facets
+
+
+class TestSearchSuggestions:
+    """Test autocomplete suggestions"""
+
+    @pytest.mark.asyncio
+    async def test_get_suggestions_prefix(self, async_db_session, test_user):
+        """Test getting suggestions matching a prefix"""
+        await create_test_content(
+            async_db_session,
+            title="Python Programming Guide",
+            body="Content",
+            author_id=test_user.id,
+            status=ContentStatus.PUBLISHED,
+        )
+        await create_test_content(
+            async_db_session,
+            title="Python Data Science",
+            body="Content",
+            author_id=test_user.id,
+            status=ContentStatus.PUBLISHED,
+        )
+        await create_test_content(
+            async_db_session,
+            title="JavaScript Guide",
+            body="Content",
+            author_id=test_user.id,
+            status=ContentStatus.PUBLISHED,
+        )
+
+        suggestions = await search_service.get_suggestions(db=async_db_session, prefix="Pyth", limit=10)
+
+        assert len(suggestions) >= 2
+        for s in suggestions:
+            assert s["title"].startswith("Python")
+
+    @pytest.mark.asyncio
+    async def test_get_suggestions_only_published(self, async_db_session, test_user):
+        """Test that suggestions only return published content"""
+        await create_test_content(
+            async_db_session,
+            title="Draft Article",
+            body="Content",
+            author_id=test_user.id,
+            status=ContentStatus.DRAFT,
+        )
+        await create_test_content(
+            async_db_session,
+            title="Draft Notes",
+            body="Content",
+            author_id=test_user.id,
+            status=ContentStatus.PUBLISHED,
+        )
+
+        suggestions = await search_service.get_suggestions(db=async_db_session, prefix="Draft", limit=10)
+
+        assert len(suggestions) == 1
+        assert suggestions[0]["title"] == "Draft Notes"
+
+    @pytest.mark.asyncio
+    async def test_get_suggestions_empty(self, async_db_session):
+        """Test suggestions with no matches returns empty"""
+        suggestions = await search_service.get_suggestions(db=async_db_session, prefix="XYZNonexistent", limit=10)
+
+        assert len(suggestions) == 0
+
+
+class TestSearchAnalytics:
+    """Test search analytics tracking"""
+
+    @pytest.mark.asyncio
+    async def test_track_search(self, async_db_session, test_user):
+        """Test that search queries are tracked"""
+        await search_service.track_search(
+            db=async_db_session,
+            query="python tutorial",
+            results_count=5,
+            execution_time_ms=15.5,
+            user_id=test_user.id,
+        )
+
+        result = await async_db_session.execute(select(SearchQuery).where(SearchQuery.query == "python tutorial"))
+        record = result.scalars().first()
+
+        assert record is not None
+        assert record.normalized_query == "python tutorial"
+        assert record.results_count == 5
+        assert record.execution_time_ms == 15.5
+        assert record.user_id == test_user.id
+
+    @pytest.mark.asyncio
+    async def test_get_search_analytics(self, async_db_session, test_user):
+        """Test search analytics aggregation"""
+        for i in range(5):
+            await search_service.track_search(
+                db=async_db_session,
+                query=f"query {i}",
+                results_count=i * 2,
+                execution_time_ms=10.0 + i,
+                user_id=test_user.id,
+            )
+        await search_service.track_search(
+            db=async_db_session,
+            query="no results query",
+            results_count=0,
+            execution_time_ms=5.0,
+        )
+
+        analytics = await search_service.get_search_analytics(db=async_db_session, days=30)
+
+        assert analytics["total_searches"] >= 6
+        assert analytics["unique_queries"] >= 6
+        assert analytics["avg_results_count"] >= 0
+        assert analytics["avg_execution_time_ms"] >= 0
+        assert len(analytics["top_queries"]) >= 1
+        assert len(analytics["zero_result_queries"]) >= 1

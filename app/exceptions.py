@@ -83,6 +83,11 @@ class ErrorCode(str, Enum):
     FILE_NOT_FOUND = "FILE_NOT_FOUND"
     FILE_PROCESSING_FAILED = "FILE_PROCESSING_FAILED"
 
+    # Search (SEARCH_*)
+    SEARCH_QUERY_TOO_SHORT = "SEARCH_QUERY_TOO_SHORT"
+    SEARCH_QUERY_TOO_LONG = "SEARCH_QUERY_TOO_LONG"
+    SEARCH_INVALID_QUERY = "SEARCH_INVALID_QUERY"
+
     # Generic
     INTERNAL_ERROR = "INTERNAL_ERROR"
     UNKNOWN_ERROR = "UNKNOWN_ERROR"
@@ -598,4 +603,24 @@ class FileProcessingError(CMSError):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             error_code=ErrorCode.FILE_PROCESSING_FAILED,
             details=details,
+        )
+
+
+# ============================================================================
+# Search Exceptions
+# ============================================================================
+
+
+class SearchError(CMSError):
+    """Raised when a search operation fails"""
+
+    def __init__(
+        self,
+        message: str = "Search operation failed",
+        error_code: ErrorCode = ErrorCode.SEARCH_INVALID_QUERY,
+    ):
+        super().__init__(
+            message=message,
+            status_code=status.HTTP_400_BAD_REQUEST,
+            error_code=error_code,
         )

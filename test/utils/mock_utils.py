@@ -17,6 +17,8 @@ async def create_test_content(
     author_id: int,
     status: ContentStatus = ContentStatus.DRAFT,
     category_id: int | None = None,
+    description: str | None = None,
+    meta_keywords: str | None = None,
 ):
     """Create a test content item with eagerly loaded relationships"""
     content = Content(
@@ -26,6 +28,8 @@ async def create_test_content(
         author_id=author_id,
         status=status,
         category_id=category_id,
+        description=description,
+        meta_keywords=meta_keywords,
     )
     db_session.add(content)
     await db_session.commit()

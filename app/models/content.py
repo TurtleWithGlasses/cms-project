@@ -2,6 +2,7 @@ import enum
 from datetime import datetime
 
 from sqlalchemy import Column, DateTime, Enum, ForeignKey, Index, Integer, String, Text, UniqueConstraint
+from sqlalchemy.dialects.postgresql import TSVECTOR
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -36,6 +37,9 @@ class Content(Base):
     meta_description = Column(Text, nullable=True)
     meta_keywords = Column(Text, nullable=True)
 
+    # Full-text search vector (populated by PostgreSQL trigger)
+    search_vector = Column(TSVECTOR, nullable=True)
+
     # Relationships
     notifications = relationship("Notification", back_populates="content", cascade="all, delete-orphan")
     author = relationship("User", back_populates="contents", lazy="selectin")
@@ -54,4 +58,5 @@ class Content(Base):
         Index("ix_content_updated_at", "updated_at"),
         Index("ix_content_publish_date", "publish_date"),
         Index("ix_content_status_created", "status", "created_at"),
+        Index("ix_content_search_vector", "search_vector", postgresql_using="gin"),
     )

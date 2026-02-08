@@ -43,6 +43,17 @@ class Settings(BaseSettings):
     media_png_compression: int = 6
     media_enable_exif_strip: bool = True
 
+    # Search settings
+    search_min_query_length: int = 2
+    search_max_query_length: int = 200
+    search_default_limit: int = 20
+    search_max_limit: int = 100
+    search_highlight_max_words: int = 35
+    search_highlight_min_words: int = 15
+    search_suggestions_limit: int = 10
+    search_analytics_enabled: bool = True
+    search_language: str = "english"
+
     # Monitoring settings
     sentry_dsn: str | None = None
     sentry_traces_sample_rate: float = 0.1  # 10% of transactions

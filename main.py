@@ -62,6 +62,7 @@ from app.routes import (
     password_reset,
     privacy,
     roles,
+    search,
     seo,
     teams,
     templates as templates_routes,
@@ -174,6 +175,7 @@ def create_app() -> FastAPI:
     app.include_router(user.router, prefix="/api/v1/users", tags=["Users"])
     app.include_router(roles.router, prefix="/api/v1/roles", tags=["Roles"])
     app.include_router(content_router, prefix="/api/v1/content", tags=["Content"])
+    app.include_router(search.router, prefix="/api/v1/search", tags=["Search"])
     app.include_router(category.router, prefix="/api/v1/categories", tags=["Categories"])
     app.include_router(password_reset.router, prefix="/api/v1/password-reset", tags=["Password Reset"])
     app.include_router(media.router, prefix="/api/v1/media", tags=["Media"])
