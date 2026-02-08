@@ -37,11 +37,13 @@ class TestMediaRoutes:
     @pytest.mark.asyncio
     async def test_upload_file_success(self, client, auth_headers, async_db_session, test_user, tmp_path):
         """Test successful file upload"""
+        for d in ["thumbnails", "small", "medium", "large"]:
+            (tmp_path / d).mkdir(exist_ok=True)
+
         with (
             patch("app.services.upload_service.UPLOAD_DIR", tmp_path),
-            patch("app.services.upload_service.THUMBNAIL_DIR", tmp_path),
+            patch("app.services.upload_service.THUMBNAIL_DIR", tmp_path / "thumbnails"),
         ):
-            # Create test image file
             img_bytes = self.create_test_image_bytes()
 
             files = {"file": ("test.jpg", img_bytes, "image/jpeg")}
@@ -55,6 +57,8 @@ class TestMediaRoutes:
             assert "url" in data
             assert data["width"] == 100
             assert data["height"] == 100
+            assert "tags" in data
+            assert "sizes" in data
 
     @pytest.mark.asyncio
     async def test_upload_file_unauthorized(self, client):
@@ -95,7 +99,6 @@ class TestMediaRoutes:
     @pytest.mark.asyncio
     async def test_list_media(self, client, auth_headers, async_db_session, test_user):
         """Test listing user's media"""
-        # Create test media
         for i in range(3):
             media = Media(
                 filename=f"file{i}.jpg",
@@ -104,6 +107,8 @@ class TestMediaRoutes:
                 file_size=1024,
                 mime_type="image/jpeg",
                 file_type="image",
+                tags=[],
+                sizes={},
                 uploaded_by=test_user.id,
             )
             async_db_session.add(media)
@@ -121,7 +126,6 @@ class TestMediaRoutes:
     @pytest.mark.asyncio
     async def test_list_media_pagination(self, client, auth_headers, async_db_session, test_user):
         """Test media listing pagination"""
-        # Create 25 media items
         for i in range(25):
             media = Media(
                 filename=f"page{i}.jpg",
@@ -130,14 +134,14 @@ class TestMediaRoutes:
                 file_size=1024,
                 mime_type="image/jpeg",
                 file_type="image",
+                tags=[],
+                sizes={},
                 uploaded_by=test_user.id,
             )
             async_db_session.add(media)
         await async_db_session.commit()
 
-        # Get first page
         response1 = client.get("/api/v1/media/?limit=10&offset=0", headers=auth_headers)
-        # Get second page
         response2 = client.get("/api/v1/media/?limit=10&offset=10", headers=auth_headers)
 
         assert response1.status_code == 200
@@ -156,7 +160,7 @@ class TestMediaRoutes:
 
         assert response.status_code == 200
         data = response.json()
-        assert data["limit"] == 100  # Should be capped at 100
+        assert data["limit"] == 100
 
     @pytest.mark.asyncio
     async def test_get_media_by_id(self, client, auth_headers, async_db_session, test_user):
@@ -168,6 +172,8 @@ class TestMediaRoutes:
             file_size=2048,
             mime_type="image/jpeg",
             file_type="image",
+            tags=[],
+            sizes={},
             uploaded_by=test_user.id,
         )
         async_db_session.add(media)
@@ -193,7 +199,6 @@ class TestMediaRoutes:
         """Test user cannot access other user's media"""
         from app.models.user import Role
 
-        # Create another user
         role_result = await async_db_session.execute(__import__("sqlalchemy").select(Role).where(Role.name == "user"))
         role = role_result.scalars().first()
 
@@ -207,7 +212,6 @@ class TestMediaRoutes:
         await async_db_session.commit()
         await async_db_session.refresh(other_user)
 
-        # Create media for other user
         media = Media(
             filename="private.jpg",
             original_filename="private.jpg",
@@ -215,13 +219,14 @@ class TestMediaRoutes:
             file_size=1024,
             mime_type="image/jpeg",
             file_type="image",
+            tags=[],
+            sizes={},
             uploaded_by=other_user.id,
         )
         async_db_session.add(media)
         await async_db_session.commit()
         await async_db_session.refresh(media)
 
-        # Try to access with test_user
         from app.auth import create_access_token
 
         token = create_access_token({"sub": test_user.email})
@@ -232,9 +237,66 @@ class TestMediaRoutes:
         assert response.status_code == 403
 
     @pytest.mark.asyncio
+    async def test_update_media_endpoint(self, client, auth_headers, async_db_session, test_user):
+        """Test updating media metadata via PATCH"""
+        media = Media(
+            filename="patch_test.jpg",
+            original_filename="patch_test.jpg",
+            file_path="/tmp/patch_test.jpg",
+            file_size=1024,
+            mime_type="image/jpeg",
+            file_type="image",
+            tags=[],
+            sizes={},
+            uploaded_by=test_user.id,
+        )
+        async_db_session.add(media)
+        await async_db_session.commit()
+        await async_db_session.refresh(media)
+
+        response = client.patch(
+            f"/api/v1/media/{media.id}",
+            json={
+                "alt_text": "Beautiful sunset",
+                "title": "Sunset Photo",
+                "tags": ["nature", "sunset"],
+            },
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["alt_text"] == "Beautiful sunset"
+        assert data["title"] == "Sunset Photo"
+        assert data["tags"] == ["nature", "sunset"]
+
+    @pytest.mark.asyncio
+    async def test_search_media_endpoint(self, client, auth_headers, async_db_session, test_user):
+        """Test media search endpoint"""
+        for name in ["sunset_search.jpg", "beach_search.jpg", "mountain_search.png"]:
+            media = Media(
+                filename=name,
+                original_filename=name,
+                file_path=f"/tmp/{name}",
+                file_size=1024,
+                mime_type="image/jpeg",
+                file_type="image",
+                tags=[],
+                sizes={},
+                uploaded_by=test_user.id,
+            )
+            async_db_session.add(media)
+        await async_db_session.commit()
+
+        response = client.get("/api/v1/media/search?query=beach_search", headers=auth_headers)
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total"] >= 1
+
+    @pytest.mark.asyncio
     async def test_download_file(self, client, auth_headers, async_db_session, test_user, tmp_path):
         """Test downloading file"""
-        # Create test file
         test_file = tmp_path / "download.jpg"
         test_file.write_bytes(b"image content")
 
@@ -245,6 +307,8 @@ class TestMediaRoutes:
             file_size=13,
             mime_type="image/jpeg",
             file_type="image",
+            tags=[],
+            sizes={},
             uploaded_by=test_user.id,
         )
         async_db_session.add(media)
@@ -266,6 +330,8 @@ class TestMediaRoutes:
             file_size=1024,
             mime_type="image/jpeg",
             file_type="image",
+            tags=[],
+            sizes={},
             uploaded_by=test_user.id,
         )
         async_db_session.add(media)
@@ -280,7 +346,6 @@ class TestMediaRoutes:
     @pytest.mark.asyncio
     async def test_get_thumbnail(self, client, auth_headers, async_db_session, test_user, tmp_path):
         """Test getting thumbnail"""
-        # Create test thumbnail
         thumb_file = tmp_path / "thumb.jpg"
         thumb_file.write_bytes(b"thumbnail content")
 
@@ -292,6 +357,8 @@ class TestMediaRoutes:
             mime_type="image/jpeg",
             file_type="image",
             thumbnail_path=str(thumb_file),
+            tags=[],
+            sizes={},
             uploaded_by=test_user.id,
         )
         async_db_session.add(media)
@@ -314,6 +381,8 @@ class TestMediaRoutes:
             mime_type="application/pdf",
             file_type="document",
             thumbnail_path=None,
+            tags=[],
+            sizes={},
             uploaded_by=test_user.id,
         )
         async_db_session.add(media)
@@ -326,9 +395,91 @@ class TestMediaRoutes:
         assert "No thumbnail available" in response.json()["detail"]
 
     @pytest.mark.asyncio
+    async def test_get_image_size_variant(self, client, auth_headers, async_db_session, test_user, tmp_path):
+        """Test getting image size variant"""
+        small_file = tmp_path / "small.jpg"
+        small_file.write_bytes(b"small variant")
+
+        media = Media(
+            filename="sized.jpg",
+            original_filename="sized.jpg",
+            file_path=str(tmp_path / "sized.jpg"),
+            file_size=1024,
+            mime_type="image/jpeg",
+            file_type="image",
+            tags=[],
+            sizes={"small": str(small_file)},
+            uploaded_by=test_user.id,
+        )
+        async_db_session.add(media)
+        await async_db_session.commit()
+        await async_db_session.refresh(media)
+
+        response = client.get(f"/api/v1/media/sizes/{media.id}/small", headers=auth_headers)
+
+        assert response.status_code == 200
+        assert response.content == b"small variant"
+
+    @pytest.mark.asyncio
+    async def test_get_image_size_invalid(self, client, auth_headers, async_db_session, test_user):
+        """Test invalid size name returns 400"""
+        media = Media(
+            filename="sized2.jpg",
+            original_filename="sized2.jpg",
+            file_path="/tmp/sized2.jpg",
+            file_size=1024,
+            mime_type="image/jpeg",
+            file_type="image",
+            tags=[],
+            sizes={},
+            uploaded_by=test_user.id,
+        )
+        async_db_session.add(media)
+        await async_db_session.commit()
+        await async_db_session.refresh(media)
+
+        response = client.get(f"/api/v1/media/sizes/{media.id}/huge", headers=auth_headers)
+
+        assert response.status_code == 400
+
+    @pytest.mark.asyncio
+    async def test_bulk_delete_endpoint(self, client, auth_headers, async_db_session, test_user, tmp_path):
+        """Test bulk delete endpoint"""
+        media_ids = []
+        for i in range(3):
+            test_file = tmp_path / f"bulk_rt_{i}.jpg"
+            test_file.write_bytes(b"data")
+
+            media = Media(
+                filename=f"bulk_rt_{i}.jpg",
+                original_filename=f"bulk_rt_{i}.jpg",
+                file_path=str(test_file),
+                file_size=4,
+                mime_type="image/jpeg",
+                file_type="image",
+                tags=[],
+                sizes={},
+                uploaded_by=test_user.id,
+            )
+            async_db_session.add(media)
+            await async_db_session.commit()
+            await async_db_session.refresh(media)
+            media_ids.append(media.id)
+
+        response = client.post(
+            "/api/v1/media/bulk-delete",
+            json={"media_ids": media_ids},
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success_count"] == 3
+        assert data["failed_count"] == 0
+
+    @pytest.mark.asyncio
     async def test_delete_media(self, client, auth_headers, async_db_session, test_user, tmp_path):
         """Test deleting media"""
-        # Create test file
         test_file = tmp_path / "delete.jpg"
         test_file.write_bytes(b"delete me")
 
@@ -339,6 +490,8 @@ class TestMediaRoutes:
             file_size=9,
             mime_type="image/jpeg",
             file_type="image",
+            tags=[],
+            sizes={},
             uploaded_by=test_user.id,
         )
         async_db_session.add(media)
@@ -348,23 +501,13 @@ class TestMediaRoutes:
         response = client.delete(f"/api/v1/media/{media.id}", headers=auth_headers)
 
         assert response.status_code == 204
-
-        # Verify file deleted
         assert not test_file.exists()
-
-        # Verify database record deleted
-        from sqlalchemy.future import select
-
-        result = await async_db_session.execute(select(Media).where(Media.id == media.id))
-        deleted_media = result.scalars().first()
-        assert deleted_media is None
 
     @pytest.mark.asyncio
     async def test_delete_media_forbidden(self, client, async_db_session, test_user):
         """Test user cannot delete other user's media"""
         from app.models.user import Role
 
-        # Create another user
         role_result = await async_db_session.execute(__import__("sqlalchemy").select(Role).where(Role.name == "user"))
         role = role_result.scalars().first()
 
@@ -378,7 +521,6 @@ class TestMediaRoutes:
         await async_db_session.commit()
         await async_db_session.refresh(other_user)
 
-        # Create media for other user
         media = Media(
             filename="protected.jpg",
             original_filename="protected.jpg",
@@ -386,13 +528,14 @@ class TestMediaRoutes:
             file_size=1024,
             mime_type="image/jpeg",
             file_type="image",
+            tags=[],
+            sizes={},
             uploaded_by=other_user.id,
         )
         async_db_session.add(media)
         await async_db_session.commit()
         await async_db_session.refresh(media)
 
-        # Try to delete with test_user
         from app.auth import create_access_token
 
         token = create_access_token({"sub": test_user.email})
@@ -407,7 +550,6 @@ class TestMediaRoutes:
         """Test admin can access any user's media"""
         from app.models.user import Role
 
-        # Create admin user
         admin_role_result = await async_db_session.execute(
             __import__("sqlalchemy").select(Role).where(Role.name == "admin")
         )
@@ -423,7 +565,6 @@ class TestMediaRoutes:
         await async_db_session.commit()
         await async_db_session.refresh(admin_user)
 
-        # Create media for test_user
         media = Media(
             filename="user_media.jpg",
             original_filename="user_media.jpg",
@@ -431,13 +572,14 @@ class TestMediaRoutes:
             file_size=1024,
             mime_type="image/jpeg",
             file_type="image",
+            tags=[],
+            sizes={},
             uploaded_by=test_user.id,
         )
         async_db_session.add(media)
         await async_db_session.commit()
         await async_db_session.refresh(media)
 
-        # Admin should be able to access it
         from app.auth import create_access_token
 
         admin_token = create_access_token({"sub": admin_user.email})

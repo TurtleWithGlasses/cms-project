@@ -49,6 +49,7 @@ class User(Base):
     )
     password_reset_tokens = relationship("PasswordResetToken", back_populates="user", cascade="all, delete-orphan")
     uploaded_media = relationship("Media", back_populates="uploader", cascade="all, delete-orphan")
+    media_folders = relationship("MediaFolder", back_populates="user", cascade="all, delete-orphan")
 
     # Comment relationship
     comments = relationship("Comment", back_populates="user", cascade="all, delete-orphan")

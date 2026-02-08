@@ -23,6 +23,7 @@ from .import_job import (
     ImportType,
 )
 from .media import Media
+from .media_folder import MediaFolder
 from .notification import Notification
 from .notification_preference import (
     DigestFrequency,
@@ -75,6 +76,7 @@ __all__ = [
     "InvitationStatus",
     "LoginAttempt",
     "Media",
+    "MediaFolder",
     "Notification",
     "NotificationCategory",
     "NotificationChannel",

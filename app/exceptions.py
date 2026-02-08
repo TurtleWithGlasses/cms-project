@@ -50,6 +50,7 @@ class ErrorCode(str, Enum):
     RESOURCE_TEAM_NOT_FOUND = "RESOURCE_TEAM_NOT_FOUND"
     RESOURCE_WEBHOOK_NOT_FOUND = "RESOURCE_WEBHOOK_NOT_FOUND"
     RESOURCE_API_KEY_NOT_FOUND = "RESOURCE_API_KEY_NOT_FOUND"
+    RESOURCE_FOLDER_NOT_FOUND = "RESOURCE_FOLDER_NOT_FOUND"
 
     # Validation & Business Logic (VALIDATION_*)
     VALIDATION_FAILED = "VALIDATION_FAILED"
@@ -325,6 +326,17 @@ class APIKeyNotFoundError(ResourceNotFoundError):
             resource_type="API Key",
             resource_id=key_id,
             error_code=ErrorCode.RESOURCE_API_KEY_NOT_FOUND,
+        )
+
+
+class FolderNotFoundError(ResourceNotFoundError):
+    """Raised when a media folder is not found"""
+
+    def __init__(self, folder_id: Any | None = None):
+        super().__init__(
+            resource_type="MediaFolder",
+            resource_id=folder_id,
+            error_code=ErrorCode.RESOURCE_FOLDER_NOT_FOUND,
         )
 
 

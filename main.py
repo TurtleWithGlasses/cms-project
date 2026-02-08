@@ -56,6 +56,7 @@ from app.routes import (
     export,
     imports,
     media,
+    media_folders,
     monitoring,
     notifications,
     password_reset,
@@ -175,7 +176,8 @@ def create_app() -> FastAPI:
     app.include_router(content_router, prefix="/api/v1/content", tags=["Content"])
     app.include_router(category.router, prefix="/api/v1/categories", tags=["Categories"])
     app.include_router(password_reset.router, prefix="/api/v1/password-reset", tags=["Password Reset"])
-    app.include_router(media.router, prefix="/api/v1", tags=["Media"])
+    app.include_router(media.router, prefix="/api/v1/media", tags=["Media"])
+    app.include_router(media_folders.router, prefix="/api/v1/media/folders", tags=["Media Folders"])
     app.include_router(bulk.router, prefix="/api/v1", tags=["Bulk Operations"])
     app.include_router(export.router, prefix="/api/v1", tags=["Export"])
     app.include_router(analytics.router, prefix="/api/v1", tags=["Analytics"])

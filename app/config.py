@@ -37,6 +37,12 @@ class Settings(BaseSettings):
     smtp_from: str = "noreply@cms-project.com"
     app_url: str = "http://localhost:8000"
 
+    # Media settings
+    media_max_file_size: int = 10485760  # 10MB
+    media_jpeg_quality: int = 85
+    media_png_compression: int = 6
+    media_enable_exif_strip: bool = True
+
     # Monitoring settings
     sentry_dsn: str | None = None
     sentry_traces_sample_rate: float = 0.1  # 10% of transactions

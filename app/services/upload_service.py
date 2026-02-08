@@ -1,24 +1,37 @@
 """
 Upload Service
 
-Handles file uploads, validation, image processing, and storage.
+Handles file uploads, validation, image processing, optimization, and storage.
 """
 
+import logging
 import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import HTTPException, UploadFile, status
 from PIL import Image
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.models.media import Media
 from app.models.user import User
+
+logger = logging.getLogger(__name__)
 
 # Configuration
 UPLOAD_DIR = Path("uploads")
 THUMBNAIL_DIR = UPLOAD_DIR / "thumbnails"
-MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
+MAX_FILE_SIZE = settings.media_max_file_size
 THUMBNAIL_SIZE = (300, 300)
+
+# Image variant sizes (max dimension)
+IMAGE_SIZES = {
+    "small": 150,
+    "medium": 600,
+    "large": 1200,
+}
 
 # Allowed file types
 ALLOWED_IMAGE_TYPES = {
@@ -48,6 +61,9 @@ class UploadService:
         """Initialize upload directories"""
         UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
         THUMBNAIL_DIR.mkdir(parents=True, exist_ok=True)
+        # Create variant directories
+        for size_name in IMAGE_SIZES:
+            (UPLOAD_DIR / size_name).mkdir(parents=True, exist_ok=True)
 
     @staticmethod
     def validate_file(file: UploadFile) -> tuple[str, str]:
@@ -182,8 +198,75 @@ class UploadService:
                 return str(thumbnail_path), original_width, original_height
 
         except Exception as e:
-            print(f"Failed to create thumbnail: {e}")
+            logger.warning("Failed to create thumbnail: %s", e)
             return None, None, None
+
+    @staticmethod
+    def optimize_image(image_path: str, mime_type: str) -> None:
+        """
+        Optimize an image: strip EXIF metadata and compress.
+
+        Args:
+            image_path: Path to the image file
+            mime_type: MIME type of the image
+        """
+        if not settings.media_enable_exif_strip:
+            return
+
+        try:
+            with Image.open(image_path) as img:
+                # Strip EXIF by creating a new image without metadata
+                data = list(img.getdata())
+                clean_img = Image.new(img.mode, img.size)
+                clean_img.putdata(data)
+
+                save_kwargs: dict = {"optimize": True}
+                if mime_type in ("image/jpeg", "image/jpg"):
+                    save_kwargs["quality"] = settings.media_jpeg_quality
+                elif mime_type == "image/png":
+                    save_kwargs["compress_level"] = settings.media_png_compression
+                elif mime_type == "image/webp":
+                    save_kwargs["quality"] = 80
+
+                clean_img.save(image_path, **save_kwargs)
+        except Exception as e:
+            logger.warning("Failed to optimize image: %s", e)
+
+    @staticmethod
+    def create_image_variants(image_path: str, filename: str) -> dict[str, str]:
+        """
+        Create multiple size variants of an image.
+
+        Args:
+            image_path: Path to the original image
+            filename: Base filename for variants
+
+        Returns:
+            Dict mapping size name to file path
+        """
+        variants: dict[str, str] = {}
+
+        try:
+            with Image.open(image_path) as img:
+                original_width, original_height = img.size
+
+                for size_name, max_dim in IMAGE_SIZES.items():
+                    # Skip if original is smaller than target
+                    if original_width <= max_dim and original_height <= max_dim:
+                        continue
+
+                    variant = img.copy()
+                    variant.thumbnail((max_dim, max_dim), Image.Resampling.LANCZOS)
+
+                    variant_path = UPLOAD_DIR / size_name / filename
+                    save_kwargs: dict = {"optimize": True, "quality": settings.media_jpeg_quality}
+                    variant.save(variant_path, **save_kwargs)
+                    variants[size_name] = str(variant_path)
+
+        except Exception as e:
+            logger.warning("Failed to create image variants: %s", e)
+
+        return variants
 
     async def upload_file(self, file: UploadFile, current_user: User, db: AsyncSession) -> Media:
         """
@@ -209,14 +292,22 @@ class UploadService:
         # Save file
         file_path, file_size = await self.save_file(file, unique_filename)
 
-        # Process image (create thumbnail and get dimensions)
+        # Process image (optimize, create thumbnail, create variants)
         thumbnail_path = None
         width = None
         height = None
+        sizes: dict[str, str] = {}
 
         if file_type == "image":
+            # Optimize image (strip EXIF, compress)
+            self.optimize_image(file_path, mime_type)
+
+            # Create thumbnail
             thumbnail_filename = f"thumb_{unique_filename}"
             thumbnail_path, width, height = self.create_thumbnail(file_path, thumbnail_filename)
+
+            # Create size variants
+            sizes = self.create_image_variants(file_path, unique_filename)
 
         # Create media record
         media = Media(
@@ -229,6 +320,8 @@ class UploadService:
             width=width,
             height=height,
             thumbnail_path=thumbnail_path,
+            sizes=sizes,
+            tags=[],
             uploaded_by=current_user.id,
         )
 
@@ -253,8 +346,6 @@ class UploadService:
         Raises:
             HTTPException: If media not found
         """
-        from sqlalchemy.future import select
-
         result = await db.execute(select(Media).where(Media.id == media_id))
         media = result.scalars().first()
 
@@ -277,8 +368,6 @@ class UploadService:
         Returns:
             List of Media objects
         """
-        from sqlalchemy.future import select
-
         stmt = (
             select(Media)
             .where(Media.uploaded_by == user_id)
@@ -289,6 +378,280 @@ class UploadService:
 
         result = await db.execute(stmt)
         return list(result.scalars().all())
+
+    @staticmethod
+    async def update_media(media_id: int, updates: dict, current_user: User, db: AsyncSession) -> Media:
+        """
+        Update media metadata.
+
+        Args:
+            media_id: Media ID
+            updates: Dict of fields to update
+            current_user: User making the update
+            db: Database session
+
+        Returns:
+            Updated Media object
+        """
+        media = await UploadService.get_media_by_id(media_id, db)
+
+        # Check ownership
+        from app.constants.roles import RoleEnum
+
+        if media.uploaded_by != current_user.id and current_user.role.name not in [
+            RoleEnum.ADMIN.value,
+            RoleEnum.SUPERADMIN.value,
+        ]:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to update this media")
+
+        # Validate folder belongs to user if provided
+        if "folder_id" in updates and updates["folder_id"] is not None:
+            from app.models.media_folder import MediaFolder
+
+            folder_result = await db.execute(select(MediaFolder).where(MediaFolder.id == updates["folder_id"]))
+            folder = folder_result.scalars().first()
+            if not folder:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Folder not found")
+            if folder.user_id != current_user.id and current_user.role.name not in [
+                RoleEnum.ADMIN.value,
+                RoleEnum.SUPERADMIN.value,
+            ]:
+                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to use this folder")
+
+        # Apply updates
+        for field, value in updates.items():
+            if hasattr(media, field):
+                setattr(media, field, value)
+
+        media.updated_at = datetime.now(timezone.utc)
+        await db.commit()
+        await db.refresh(media)
+
+        return media
+
+    @staticmethod
+    async def search_media(
+        user_id: int,
+        db: AsyncSession,
+        query: str | None = None,
+        file_type: str | None = None,
+        folder_id: int | None = None,
+        tags: list[str] | None = None,
+        min_size: int | None = None,
+        max_size: int | None = None,
+        uploaded_after: datetime | None = None,
+        uploaded_before: datetime | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> tuple[list[Media], int]:
+        """
+        Search and filter media for a user.
+
+        Returns:
+            Tuple of (results, total_count)
+        """
+        stmt = select(Media).where(Media.uploaded_by == user_id)
+        count_stmt = select(func.count(Media.id)).where(Media.uploaded_by == user_id)
+
+        # Text search
+        if query:
+            search_filter = or_(
+                func.lower(Media.original_filename).contains(query.lower()),
+                func.lower(Media.alt_text).contains(query.lower()),
+                func.lower(Media.title).contains(query.lower()),
+            )
+            stmt = stmt.where(search_filter)
+            count_stmt = count_stmt.where(search_filter)
+
+        # File type filter
+        if file_type:
+            stmt = stmt.where(Media.file_type == file_type)
+            count_stmt = count_stmt.where(Media.file_type == file_type)
+
+        # Folder filter
+        if folder_id is not None:
+            stmt = stmt.where(Media.folder_id == folder_id)
+            count_stmt = count_stmt.where(Media.folder_id == folder_id)
+
+        # Tags filter (check each tag exists in the JSON array)
+        if tags:
+            for tag in tags:
+                tag_filter = Media.tags.contains(tag)
+                stmt = stmt.where(tag_filter)
+                count_stmt = count_stmt.where(tag_filter)
+
+        # Size range
+        if min_size is not None:
+            stmt = stmt.where(Media.file_size >= min_size)
+            count_stmt = count_stmt.where(Media.file_size >= min_size)
+        if max_size is not None:
+            stmt = stmt.where(Media.file_size <= max_size)
+            count_stmt = count_stmt.where(Media.file_size <= max_size)
+
+        # Date range
+        if uploaded_after:
+            stmt = stmt.where(Media.uploaded_at >= uploaded_after)
+            count_stmt = count_stmt.where(Media.uploaded_at >= uploaded_after)
+        if uploaded_before:
+            stmt = stmt.where(Media.uploaded_at <= uploaded_before)
+            count_stmt = count_stmt.where(Media.uploaded_at <= uploaded_before)
+
+        # Get total count
+        count_result = await db.execute(count_stmt)
+        total = count_result.scalar() or 0
+
+        # Apply pagination and ordering
+        stmt = stmt.order_by(Media.uploaded_at.desc()).limit(limit).offset(offset)
+        result = await db.execute(stmt)
+
+        return list(result.scalars().all()), total
+
+    @staticmethod
+    async def get_all_media_admin(
+        db: AsyncSession,
+        limit: int = 50,
+        offset: int = 0,
+        file_type: str | None = None,
+    ) -> tuple[list[Media], int]:
+        """
+        Get all media across all users (admin only).
+
+        Returns:
+            Tuple of (results, total_count)
+        """
+        stmt = select(Media)
+        count_stmt = select(func.count(Media.id))
+
+        if file_type:
+            stmt = stmt.where(Media.file_type == file_type)
+            count_stmt = count_stmt.where(Media.file_type == file_type)
+
+        count_result = await db.execute(count_stmt)
+        total = count_result.scalar() or 0
+
+        stmt = stmt.order_by(Media.uploaded_at.desc()).limit(limit).offset(offset)
+        result = await db.execute(stmt)
+
+        return list(result.scalars().all()), total
+
+    @staticmethod
+    async def bulk_delete_media(media_ids: list[int], current_user: User, db: AsyncSession) -> dict:
+        """
+        Delete multiple media files.
+
+        Returns:
+            Dict with success_count, failed_count, failed_items
+        """
+        from app.constants.roles import RoleEnum
+
+        success_count = 0
+        failed_items = []
+
+        for media_id in media_ids:
+            try:
+                media = await UploadService.get_media_by_id(media_id, db)
+
+                # Check permission
+                if media.uploaded_by != current_user.id and current_user.role.name not in [
+                    RoleEnum.ADMIN.value,
+                    RoleEnum.SUPERADMIN.value,
+                ]:
+                    failed_items.append({"id": media_id, "error": "Not authorized"})
+                    continue
+
+                # Delete physical files
+                UploadService._delete_media_files(media)
+
+                await db.delete(media)
+                success_count += 1
+
+            except HTTPException:
+                failed_items.append({"id": media_id, "error": "Media not found"})
+
+        await db.commit()
+
+        return {
+            "success_count": success_count,
+            "failed_count": len(failed_items),
+            "failed_items": failed_items,
+        }
+
+    @staticmethod
+    async def bulk_move_media(
+        media_ids: list[int], folder_id: int | None, current_user: User, db: AsyncSession
+    ) -> dict:
+        """
+        Move multiple media items to a folder.
+
+        Returns:
+            Dict with success_count, failed_count, failed_items
+        """
+        from app.constants.roles import RoleEnum
+
+        # Validate folder if provided
+        if folder_id is not None:
+            from app.models.media_folder import MediaFolder
+
+            folder_result = await db.execute(select(MediaFolder).where(MediaFolder.id == folder_id))
+            folder = folder_result.scalars().first()
+            if not folder:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Folder not found")
+            if folder.user_id != current_user.id and current_user.role.name not in [
+                RoleEnum.ADMIN.value,
+                RoleEnum.SUPERADMIN.value,
+            ]:
+                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to use this folder")
+
+        success_count = 0
+        failed_items = []
+
+        for media_id in media_ids:
+            try:
+                media = await UploadService.get_media_by_id(media_id, db)
+
+                if media.uploaded_by != current_user.id and current_user.role.name not in [
+                    RoleEnum.ADMIN.value,
+                    RoleEnum.SUPERADMIN.value,
+                ]:
+                    failed_items.append({"id": media_id, "error": "Not authorized"})
+                    continue
+
+                media.folder_id = folder_id
+                media.updated_at = datetime.now(timezone.utc)
+                success_count += 1
+
+            except HTTPException:
+                failed_items.append({"id": media_id, "error": "Media not found"})
+
+        await db.commit()
+
+        return {
+            "success_count": success_count,
+            "failed_count": len(failed_items),
+            "failed_items": failed_items,
+        }
+
+    @staticmethod
+    def _delete_media_files(media: Media) -> None:
+        """Delete all physical files associated with a media record."""
+        try:
+            file_path = Path(media.file_path)
+            if file_path.exists():
+                file_path.unlink()
+
+            if media.thumbnail_path:
+                thumbnail_path = Path(media.thumbnail_path)
+                if thumbnail_path.exists():
+                    thumbnail_path.unlink()
+
+            # Delete size variants
+            if media.sizes:
+                for variant_path in media.sizes.values():
+                    p = Path(variant_path)
+                    if p.exists():
+                        p.unlink()
+        except Exception as e:
+            logger.warning("Error deleting physical files for media %s: %s", media.id, e)
 
     @staticmethod
     async def delete_media(media_id: int, current_user: User, db: AsyncSession) -> None:
@@ -315,17 +678,7 @@ class UploadService:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to delete this media")
 
         # Delete physical files
-        try:
-            file_path = Path(media.file_path)
-            if file_path.exists():
-                file_path.unlink()
-
-            if media.thumbnail_path:
-                thumbnail_path = Path(media.thumbnail_path)
-                if thumbnail_path.exists():
-                    thumbnail_path.unlink()
-        except Exception as e:
-            print(f"Error deleting physical files: {e}")
+        UploadService._delete_media_files(media)
 
         # Delete database record
         await db.delete(media)
