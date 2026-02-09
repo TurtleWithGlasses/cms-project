@@ -17,6 +17,7 @@ from app.schemas.content import ContentCreate, ContentResponse, ContentUpdate
 from app.schemas.content_version import ContentVersionOut
 from app.services import content_service, content_version_service
 from app.utils.activity_log import log_activity
+from app.utils.cache import CacheManager, cache_manager
 from app.utils.slugify import slugify
 
 logging.basicConfig(
@@ -83,6 +84,9 @@ async def create_draft(
             )
         except Exception as e:
             logger.warning(f"Activity logging failed: {e}")
+
+        # Invalidate content list cache
+        await cache_manager.invalidate_content()
 
         return new_content
 
@@ -153,6 +157,9 @@ async def update_content(
             )
         except Exception as log_error:
             logger.warning(f"Failed to log activity for updated content {content_id}: {log_error}")
+
+        # Invalidate content cache
+        await cache_manager.invalidate_content(content_id)
 
     except Exception as e:
         await db.rollback()
@@ -245,6 +252,9 @@ async def approve_content(
 
         await db.refresh(content)
 
+        # Invalidate content cache
+        await cache_manager.invalidate_content(content_id)
+
     except Exception as e:
         await db.rollback()
         raise HTTPException(status_code=500, detail=f"Failed to approve content: {str(e)}") from e
@@ -280,9 +290,24 @@ async def get_all_content_route(
     author_id: int | None = None,
     db: AsyncSession = Depends(get_db),
 ):
-    return await content_service.get_all_content(
+    # Try cache first
+    cache_key = f"{CacheManager.PREFIX_CONTENT}list:{skip}:{limit}:{status}:{category_id}:{author_id}"
+    cached = await cache_manager.get(cache_key)
+    if cached is not None:
+        return cached
+
+    result = await content_service.get_all_content(
         db, skip=skip, limit=limit, status=status, category_id=category_id, author_id=author_id
     )
+
+    # Cache the serialized result
+    try:
+        serializable = [ContentResponse.model_validate(c).model_dump(mode="json") for c in result]
+        await cache_manager.set(cache_key, serializable, CacheManager.TTL_SHORT)
+    except Exception as e:
+        logger.debug(f"Failed to cache content list: {e}")
+
+    return result
 
 
 # Search Endpoints
@@ -321,8 +346,10 @@ async def search_content_endpoint(
     if tag_ids:
         try:
             parsed_tag_ids = [int(tid.strip()) for tid in tag_ids.split(",") if tid.strip()]
-        except ValueError:
-            raise HTTPException(status_code=400, detail="Invalid tag_ids format. Use comma-separated integers.")
+        except ValueError as err:
+            raise HTTPException(
+                status_code=400, detail="Invalid tag_ids format. Use comma-separated integers."
+            ) from err
 
     # Validate limit
     if limit < 1 or limit > 100:
@@ -445,11 +472,19 @@ async def get_popular_tags_endpoint(
 
     - **limit**: Maximum number of tags to return
     """
+    # Try cache first
+    cache_key = f"cache:tags:popular:{limit}"
+    cached = await cache_manager.get(cache_key)
+    if cached is not None:
+        return cached
+
     from app.services.search_service import search_service
 
     tags = await search_service.get_popular_tags(db=db, limit=limit)
 
-    return [{"name": name, "count": count} for name, count in tags]
+    result = [{"name": name, "count": count} for name, count in tags]
+    await cache_manager.set(cache_key, result, CacheManager.TTL_MEDIUM)
+    return result
 
 
 @router.get("/search/recent/", response_model=list[ContentResponse])

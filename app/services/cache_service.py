@@ -21,6 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.content import Content
 from app.utils.cache import CacheManager, cache_manager
+from app.utils.metrics import record_cache_hit, record_cache_miss
 
 logger = logging.getLogger(__name__)
 
@@ -143,9 +144,11 @@ class CacheService:
             value = self._memory.get(versioned_key)
             if value is not None:
                 self._stats.hits += 1
+                record_cache_hit("memory")
                 return value
+            record_cache_miss("memory")
 
-        # Tier 2: Redis cache
+        # Tier 2: Redis cache (metrics recorded by CacheManager.get)
         value = await self._redis.get(versioned_key)
         if value is not None:
             # Promote to memory cache

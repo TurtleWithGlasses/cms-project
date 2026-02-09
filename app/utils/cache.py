@@ -12,6 +12,7 @@ from typing import Any
 import redis.asyncio as redis
 
 from app.config import settings
+from app.utils.metrics import record_cache_hit, record_cache_miss
 
 logger = logging.getLogger(__name__)
 
@@ -102,9 +103,11 @@ class CacheManager:
             data = await self._redis.get(key)
             if data:
                 logger.debug(f"Cache HIT: {key}")
+                record_cache_hit("redis")
                 return json.loads(data)
 
             logger.debug(f"Cache MISS: {key}")
+            record_cache_miss("redis")
             return None
         except Exception as e:
             logger.warning(f"Cache get error for {key}: {e}")

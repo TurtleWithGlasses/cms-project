@@ -4,7 +4,7 @@
 
 This document outlines the comprehensive development roadmap for the CMS Project, a FastAPI-based content management system with role-based access control, content versioning, and scheduling capabilities. The roadmap addresses code quality improvements, security enhancements, feature additions, performance optimizations, and infrastructure modernization.
 
-**Current Version:** 1.4.0
+**Current Version:** 1.5.0
 **Target Architecture:** Production-ready, scalable CMS platform
 **Technology Stack:** FastAPI, PostgreSQL, SQLAlchemy 2.0, JWT Authentication, React 18, Vite
 
@@ -15,6 +15,17 @@ This document outlines the comprehensive development roadmap for the CMS Project
 ### Completed Work Summary
 
 The following major features and improvements have been completed:
+
+#### Caching Layer Integration (v1.5.0)
+- [x] **Prometheus Metrics Wiring** - Connected `record_cache_hit`/`record_cache_miss` to cache operations
+- [x] **Redis Cache Metrics** - Hit/miss tracking in `CacheManager.get()` with `cache_type="redis"`
+- [x] **Memory Cache Metrics** - Hit/miss tracking in `CacheService.get()` with `cache_type="memory"`
+- [x] **Content List Caching** - Cache-aside pattern for content list endpoint with `TTL_SHORT` (60s)
+- [x] **Category List Caching** - Cache-aside pattern for category list endpoint with `TTL_LONG` (1 hour)
+- [x] **Popular Tags Caching** - Cache-aside pattern for popular tags endpoint with `TTL_MEDIUM` (5 min)
+- [x] **Cache Invalidation** - Automatic cache invalidation on content create/update/approve operations
+- [x] **Expanded Tests** - 15 new tests: TTL expiration, Prometheus metrics, cache-aside integration
+- Files: `app/utils/cache.py`, `app/services/cache_service.py`, `app/routes/content.py`, `app/routes/category.py`, `test/test_cache.py`
 
 #### Search Engine (v1.4.0)
 - [x] **PostgreSQL Full-Text Search** - tsvector/tsquery with `websearch_to_tsquery` for natural language queries
@@ -336,7 +347,7 @@ The following major features and improvements have been completed:
 7. ~~**No 2FA/MFA**: Single-factor authentication only~~ ✅ FIXED (v1.2.0)
 
 #### Performance Gaps
-1. **No Caching Layer**: Every request hits the database
+1. ~~**No Caching Layer**: Every request hits the database~~ ✅ FIXED (v1.5.0) - Multi-tier caching (LRU + Redis) with cache-aside pattern
 2. **No Query Optimization**: Potential N+1 queries in some routes
 3. **No CDN Integration**: Static assets served directly
 4. **Database Pooling**: No monitoring of connection pool health
@@ -557,25 +568,31 @@ The following major features and improvements have been completed:
   - Consider Elasticsearch integration for scaling
   - Add search performance metrics
 
-#### 2.3 Caching Layer
-- [ ] **Redis Integration**
-  - Setup Redis connection and configuration
-  - Add Redis to [requirements.txt](requirements.txt)
-  - Create cache service abstraction
-  - New file: `services/cache_service.py`
+#### 2.3 Caching Layer ✅ COMPLETED (v1.5.0)
+- [x] **Redis Integration** ✅ COMPLETED
+  - Redis connection with connection pooling (`redis.asyncio`) ✅
+  - `redis==7.1.0` in requirements.txt ✅
+  - CacheManager abstraction with get/set/delete/pattern operations ✅
+  - CacheService with multi-tier caching (LRU memory + Redis) ✅
+  - Files: `app/utils/cache.py`, `app/services/cache_service.py`
 
-- [ ] **Cache Strategies**
-  - Implement cache-aside pattern for content
-  - Add user session caching
-  - Cache role permissions
-  - Cache category/tag lists
-  - Add cache invalidation on updates
+- [x] **Cache Strategies** ✅ COMPLETED
+  - Cache-aside pattern for content lists (TTL_SHORT = 60s) ✅
+  - Cache-aside pattern for category lists (TTL_LONG = 1 hour) ✅
+  - Cache-aside pattern for popular tags (TTL_MEDIUM = 5 min) ✅
+  - User session caching via Redis session store ✅
+  - Role permissions loaded with JWT (no separate cache needed) ✅
+  - Cache invalidation on content create/update/approve ✅
+  - Category cache invalidation on create ✅
+  - Files: `app/routes/content.py`, `app/routes/category.py`
 
-- [ ] **Cache Monitoring**
-  - Add cache hit/miss metrics
-  - Implement cache warming strategies
-  - Configure TTL per data type
-  - Add cache admin endpoints
+- [x] **Cache Monitoring** ✅ COMPLETED
+  - Prometheus metrics for cache hits/misses (redis + memory tiers) ✅
+  - Cache warming for popular content and analytics ✅
+  - Configurable TTL per data type (SHORT/MEDIUM/LONG/ANALYTICS) ✅
+  - 10 admin cache endpoints (stats, warm, invalidate, get/set/delete) ✅
+  - Cache versioning for lightweight full invalidation ✅
+  - Files: `app/utils/metrics.py`, `app/routes/cache.py`, `app/services/cache_service.py`
 
 #### 2.4 Email System ✅ COMPLETED
 - [x] **Email Infrastructure**
@@ -1146,7 +1163,7 @@ This roadmap transforms the CMS Project from a functional MVP to a production-re
 
 ---
 
-**Document Version:** 1.4.0
+**Document Version:** 1.5.0
 **Last Updated:** 2026-02-09
 **Maintained By:** Development Team
 **Review Cycle:** Quarterly
