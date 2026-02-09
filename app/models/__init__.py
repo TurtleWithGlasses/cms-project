@@ -4,6 +4,13 @@ from .backup import Backup, BackupSchedule, BackupStatus, BackupType
 from .category import Category
 from .comment import Comment, CommentStatus
 from .content import Content
+from .content_relations import (
+    ContentRedirect,
+    ContentRelation,
+    ContentSeries,
+    ContentSeriesItem,
+    RelationType,
+)
 from .content_tags import content_tags
 from .content_template import (
     ContentTemplate,
@@ -63,6 +70,10 @@ __all__ = [
     "CommentStatus",
     "Content",
     "content_tags",
+    "ContentRedirect",
+    "ContentRelation",
+    "ContentSeries",
+    "ContentSeriesItem",
     "ContentTemplate",
     "ContentVersion",
     "DigestFrequency",
@@ -86,6 +97,7 @@ __all__ = [
     "NotificationQueue",
     "NotificationTemplate",
     "PasswordResetToken",
+    "RelationType",
     "Role",
     "SearchQuery",
     "Tag",

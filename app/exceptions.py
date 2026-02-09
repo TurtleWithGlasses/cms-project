@@ -51,6 +51,9 @@ class ErrorCode(str, Enum):
     RESOURCE_WEBHOOK_NOT_FOUND = "RESOURCE_WEBHOOK_NOT_FOUND"
     RESOURCE_API_KEY_NOT_FOUND = "RESOURCE_API_KEY_NOT_FOUND"
     RESOURCE_FOLDER_NOT_FOUND = "RESOURCE_FOLDER_NOT_FOUND"
+    RESOURCE_RELATION_NOT_FOUND = "RESOURCE_RELATION_NOT_FOUND"
+    RESOURCE_SERIES_NOT_FOUND = "RESOURCE_SERIES_NOT_FOUND"
+    RESOURCE_REDIRECT_NOT_FOUND = "RESOURCE_REDIRECT_NOT_FOUND"
 
     # Validation & Business Logic (VALIDATION_*)
     VALIDATION_FAILED = "VALIDATION_FAILED"
@@ -61,6 +64,8 @@ class ErrorCode(str, Enum):
     VALIDATION_INVALID_FORMAT = "VALIDATION_INVALID_FORMAT"
     VALIDATION_VALUE_TOO_LONG = "VALIDATION_VALUE_TOO_LONG"
     VALIDATION_VALUE_TOO_SHORT = "VALIDATION_VALUE_TOO_SHORT"
+    VALIDATION_SELF_RELATION = "VALIDATION_SELF_RELATION"
+    VALIDATION_DUPLICATE_RELATION = "VALIDATION_DUPLICATE_RELATION"
 
     # Database & Service (DB_*, SERVICE_*)
     DB_ERROR = "DB_ERROR"
@@ -342,6 +347,39 @@ class FolderNotFoundError(ResourceNotFoundError):
             resource_type="MediaFolder",
             resource_id=folder_id,
             error_code=ErrorCode.RESOURCE_FOLDER_NOT_FOUND,
+        )
+
+
+class RelationNotFoundError(ResourceNotFoundError):
+    """Raised when a content relation is not found"""
+
+    def __init__(self, relation_id: Any | None = None):
+        super().__init__(
+            resource_type="ContentRelation",
+            resource_id=relation_id,
+            error_code=ErrorCode.RESOURCE_RELATION_NOT_FOUND,
+        )
+
+
+class SeriesNotFoundError(ResourceNotFoundError):
+    """Raised when a content series is not found"""
+
+    def __init__(self, series_id: Any | None = None):
+        super().__init__(
+            resource_type="ContentSeries",
+            resource_id=series_id,
+            error_code=ErrorCode.RESOURCE_SERIES_NOT_FOUND,
+        )
+
+
+class RedirectNotFoundError(ResourceNotFoundError):
+    """Raised when a content redirect is not found"""
+
+    def __init__(self, redirect_id: Any | None = None):
+        super().__init__(
+            resource_type="ContentRedirect",
+            resource_id=redirect_id,
+            error_code=ErrorCode.RESOURCE_REDIRECT_NOT_FOUND,
         )
 
 

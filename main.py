@@ -52,6 +52,7 @@ from app.routes import (
     cache,
     category,
     comments,
+    content_relations,
     dashboard,
     export,
     imports,
@@ -232,6 +233,9 @@ def create_app() -> FastAPI:
 
     # Content template routes
     app.include_router(templates_routes.router, prefix="/api/v1", tags=["Content Templates"])
+
+    # Content relations routes
+    app.include_router(content_relations.router, prefix="/api/v1", tags=["Content Relations"])
 
     # Configure rate limiting
     configure_rate_limiting(app)

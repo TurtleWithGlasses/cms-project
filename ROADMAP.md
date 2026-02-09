@@ -4,7 +4,7 @@
 
 This document outlines the comprehensive development roadmap for the CMS Project, a FastAPI-based content management system with role-based access control, content versioning, and scheduling capabilities. The roadmap addresses code quality improvements, security enhancements, feature additions, performance optimizations, and infrastructure modernization.
 
-**Current Version:** 1.5.0
+**Current Version:** 1.6.0
 **Target Architecture:** Production-ready, scalable CMS platform
 **Technology Stack:** FastAPI, PostgreSQL, SQLAlchemy 2.0, JWT Authentication, React 18, Vite
 
@@ -15,6 +15,24 @@ This document outlines the comprehensive development roadmap for the CMS Project
 ### Completed Work Summary
 
 The following major features and improvements have been completed:
+
+#### Advanced Content Features (v1.6.0)
+- [x] **Rich Text Editor Integration** - Tiptap v2.1.13 with StarterKit, Link, Image, Placeholder, CodeBlock-lowlight
+  - Component: `frontend/src/components/editor/RichTextEditor.jsx`
+  - Used by: `frontend/src/pages/content/ContentEditPage.jsx`
+- [x] **Content Workflow Customization** - Configurable workflow states, transitions, approvals, and history
+  - Models: WorkflowState, WorkflowTransition, WorkflowApproval, WorkflowHistory in `app/models/workflow.py`
+  - 10 endpoints in `app/routes/workflow.py`, service in `app/services/workflow_service.py`
+- [x] **Custom Fields (via Templates)** - ContentTemplate with 15 field types and revision tracking
+  - Models: ContentTemplate, TemplateField, TemplateRevision in `app/models/content_template.py`
+  - Routes in `app/routes/templates.py`, service in `app/services/template_service.py`
+- [x] **Content Relationships** - Related content, series/collections, and URL redirects
+  - 4 models: ContentRelation, ContentSeries, ContentSeriesItem, ContentRedirect + RelationType enum
+  - 14-method service in `app/services/content_relations_service.py`
+  - 15 API endpoints in `app/routes/content_relations.py`
+  - Alembic migration: `alembic/versions/k2l3m4n5o6p7_add_content_relations.py`
+  - 21 tests in `test/test_content_relations.py`
+  - Files: `app/models/content_relations.py`, `app/services/content_relations_service.py`, `app/routes/content_relations.py`
 
 #### Caching Layer Integration (v1.5.0)
 - [x] **Prometheus Metrics Wiring** - Connected `record_cache_hit`/`record_cache_miss` to cache operations
@@ -615,30 +633,33 @@ The following major features and improvements have been completed:
   - Email delivery tracking (pending)
   - Bounce handling (pending)
 
-#### 2.5 Advanced Content Features
-- [ ] **Rich Text Editor Integration**
-  - Add WYSIWYG editor (TinyMCE, CKEditor, or Quill)
-  - Implement inline image upload
-  - Add code syntax highlighting
-  - Support markdown mode
+#### 2.5 Advanced Content Features ✅ COMPLETED (v1.6.0)
+- [x] **Rich Text Editor Integration** ✅ COMPLETED
+  - Tiptap v2.1.13 with StarterKit, Link, Image, Placeholder, CodeBlock-lowlight ✅
+  - Component: `frontend/src/components/editor/RichTextEditor.jsx` ✅
+  - Used by: `frontend/src/pages/content/ContentEditPage.jsx` ✅
 
-- [ ] **Content Relationships**
-  - Add related content feature
-  - Implement content series/collections
-  - Add content redirects (for URL changes)
-  - New model: `content_relations`
+- [x] **Content Relationships** ✅ COMPLETED
+  - Related content with typed relationships (related_to, depends_on, translated_from, part_of_series) ✅
+  - Content series/collections with ordering ✅
+  - Content redirects for URL changes (301/302) ✅
+  - Models: ContentRelation, ContentSeries, ContentSeriesItem, ContentRedirect ✅
+  - 15 API endpoints, 14-method service, 21 tests ✅
+  - Files: `app/models/content_relations.py`, `app/services/content_relations_service.py`, `app/routes/content_relations.py`
 
-- [ ] **Custom Fields**
-  - Add custom field definitions per content type
-  - Support field types: text, number, date, select, multi-select
-  - Implement JSON-based flexible schema
-  - Update [models/content.py](app/models/content.py)
+- [x] **Custom Fields** ✅ COMPLETED
+  - ContentTemplate model with 15 field types (text, number, date, select, multi-select, etc.) ✅
+  - TemplateField with ordering, validation rules, and default values ✅
+  - TemplateRevision for version tracking ✅
+  - Files: `app/models/content_template.py`, `app/routes/templates.py`, `app/services/template_service.py`
 
-- [ ] **Content Workflow Customization**
-  - Add configurable workflow states
-  - Implement custom approval rules
-  - Add workflow transition permissions
-  - Create workflow builder UI
+- [x] **Content Workflow Customization** ✅ COMPLETED
+  - Configurable workflow states (WorkflowState model) ✅
+  - Custom approval rules (WorkflowApproval model) ✅
+  - Workflow transition permissions (WorkflowTransition model) ✅
+  - Workflow history tracking (WorkflowHistory model) ✅
+  - 10 endpoints in `app/routes/workflow.py` ✅
+  - Files: `app/models/workflow.py`, `app/services/workflow_service.py`, `app/routes/workflow.py`
 
 #### 2.6 Performance Optimization
 - [ ] **Database Query Optimization**
@@ -1163,7 +1184,7 @@ This roadmap transforms the CMS Project from a functional MVP to a production-re
 
 ---
 
-**Document Version:** 1.5.0
+**Document Version:** 1.6.0
 **Last Updated:** 2026-02-09
 **Maintained By:** Development Team
 **Review Cycle:** Quarterly
