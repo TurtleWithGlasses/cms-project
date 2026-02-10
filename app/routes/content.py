@@ -18,6 +18,7 @@ from app.schemas.content_version import ContentVersionOut
 from app.services import content_service, content_version_service
 from app.utils.activity_log import log_activity
 from app.utils.cache import CacheManager, cache_manager
+from app.utils.field_selector import FieldSelector
 from app.utils.slugify import slugify
 
 logging.basicConfig(
@@ -288,12 +289,15 @@ async def get_all_content_route(
     status: str | None = None,
     category_id: int | None = None,
     author_id: int | None = None,
+    fields: FieldSelector = Depends(),
     db: AsyncSession = Depends(get_db),
 ):
     # Try cache first
     cache_key = f"{CacheManager.PREFIX_CONTENT}list:{skip}:{limit}:{status}:{category_id}:{author_id}"
     cached = await cache_manager.get(cache_key)
     if cached is not None:
+        if fields.has_selection:
+            return fields.apply(cached)
         return cached
 
     result = await content_service.get_all_content(
@@ -307,6 +311,8 @@ async def get_all_content_route(
     except Exception as e:
         logger.debug(f"Failed to cache content list: {e}")
 
+    if fields.has_selection:
+        return fields.apply(result)
     return result
 
 

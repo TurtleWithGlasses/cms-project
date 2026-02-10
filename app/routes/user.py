@@ -48,9 +48,9 @@ async def get_current_user_profile(current_user: User = Depends(get_current_user
 
 
 @router.get("/", response_model=list[UserResponse], dependencies=[Depends(get_role_validator(["admin", "superadmin"]))])
-async def list_users(db: AsyncSession = Depends(get_db)):
+async def list_users(skip: int = 0, limit: int = 50, db: AsyncSession = Depends(get_db)):
     # Use eager loading to avoid N+1 queries for role lookup
-    query = select(User).options(selectinload(User.role))
+    query = select(User).options(selectinload(User.role)).offset(skip).limit(limit)
     result = await db.execute(query)
     users = result.scalars().all()
     response = [

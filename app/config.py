@@ -54,6 +54,11 @@ class Settings(BaseSettings):
     search_analytics_enabled: bool = True
     search_language: str = "english"
 
+    # Performance settings
+    slow_query_threshold_ms: int = 100
+    gzip_minimum_size: int = 500
+    etag_enabled: bool = True
+
     # Monitoring settings
     sentry_dsn: str | None = None
     sentry_traces_sample_rate: float = 0.1  # 10% of transactions

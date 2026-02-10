@@ -38,6 +38,7 @@ if settings.sentry_dsn:
 from app.database import Base, engine, get_db
 from app.exception_handlers import register_exception_handlers
 from app.middleware.csrf import CSRFMiddleware, get_csrf_token
+from app.middleware.etag import ETagMiddleware
 from app.middleware.logging import StructuredLoggingMiddleware, setup_structured_logging
 from app.middleware.rate_limit import configure_rate_limiting, limiter
 from app.middleware.rbac import RBACMiddleware
@@ -79,6 +80,7 @@ from app.schemas.user import UserUpdate
 from app.services.auth_service import authenticate_user, register_user
 from app.services.content_service import update_user_info
 from app.utils.metrics import PrometheusMiddleware
+from app.utils.query_monitor import install_query_monitor
 
 # Configure structured logging based on environment
 if settings.environment == "production":
@@ -110,6 +112,9 @@ async def lifespan(app: FastAPI):
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
     logger.info("Database tables created (if not existing).")
+
+    # Install query monitoring for Prometheus metrics and slow query logging
+    install_query_monitor(engine, settings.slow_query_threshold_ms)
 
     scheduler.start()
 
@@ -149,8 +154,11 @@ def create_app() -> FastAPI:
     app.add_middleware(StructuredLoggingMiddleware)
     # Prometheus metrics middleware for request tracking
     app.add_middleware(PrometheusMiddleware)
-    # GZip compression for responses over 500 bytes
-    app.add_middleware(GZipMiddleware, minimum_size=500)
+    # ETag middleware for conditional GET requests (304 Not Modified)
+    if settings.etag_enabled:
+        app.add_middleware(ETagMiddleware)
+    # GZip compression for responses over minimum_size bytes
+    app.add_middleware(GZipMiddleware, minimum_size=settings.gzip_minimum_size)
     app.add_middleware(SessionMiddleware, secret_key=settings.secret_key)
     app.add_middleware(RBACMiddleware, allowed_roles=["user", "admin", "superadmin"])
     app.add_middleware(

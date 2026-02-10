@@ -17,47 +17,41 @@ async def get_content_kpis(
     db: AsyncSession,
     period_days: int = 30,
 ) -> dict:
-    """Get content-related KPIs."""
+    """Get content-related KPIs using batched conditional aggregation."""
     now = datetime.utcnow()
     period_start = now - timedelta(days=period_days)
     previous_start = period_start - timedelta(days=period_days)
+    stale_threshold = now - timedelta(days=7)
 
-    # Total content count
-    total_result = await db.execute(select(func.count(Content.id)))
-    total_content = total_result.scalar() or 0
-
-    # Published content
-    published_result = await db.execute(select(func.count(Content.id)).where(Content.status == "published"))
-    published_content = published_result.scalar() or 0
-
-    # Content created in period
-    period_result = await db.execute(select(func.count(Content.id)).where(Content.created_at >= period_start))
-    content_this_period = period_result.scalar() or 0
-
-    # Content created in previous period (for comparison)
-    previous_result = await db.execute(
-        select(func.count(Content.id))
-        .where(Content.created_at >= previous_start)
-        .where(Content.created_at < period_start)
+    # Single query: total, published, this_period, prev_period, stale_drafts
+    agg_result = await db.execute(
+        select(
+            func.count(Content.id).label("total"),
+            func.count(Content.id).filter(Content.status == "published").label("published"),
+            func.count(Content.id).filter(Content.created_at >= period_start).label("this_period"),
+            func.count(Content.id)
+            .filter(Content.created_at >= previous_start, Content.created_at < period_start)
+            .label("prev_period"),
+            func.count(Content.id)
+            .filter(Content.status == "draft", Content.created_at < stale_threshold)
+            .label("stale_drafts"),
+        )
     )
-    content_previous_period = previous_result.scalar() or 0
+    row = agg_result.one()
+    total_content = row.total or 0
+    published_content = row.published or 0
+    content_this_period = row.this_period or 0
+    content_previous_period = row.prev_period or 0
+    stale_drafts = row.stale_drafts or 0
 
-    # Calculate growth rate
+    # Growth rate
     growth_rate = 0.0
     if content_previous_period > 0:
         growth_rate = (content_this_period - content_previous_period) / content_previous_period * 100
 
-    # Content by status
+    # Content by status (separate GROUP BY query)
     status_result = await db.execute(select(Content.status, func.count(Content.id)).group_by(Content.status))
     content_by_status = {row[0]: row[1] for row in status_result.fetchall()}
-
-    # Draft content needing attention (older than 7 days)
-    stale_draft_result = await db.execute(
-        select(func.count(Content.id))
-        .where(Content.status == "draft")
-        .where(Content.created_at < now - timedelta(days=7))
-    )
-    stale_drafts = stale_draft_result.scalar() or 0
 
     return {
         "total_content": total_content,
@@ -75,27 +69,26 @@ async def get_user_kpis(
     db: AsyncSession,
     period_days: int = 30,
 ) -> dict:
-    """Get user-related KPIs."""
+    """Get user-related KPIs using batched conditional aggregation."""
     now = datetime.utcnow()
     period_start = now - timedelta(days=period_days)
 
-    # Total users
-    total_result = await db.execute(select(func.count(User.id)))
-    total_users = total_result.scalar() or 0
+    # Single query: total, active, new, 2fa
+    agg_result = await db.execute(
+        select(
+            func.count(User.id).label("total"),
+            func.count(User.id).filter(User.is_active.is_(True)).label("active"),
+            func.count(User.id).filter(User.created_at >= period_start).label("new"),
+            func.count(User.id).filter(User.two_factor_enabled.is_(True)).label("two_fa"),
+        )
+    )
+    row = agg_result.one()
+    total_users = row.total or 0
+    active_users = row.active or 0
+    new_users = row.new or 0
+    two_fa_users = row.two_fa or 0
 
-    # Active users
-    active_result = await db.execute(select(func.count(User.id)).where(User.is_active.is_(True)))
-    active_users = active_result.scalar() or 0
-
-    # New users in period
-    new_users_result = await db.execute(select(func.count(User.id)).where(User.created_at >= period_start))
-    new_users = new_users_result.scalar() or 0
-
-    # Users with 2FA enabled
-    two_fa_result = await db.execute(select(func.count(User.id)).where(User.two_factor_enabled.is_(True)))
-    two_fa_users = two_fa_result.scalar() or 0
-
-    # Active sessions
+    # Active sessions (different table, separate query)
     active_sessions_result = await db.execute(
         select(func.count(UserSession.id)).where(UserSession.is_active.is_(True)).where(UserSession.expires_at > now)
     )
