@@ -54,6 +54,9 @@ class Settings(BaseSettings):
     search_analytics_enabled: bool = True
     search_language: str = "english"
 
+    # Comment settings
+    comment_report_auto_flag_threshold: int = 3
+
     # Performance settings
     slow_query_threshold_ms: int = 100
     gzip_minimum_size: int = 500

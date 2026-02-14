@@ -4,7 +4,7 @@
 
 This document outlines the comprehensive development roadmap for the CMS Project, a FastAPI-based content management system with role-based access control, content versioning, and scheduling capabilities. The roadmap addresses code quality improvements, security enhancements, feature additions, performance optimizations, and infrastructure modernization.
 
-**Current Version:** 1.7.0
+**Current Version:** 1.8.0
 **Target Architecture:** Production-ready, scalable CMS platform
 **Technology Stack:** FastAPI, PostgreSQL, SQLAlchemy 2.0, JWT Authentication, React 18, Vite
 
@@ -15,6 +15,34 @@ This document outlines the comprehensive development roadmap for the CMS Project
 ### Completed Work Summary
 
 The following major features and improvements have been completed:
+
+#### Comment System Completion (v1.8.0)
+- [x] **Comment Reactions** - Like/dislike toggle with per-user tracking
+  - `CommentReaction` model with unique constraint per user per comment
+  - Toggle behavior: create, remove (same type), or switch (different type)
+  - Reaction counts endpoint with user's current reaction
+  - Files: `app/models/comment_engagement.py`, `app/services/comment_service.py`, `app/routes/comments.py`
+- [x] **Comment Reporting/Flagging** - Report comments with auto-flag threshold
+  - `CommentReport` model with reason enum (spam, harassment, inappropriate, other)
+  - Duplicate report prevention (unique constraint per user per comment)
+  - Auto-flag: comment set to PENDING after `COMMENT_REPORT_AUTO_FLAG_THRESHOLD` reports (default 3)
+  - Admin report review (mark as reviewed/dismissed)
+  - Files: `app/models/comment_engagement.py`, `app/services/comment_service.py`, `app/routes/comments.py`
+- [x] **Comment Edit History** - Track previous comment bodies on edit
+  - `CommentEditHistory` model saves previous body before each edit
+  - Edit history endpoint returns entries newest-first
+  - Files: `app/models/comment_engagement.py`, `app/services/comment_service.py`, `app/routes/comments.py`
+- [x] **Convenience Moderation Endpoints** - Quick approve/reject
+  - `POST /{comment_id}/approve` and `POST /{comment_id}/reject` endpoints
+  - Require admin/superadmin/editor role
+- [x] **Activity Logging** - All comment actions logged via `log_activity()`
+  - Actions: comment_create, comment_update, comment_delete, comment_moderate, comment_reaction, comment_report
+- [x] **Configuration** - `COMMENT_REPORT_AUTO_FLAG_THRESHOLD` setting (default 3)
+  - File: `app/config.py`
+- [x] **Alembic Migration** - 3 new tables: comment_reactions, comment_reports, comment_edit_history
+  - File: `alembic/versions/m3n4o5p6q7r8_add_comment_engagement.py`
+- [x] **Tests** - ~20 new tests across 5 test classes (reactions, reporting, edit history, convenience, activity logging)
+  - File: `test/test_comments.py`
 
 #### Performance Optimization (v1.7.0)
 - [x] **Database Query Monitoring** - Automatic instrumentation via SQLAlchemy event listeners
@@ -399,7 +427,7 @@ The following major features and improvements have been completed:
 1. ~~**No Media Management**: File upload/storage system missing~~ ✅ FIXED (v1.3.0) - Full media management with folders, search, bulk ops, image variants
 2. ~~**No Search Engine**: Full-text search not implemented~~ ✅ FIXED (v1.4.0) - PostgreSQL FTS with relevance scoring, facets, suggestions, analytics
 3. **No Email System**: Notifications only in-app
-4. **No Comment System**: User engagement features missing
+4. ~~**No Comment System**: User engagement features missing~~ ✅ FIXED (v1.8.0) - Full comment system with reactions, reporting, edit history
 5. **No Analytics**: Usage metrics not tracked
 6. ~~**No Backup System**: Data recovery strategy missing~~ ✅ FIXED (v1.2.17) - Full backup API with scheduling
 7. **Limited Workflow**: Only DRAFT → PENDING → PUBLISHED
@@ -709,24 +737,24 @@ The following major features and improvements have been completed:
 
 **Goal:** Enhance user engagement, add analytics, improve admin experience
 
-#### 3.1 Comment System
-- [ ] **Comment Infrastructure**
-  - Create comment model with threading support
-  - Add comment CRUD endpoints
-  - Implement comment moderation workflow
-  - New files: `models/comment.py`, `routes/comment.py`, `services/comment_service.py`
+#### 3.1 Comment System ✅ COMPLETED (v1.8.0)
+- [x] **Comment Infrastructure** ✅ COMPLETED
+  - Comment model with threading support (nested replies via parent_id)
+  - Comment CRUD endpoints (create, read, update, soft-delete)
+  - Comment moderation workflow (pending → approved/rejected/spam)
+  - Files: `app/models/comment.py`, `app/routes/comments.py`, `app/services/comment_service.py`
 
-- [ ] **Comment Features**
-  - Threaded/nested comments
-  - Comment reactions (like, dislike)
-  - Comment reporting/flagging
-  - Spam detection integration (Akismet)
+- [x] **Comment Features** ✅ COMPLETED
+  - Threaded/nested comments with selectin loading
+  - Comment reactions (like, dislike) with toggle behavior
+  - Comment reporting/flagging with auto-flag threshold
+  - ~~Spam detection integration (Akismet)~~ — deferred (external service)
 
-- [ ] **Moderation Tools**
-  - Admin comment approval/rejection
-  - Bulk comment operations
-  - User blocking/banning
-  - Comment edit history
+- [x] **Moderation Tools** ✅ COMPLETED
+  - Admin comment approval/rejection (including convenience POST approve/reject)
+  - Bulk comment operations (bulk moderate endpoint)
+  - ~~User blocking/banning~~ — deferred (separate scope)
+  - Comment edit history tracking
 
 #### 3.2 Analytics & Metrics
 - [ ] **Content Analytics**

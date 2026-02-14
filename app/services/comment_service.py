@@ -11,7 +11,16 @@ from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.config import settings
 from app.models.comment import Comment, CommentStatus
+from app.models.comment_engagement import (
+    CommentEditHistory,
+    CommentReaction,
+    CommentReport,
+    ReactionType,
+    ReportReason,
+    ReportStatus,
+)
 from app.models.content import Content
 
 logger = logging.getLogger(__name__)
@@ -171,6 +180,15 @@ class CommentService:
         if comment.is_deleted:
             raise ValueError("Cannot edit a deleted comment")
 
+        # Save edit history before updating
+        history_entry = CommentEditHistory(
+            comment_id=comment.id,
+            previous_body=comment.body,
+            edited_by=user_id,
+            edited_at=datetime.now(timezone.utc),
+        )
+        self.db.add(history_entry)
+
         comment.body = body
         comment.is_edited = True
         comment.edited_at = datetime.now(timezone.utc)
@@ -305,6 +323,209 @@ class CommentService:
 
         logger.info(f"Bulk moderation: {count} comments set to {status.value}")
         return count
+
+    # ==================== Reactions ====================
+
+    async def toggle_reaction(
+        self,
+        comment_id: int,
+        user_id: int,
+        reaction_type: ReactionType,
+    ) -> dict:
+        """
+        Toggle a reaction on a comment.
+
+        - If no reaction exists, create one.
+        - If same reaction type exists, remove it (toggle off).
+        - If different reaction type exists, switch to the new type.
+
+        Returns reaction counts and user's current reaction.
+        """
+        comment = await self.db.get(Comment, comment_id)
+        if not comment:
+            raise ValueError(f"Comment with ID {comment_id} not found")
+
+        # Check for existing reaction
+        result = await self.db.execute(
+            select(CommentReaction).where(
+                and_(
+                    CommentReaction.comment_id == comment_id,
+                    CommentReaction.user_id == user_id,
+                )
+            )
+        )
+        existing = result.scalar_one_or_none()
+
+        if existing:
+            if existing.reaction_type == reaction_type:
+                # Same type — toggle off (remove)
+                await self.db.delete(existing)
+            else:
+                # Different type — switch
+                existing.reaction_type = reaction_type
+        else:
+            # No existing reaction — create
+            reaction = CommentReaction(
+                comment_id=comment_id,
+                user_id=user_id,
+                reaction_type=reaction_type,
+            )
+            self.db.add(reaction)
+
+        await self.db.commit()
+
+        counts = await self.get_reaction_counts(comment_id)
+        user_reaction = await self.get_user_reaction(comment_id, user_id)
+
+        return {
+            **counts,
+            "user_reaction": user_reaction.value if user_reaction else None,
+        }
+
+    async def get_reaction_counts(self, comment_id: int) -> dict:
+        """Get like/dislike counts for a comment."""
+        result = await self.db.execute(
+            select(
+                func.count(CommentReaction.id)
+                .filter(CommentReaction.reaction_type == ReactionType.LIKE)
+                .label("likes"),
+                func.count(CommentReaction.id)
+                .filter(CommentReaction.reaction_type == ReactionType.DISLIKE)
+                .label("dislikes"),
+            ).where(CommentReaction.comment_id == comment_id)
+        )
+        row = result.one()
+        return {"like_count": row.likes or 0, "dislike_count": row.dislikes or 0}
+
+    async def get_user_reaction(self, comment_id: int, user_id: int) -> ReactionType | None:
+        """Get a user's reaction on a comment, or None."""
+        result = await self.db.execute(
+            select(CommentReaction.reaction_type).where(
+                and_(
+                    CommentReaction.comment_id == comment_id,
+                    CommentReaction.user_id == user_id,
+                )
+            )
+        )
+        row = result.scalar_one_or_none()
+        return row
+
+    # ==================== Reporting ====================
+
+    async def report_comment(
+        self,
+        comment_id: int,
+        user_id: int,
+        reason: ReportReason,
+        description: str | None = None,
+    ) -> CommentReport:
+        """
+        Report a comment. Each user can only report a comment once.
+        Auto-flags the comment if the report count meets the threshold.
+        """
+        comment = await self.db.get(Comment, comment_id)
+        if not comment:
+            raise ValueError(f"Comment with ID {comment_id} not found")
+
+        # Check for duplicate report
+        existing = await self.db.execute(
+            select(CommentReport).where(
+                and_(
+                    CommentReport.comment_id == comment_id,
+                    CommentReport.user_id == user_id,
+                )
+            )
+        )
+        if existing.scalar_one_or_none():
+            raise ValueError("You have already reported this comment")
+
+        report = CommentReport(
+            comment_id=comment_id,
+            user_id=user_id,
+            reason=reason,
+            description=description,
+        )
+        self.db.add(report)
+        await self.db.commit()
+        await self.db.refresh(report)
+
+        # Auto-flag: check report count against threshold
+        count_result = await self.db.execute(
+            select(func.count(CommentReport.id)).where(CommentReport.comment_id == comment_id)
+        )
+        report_count = count_result.scalar() or 0
+
+        if report_count >= settings.comment_report_auto_flag_threshold and comment.status != CommentStatus.SPAM:
+            comment.status = CommentStatus.PENDING
+            comment.updated_at = datetime.now(timezone.utc)
+            await self.db.commit()
+            logger.warning(f"Comment {comment_id} auto-flagged after {report_count} reports")
+
+        logger.info(f"Comment reported: comment={comment_id}, user={user_id}, reason={reason.value}")
+        return report
+
+    async def get_comment_reports(
+        self,
+        comment_id: int,
+        skip: int = 0,
+        limit: int = 50,
+    ) -> list[CommentReport]:
+        """Get reports for a specific comment."""
+        result = await self.db.execute(
+            select(CommentReport)
+            .where(CommentReport.comment_id == comment_id)
+            .order_by(CommentReport.created_at.desc())
+            .offset(skip)
+            .limit(limit)
+        )
+        return list(result.scalars().all())
+
+    async def get_pending_reports(
+        self,
+        skip: int = 0,
+        limit: int = 50,
+    ) -> list[CommentReport]:
+        """Get all pending reports for moderation."""
+        result = await self.db.execute(
+            select(CommentReport)
+            .where(CommentReport.status == ReportStatus.PENDING)
+            .order_by(CommentReport.created_at.asc())
+            .offset(skip)
+            .limit(limit)
+        )
+        return list(result.scalars().all())
+
+    async def review_report(
+        self,
+        report_id: int,
+        reviewer_id: int,
+        status: ReportStatus,
+    ) -> CommentReport | None:
+        """Mark a report as reviewed or dismissed."""
+        report = await self.db.get(CommentReport, report_id)
+        if not report:
+            return None
+
+        report.status = status
+        report.reviewed_by = reviewer_id
+        report.reviewed_at = datetime.now(timezone.utc)
+
+        await self.db.commit()
+        await self.db.refresh(report)
+
+        logger.info(f"Report reviewed: id={report_id}, status={status.value}, reviewer={reviewer_id}")
+        return report
+
+    # ==================== Edit History ====================
+
+    async def get_edit_history(self, comment_id: int) -> list[CommentEditHistory]:
+        """Get edit history for a comment, newest first."""
+        result = await self.db.execute(
+            select(CommentEditHistory)
+            .where(CommentEditHistory.comment_id == comment_id)
+            .order_by(CommentEditHistory.edited_at.desc())
+        )
+        return list(result.scalars().all())
 
 
 # Dependency for FastAPI

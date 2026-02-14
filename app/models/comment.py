@@ -77,6 +77,13 @@ class Comment(Base):
         lazy="selectin",
     )
 
+    # Engagement relationships
+    reactions = relationship("CommentReaction", back_populates="comment", cascade="all, delete-orphan", lazy="selectin")
+    reports = relationship("CommentReport", back_populates="comment", cascade="all, delete-orphan", lazy="noload")
+    edit_history = relationship(
+        "CommentEditHistory", back_populates="comment", cascade="all, delete-orphan", lazy="noload"
+    )
+
     # Indexes for common queries
     __table_args__ = (
         Index("ix_comments_content_status", "content_id", "status"),

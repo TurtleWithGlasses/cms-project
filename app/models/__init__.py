@@ -3,6 +3,14 @@ from .api_key import APIKey, APIKeyScope
 from .backup import Backup, BackupSchedule, BackupStatus, BackupType
 from .category import Category
 from .comment import Comment, CommentStatus
+from .comment_engagement import (
+    CommentEditHistory,
+    CommentReaction,
+    CommentReport,
+    ReactionType,
+    ReportReason,
+    ReportStatus,
+)
 from .content import Content
 from .content_relations import (
     ContentRedirect,
@@ -67,6 +75,9 @@ __all__ = [
     "BackupType",
     "Category",
     "Comment",
+    "CommentEditHistory",
+    "CommentReaction",
+    "CommentReport",
     "CommentStatus",
     "Content",
     "content_tags",
@@ -97,7 +108,10 @@ __all__ = [
     "NotificationQueue",
     "NotificationTemplate",
     "PasswordResetToken",
+    "ReactionType",
     "RelationType",
+    "ReportReason",
+    "ReportStatus",
     "Role",
     "SearchQuery",
     "Tag",
