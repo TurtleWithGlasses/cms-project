@@ -28,6 +28,7 @@ from .content_template import (
     TemplateStatus,
 )
 from .content_version import ContentVersion
+from .content_view import ContentView
 from .import_job import (
     DuplicateHandling,
     ExportJob,
@@ -87,6 +88,7 @@ __all__ = [
     "ContentSeriesItem",
     "ContentTemplate",
     "ContentVersion",
+    "ContentView",
     "DigestFrequency",
     "DuplicateHandling",
     "ExportJob",

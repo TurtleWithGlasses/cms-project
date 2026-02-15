@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.activity_log import ActivityLog
 from app.models.comment import Comment, CommentStatus
 from app.models.content import Content
+from app.models.content_view import ContentView
 from app.models.import_job import ImportJob, ImportStatus
 from app.models.user import User
 from app.models.user_session import UserSession
@@ -115,13 +116,13 @@ async def get_activity_kpis(
     period_start = now - timedelta(days=period_days)
 
     # Total actions in period
-    total_result = await db.execute(select(func.count(ActivityLog.id)).where(ActivityLog.created_at >= period_start))
+    total_result = await db.execute(select(func.count(ActivityLog.id)).where(ActivityLog.timestamp >= period_start))
     total_actions = total_result.scalar() or 0
 
     # Actions by type
     actions_by_type_result = await db.execute(
         select(ActivityLog.action, func.count(ActivityLog.id))
-        .where(ActivityLog.created_at >= period_start)
+        .where(ActivityLog.timestamp >= period_start)
         .group_by(ActivityLog.action)
         .order_by(func.count(ActivityLog.id).desc())
         .limit(10)
@@ -131,7 +132,7 @@ async def get_activity_kpis(
     # Most active users
     active_users_result = await db.execute(
         select(ActivityLog.user_id, func.count(ActivityLog.id))
-        .where(ActivityLog.created_at >= period_start)
+        .where(ActivityLog.timestamp >= period_start)
         .where(ActivityLog.user_id.isnot(None))
         .group_by(ActivityLog.user_id)
         .order_by(func.count(ActivityLog.id).desc())
@@ -142,12 +143,12 @@ async def get_activity_kpis(
     # Daily activity breakdown
     daily_result = await db.execute(
         select(
-            func.date(ActivityLog.created_at).label("date"),
+            func.date(ActivityLog.timestamp).label("date"),
             func.count(ActivityLog.id),
         )
-        .where(ActivityLog.created_at >= period_start)
-        .group_by(func.date(ActivityLog.created_at))
-        .order_by(func.date(ActivityLog.created_at))
+        .where(ActivityLog.timestamp >= period_start)
+        .group_by(func.date(ActivityLog.timestamp))
+        .order_by(func.date(ActivityLog.timestamp))
     )
     daily_activity = [{"date": str(row[0]), "count": row[1]} for row in daily_result.fetchall()]
 
@@ -284,7 +285,7 @@ async def get_system_health(db: AsyncSession) -> dict:
         db_status = f"error: {e!s}"
 
     # Recent activity (indicator of system usage)
-    activity_result = await db.execute(select(func.count(ActivityLog.id)).where(ActivityLog.created_at >= one_hour_ago))
+    activity_result = await db.execute(select(func.count(ActivityLog.id)).where(ActivityLog.timestamp >= one_hour_ago))
     recent_activity = activity_result.scalar() or 0
 
     # Active sessions
@@ -322,8 +323,8 @@ async def get_user_activity_timeline(
     result = await db.execute(
         select(ActivityLog)
         .where(ActivityLog.user_id == user_id)
-        .where(ActivityLog.created_at >= period_start)
-        .order_by(ActivityLog.created_at.desc())
+        .where(ActivityLog.timestamp >= period_start)
+        .order_by(ActivityLog.timestamp.desc())
         .limit(100)
     )
 
@@ -331,10 +332,9 @@ async def get_user_activity_timeline(
         {
             "id": log.id,
             "action": log.action,
-            "resource_type": log.resource_type,
-            "resource_id": log.resource_id,
+            "content_id": log.content_id,
             "details": log.details,
-            "created_at": log.created_at.isoformat(),
+            "timestamp": log.timestamp.isoformat(),
         }
         for log in result.scalars().all()
     ]
@@ -345,22 +345,33 @@ async def get_content_performance(
     period_days: int = 30,
     limit: int = 10,
 ) -> list[dict]:
-    """Get top performing content based on engagement."""
+    """Get top performing content based on engagement (comments + views)."""
     period_start = datetime.utcnow() - timedelta(days=period_days)
 
-    # Content with most comments in period
+    # Subquery for view counts
+    view_subq = (
+        select(
+            ContentView.content_id,
+            func.count(ContentView.id).label("view_count"),
+        )
+        .where(ContentView.created_at >= period_start)
+        .group_by(ContentView.content_id)
+        .subquery()
+    )
+
     result = await db.execute(
         select(
             Content.id,
             Content.title,
             Content.status,
             func.count(Comment.id).label("comment_count"),
+            func.coalesce(view_subq.c.view_count, 0).label("view_count"),
         )
         .outerjoin(Comment, Content.id == Comment.content_id)
+        .outerjoin(view_subq, Content.id == view_subq.c.content_id)
         .where(Content.status == "published")
-        .where(Comment.created_at >= period_start)
-        .group_by(Content.id)
-        .order_by(func.count(Comment.id).desc())
+        .group_by(Content.id, view_subq.c.view_count)
+        .order_by((func.count(Comment.id) + func.coalesce(view_subq.c.view_count, 0)).desc())
         .limit(limit)
     )
 
@@ -370,6 +381,7 @@ async def get_content_performance(
             "title": row[1],
             "status": row[2],
             "comment_count": row[3],
+            "view_count": row[4],
         }
         for row in result.fetchall()
     ]

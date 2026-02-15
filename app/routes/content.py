@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
+from starlette.requests import Request
 
 from app.auth import get_current_user, get_current_user_with_role
 from app.database import get_db
@@ -508,3 +509,39 @@ async def get_recent_content_endpoint(
     from app.services.search_service import search_service
 
     return await search_service.get_recent_content(db=db, status=status, limit=limit)
+
+
+@router.post("/{content_id}/views")
+async def record_content_view(
+    content_id: int,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Record a content view for analytics.
+
+    This is a public endpoint. Deduplicates views within a 30-minute window
+    per user/IP.
+    """
+    from app.services.analytics_service import analytics_service
+
+    # Verify content exists
+    content = await db.get(Content, content_id)
+    if not content:
+        raise HTTPException(status_code=404, detail="Content not found")
+
+    # Extract client info
+    ip_address = request.client.host if request.client else None
+    user_agent = request.headers.get("user-agent")
+    referrer = request.headers.get("referer")
+
+    recorded = await analytics_service.record_content_view(
+        db=db,
+        content_id=content_id,
+        user_id=None,
+        ip_address=ip_address,
+        user_agent=user_agent,
+        referrer=referrer,
+    )
+
+    return {"recorded": recorded, "content_id": content_id}

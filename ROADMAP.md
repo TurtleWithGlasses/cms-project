@@ -4,7 +4,7 @@
 
 This document outlines the comprehensive development roadmap for the CMS Project, a FastAPI-based content management system with role-based access control, content versioning, and scheduling capabilities. The roadmap addresses code quality improvements, security enhancements, feature additions, performance optimizations, and infrastructure modernization.
 
-**Current Version:** 1.8.0
+**Current Version:** 1.9.0
 **Target Architecture:** Production-ready, scalable CMS platform
 **Technology Stack:** FastAPI, PostgreSQL, SQLAlchemy 2.0, JWT Authentication, React 18, Vite
 
@@ -15,6 +15,27 @@ This document outlines the comprehensive development roadmap for the CMS Project
 ### Completed Work Summary
 
 The following major features and improvements have been completed:
+
+#### Analytics & Metrics (v1.9.0)
+- [x] **Dashboard Bug Fixes** - Fixed `ActivityLog.created_at` → `timestamp` and removed non-existent column references
+- [x] **Content View Tracking** - New `ContentView` model with 30-minute deduplication
+  - `POST /content/{id}/views` endpoint for recording views
+  - Deduplicates by user_id or IP within 30-minute window
+  - Files: `app/models/content_view.py`, `alembic/versions/n4o5p6q7r8s9_add_content_views.py`
+- [x] **Content Analytics** - View stats, popular content rankings, read time estimation
+  - `GET /analytics/content/popular` - Top content by view count
+  - `GET /analytics/content/{id}/views` - View stats with daily breakdown
+  - `AnalyticsService.estimate_read_time()` - Word count based estimation
+  - File: `app/services/analytics_service.py`
+- [x] **Session Analytics** - Device and browser breakdown from UserSession data
+  - `GET /analytics/sessions` - Active sessions, device/browser stats
+- [x] **Metrics Summary** - JSON endpoint for key Prometheus metrics
+  - `GET /metrics/summary` - HTTP stats, DB queries, cache hit rates
+  - File: `app/routes/monitoring.py`
+- [x] **Dashboard Enhancement** - Content performance now includes view_count
+  - File: `app/services/dashboard_service.py`
+- [x] **Tests** - ~15 new tests across 5 test classes
+  - File: `test/test_analytics.py`
 
 #### Comment System Completion (v1.8.0)
 - [x] **Comment Reactions** - Like/dislike toggle with per-user tracking
@@ -756,26 +777,24 @@ The following major features and improvements have been completed:
   - ~~User blocking/banning~~ — deferred (separate scope)
   - Comment edit history tracking
 
-#### 3.2 Analytics & Metrics
-- [ ] **Content Analytics**
-  - Track content views/impressions
-  - Add read time estimation
-  - Popular content rankings
-  - Author performance metrics
-  - New files: `models/analytics.py`, `services/analytics_service.py`
+#### 3.2 Analytics & Metrics ✅ (v1.9.0)
+- [x] **Content Analytics**
+  - Content view tracking with 30-minute deduplication (`ContentView` model)
+  - Read time estimation (~200 words/min)
+  - Popular content rankings by view count
+  - View stats with daily breakdown and unique visitors
+  - Files: `app/models/content_view.py`, `app/services/analytics_service.py`
 
-- [ ] **User Analytics**
-  - User activity tracking
-  - Login/session analytics
-  - User engagement metrics
-  - Retention analysis
+- [x] **User Analytics**
+  - User activity tracking (existing `ActivityLog`)
+  - Session analytics with device/browser breakdown
+  - Dashboard bug fixes (fixed `ActivityLog` column references)
 
-- [ ] **System Metrics**
-  - API endpoint performance metrics
-  - Database query performance
-  - Cache hit rates
-  - Error rate tracking
-  - Integrate Prometheus/Grafana
+- [x] **System Metrics**
+  - Prometheus metrics (already wired via `PrometheusMiddleware`)
+  - JSON metrics summary endpoint (`GET /metrics/summary`)
+  - HTTP request stats, DB query counts, cache hit rates
+  - Dashboard content performance now includes view_count
 
 #### 3.3 Admin Dashboard Enhancement
 - [ ] **Improved Admin UI**

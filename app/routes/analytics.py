@@ -162,3 +162,69 @@ async def get_my_performance(
     - Your media uploads and storage usage
     """
     return await analytics_service.get_user_performance_report(db, current_user.id)
+
+
+@router.get("/analytics/content/popular")
+async def get_popular_content(
+    days: int = 30,
+    limit: int = 10,
+    current_user: User = Depends(get_current_user_with_role([RoleEnum.ADMIN, RoleEnum.SUPERADMIN, RoleEnum.MANAGER])),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Get most popular content ranked by view count.
+
+    **Requires**: Admin, Superadmin, or Manager role
+
+    **Parameters**:
+    - days: Analysis period in days (default: 30, max: 365)
+    - limit: Maximum results (default: 10, max: 50)
+    """
+    if days > 365:
+        days = 365
+    if limit > 50:
+        limit = 50
+
+    return await analytics_service.get_popular_content(db, days=days, limit=limit)
+
+
+@router.get("/analytics/content/{content_id}/views")
+async def get_content_view_stats(
+    content_id: int,
+    days: int = 30,
+    current_user: User = Depends(get_current_user_with_role([RoleEnum.ADMIN, RoleEnum.SUPERADMIN, RoleEnum.MANAGER])),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Get view statistics for a specific content item.
+
+    **Requires**: Admin, Superadmin, or Manager role
+
+    **Parameters**:
+    - content_id: Content ID
+    - days: Analysis period in days (default: 30, max: 365)
+    """
+    if days > 365:
+        days = 365
+
+    return await analytics_service.get_content_view_stats(db, content_id, days=days)
+
+
+@router.get("/analytics/sessions")
+async def get_session_analytics(
+    days: int = 30,
+    current_user: User = Depends(get_current_user_with_role([RoleEnum.ADMIN, RoleEnum.SUPERADMIN])),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Get session analytics including device and browser breakdown.
+
+    **Requires**: Admin or Superadmin role
+
+    **Parameters**:
+    - days: Analysis period in days (default: 30, max: 365)
+    """
+    if days > 365:
+        days = 365
+
+    return await analytics_service.get_session_analytics(db, days=days)

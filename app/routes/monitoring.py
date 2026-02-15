@@ -157,6 +157,78 @@ async def prometheus_metrics() -> Response:
     )
 
 
+@router.get("/metrics/summary")
+async def metrics_summary() -> dict[str, Any]:
+    """
+    JSON summary of key application metrics from Prometheus collectors.
+
+    Returns human-readable metrics for dashboards without requiring
+    a Prometheus server.
+    """
+    from app.utils.metrics import (
+        APP_UPTIME_SECONDS,
+        CACHE_HITS_TOTAL,
+        CACHE_MISSES_TOTAL,
+        DB_QUERIES_TOTAL,
+        HTTP_REQUESTS_IN_PROGRESS,
+        HTTP_REQUESTS_TOTAL,
+    )
+
+    # HTTP request metrics
+    total_requests = 0
+    error_requests = 0
+    for sample in HTTP_REQUESTS_TOTAL.collect()[0].samples:
+        val = int(sample.value)
+        total_requests += val
+        status = sample.labels.get("status_code", "")
+        if status.startswith("5"):
+            error_requests += val
+
+    in_progress = 0
+    for sample in HTTP_REQUESTS_IN_PROGRESS.collect()[0].samples:
+        in_progress += int(sample.value)
+
+    # DB query metrics
+    total_db_queries = 0
+    for sample in DB_QUERIES_TOTAL.collect()[0].samples:
+        total_db_queries += int(sample.value)
+
+    # Cache metrics
+    total_hits = 0
+    total_misses = 0
+    for sample in CACHE_HITS_TOTAL.collect()[0].samples:
+        total_hits += int(sample.value)
+    for sample in CACHE_MISSES_TOTAL.collect()[0].samples:
+        total_misses += int(sample.value)
+
+    cache_total = total_hits + total_misses
+    cache_hit_rate = round((total_hits / cache_total * 100) if cache_total > 0 else 0, 2)
+
+    # Uptime
+    uptime = 0.0
+    for sample in APP_UPTIME_SECONDS.collect()[0].samples:
+        uptime = sample.value
+
+    return {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "uptime_seconds": round(uptime, 2),
+        "http": {
+            "total_requests": total_requests,
+            "error_requests": error_requests,
+            "error_rate_percent": round((error_requests / total_requests * 100) if total_requests > 0 else 0, 2),
+            "in_progress": in_progress,
+        },
+        "database": {
+            "total_queries": total_db_queries,
+        },
+        "cache": {
+            "hits": total_hits,
+            "misses": total_misses,
+            "hit_rate_percent": cache_hit_rate,
+        },
+    }
+
+
 async def _check_database(db: AsyncSession) -> dict[str, Any]:
     """Check database connectivity and update health metrics."""
     try:

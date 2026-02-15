@@ -49,6 +49,9 @@ class Content(Base):
     # Comment relationship
     comments = relationship("Comment", back_populates="content", cascade="all, delete-orphan", lazy="selectin")
 
+    # View tracking
+    views = relationship("ContentView", back_populates="content", cascade="all, delete-orphan", lazy="noload")
+
     # Unique constraint for slug and performance indexes
     __table_args__ = (
         UniqueConstraint("slug", name="unique_slug"),
