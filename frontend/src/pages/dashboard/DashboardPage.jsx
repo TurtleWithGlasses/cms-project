@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { dashboardApi } from '../../services/api'
+import { useWebSocket } from '../../hooks/useWebSocket'
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card'
 import { SkeletonDashboard } from '../../components/ui/Skeleton'
 import {
@@ -51,6 +52,9 @@ function StatCard({ title, value, change, icon: Icon, iconColor = 'text-primary-
 }
 
 function DashboardPage() {
+  // Real-time updates via WebSocket
+  const { isConnected } = useWebSocket({ channels: ['content', 'comments'] })
+
   const {
     data: summary,
     isLoading: summaryLoading,
@@ -122,9 +126,17 @@ function DashboardPage() {
   return (
     <div className="space-y-6">
       {/* Page header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
-        <p className="text-gray-500 dark:text-gray-400 mt-1">Overview of your CMS performance</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
+          <p className="text-gray-500 dark:text-gray-400 mt-1">Overview of your CMS performance</p>
+        </div>
+        {isConnected && (
+          <span className="flex items-center gap-1.5 text-xs text-green-600 dark:text-green-400">
+            <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+            Live
+          </span>
+        )}
       </div>
 
       {/* Stats grid */}

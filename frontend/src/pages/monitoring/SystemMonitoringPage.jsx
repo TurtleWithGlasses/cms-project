@@ -107,6 +107,16 @@ function SystemMonitoringPage() {
     refetchInterval: autoRefresh ? 30000 : false,
   })
 
+  // Fetch metrics summary
+  const { data: metricsData } = useQuery({
+    queryKey: ['monitoring', 'metrics-summary'],
+    queryFn: async () => {
+      const response = await monitoringApi.getMetricsSummary()
+      return response.data
+    },
+    refetchInterval: autoRefresh ? 30000 : false,
+  })
+
   const refetchAll = () => {
     refetchHealth()
   }
@@ -287,6 +297,46 @@ function SystemMonitoringPage() {
                   </div>
                 </div>
               ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Application Metrics */}
+      {metricsData && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Activity className="h-5 w-5" />
+              Application Metrics
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg text-center">
+                <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                  {metricsData.http?.total_requests?.toLocaleString() || 0}
+                </p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Total Requests</p>
+              </div>
+              <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg text-center">
+                <p className={`text-2xl font-bold ${(metricsData.http?.error_rate_percent || 0) > 5 ? 'text-red-600' : 'text-green-600'}`}>
+                  {metricsData.http?.error_rate_percent || 0}%
+                </p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Error Rate</p>
+              </div>
+              <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg text-center">
+                <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                  {metricsData.database?.total_queries?.toLocaleString() || 0}
+                </p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">DB Queries</p>
+              </div>
+              <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg text-center">
+                <p className={`text-2xl font-bold ${(metricsData.cache?.hit_rate_percent || 0) > 50 ? 'text-green-600' : 'text-yellow-600'}`}>
+                  {metricsData.cache?.hit_rate_percent || 0}%
+                </p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Cache Hit Rate</p>
+              </div>
             </div>
           </CardContent>
         </Card>

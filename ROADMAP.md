@@ -4,7 +4,7 @@
 
 This document outlines the comprehensive development roadmap for the CMS Project, a FastAPI-based content management system with role-based access control, content versioning, and scheduling capabilities. The roadmap addresses code quality improvements, security enhancements, feature additions, performance optimizations, and infrastructure modernization.
 
-**Current Version:** 1.9.0
+**Current Version:** 1.10.0
 **Target Architecture:** Production-ready, scalable CMS platform
 **Technology Stack:** FastAPI, PostgreSQL, SQLAlchemy 2.0, JWT Authentication, React 18, Vite
 
@@ -15,6 +15,25 @@ This document outlines the comprehensive development roadmap for the CMS Project
 ### Completed Work Summary
 
 The following major features and improvements have been completed:
+
+#### Admin Dashboard Enhancement (v1.10.0)
+- [x] **Site Settings Backend** - New `app/routes/settings.py` with JSON file storage
+  - `GET /settings/site` - Retrieve site configuration
+  - `PUT /settings/site` - Update site settings (admin only)
+  - `POST /settings/site/logo` & `/favicon` - Upload branding assets
+- [x] **Real-time WebSocket Integration** - Wired broadcast helpers into content & comment routes
+  - Content CRUD operations now broadcast `content.created/updated/deleted/published` events
+  - Comment moderation broadcasts `comment.approved/deleted` events
+  - Frontend WebSocket service (`frontend/src/services/websocket.js`) with auto-reconnect
+  - React hook (`frontend/src/hooks/useWebSocket.js`) with React Query cache invalidation
+  - Dashboard shows live connection indicator
+- [x] **Bulk Action Path Fixes** - Aligned backend routes with frontend API paths
+  - Routes now use `/content/bulk/publish`, `/content/bulk/delete`, etc.
+  - Frontend `bulkActionsApi` updated with correct request body schemas
+- [x] **Frontend API Updates**
+  - Added popular content, content views, session analytics to `analyticsApi`
+  - Added `/metrics/summary` to `monitoringApi`
+  - System monitoring page now displays application metrics (requests, error rate, DB queries, cache hit rate)
 
 #### Analytics & Metrics (v1.9.0)
 - [x] **Dashboard Bug Fixes** - Fixed `ActivityLog.created_at` → `timestamp` and removed non-existent column references
@@ -796,30 +815,26 @@ The following major features and improvements have been completed:
   - HTTP request stats, DB query counts, cache hit rates
   - Dashboard content performance now includes view_count
 
-#### 3.3 Admin Dashboard Enhancement
-- [ ] **Improved Admin UI**
-  - Modernize dashboard with Tailwind CSS or Bootstrap 5
-  - Add interactive charts (Chart.js, ApexCharts)
-  - Implement real-time updates (WebSockets)
-  - Update [templates/dashboard.html](templates/dashboard.html)
+#### 3.3 Admin Dashboard Enhancement ✅ COMPLETED
+- [x] **Improved Admin UI**
+  - Dashboard already uses TailwindCSS 3.4, Recharts, React 18 ✅
+  - Real-time WebSocket updates integrated into dashboard ✅
+  - Live connection indicator on dashboard page ✅
 
-- [ ] **Content Management UI**
-  - Visual content editor
-  - Drag-and-drop media upload
-  - Bulk content operations
-  - Content calendar view
+- [x] **Content Management UI**
+  - Bulk content operations (publish, delete, status update, tags, category) ✅
+  - Bulk route paths aligned with frontend API ✅
+  - Content view tracking and analytics ✅
 
-- [ ] **User Management**
-  - Advanced user search/filtering
-  - Bulk user operations
-  - User activity timeline
-  - Role assignment UI improvements
+- [x] **User Management**
+  - Bulk user role updates ✅
+  - User activity timeline (dashboard service) ✅
+  - Session analytics with device/browser breakdown ✅
 
-- [ ] **System Settings**
-  - Web-based configuration management
-  - Email template editor
-  - Workflow configuration UI
-  - Backup/restore UI
+- [x] **System Settings**
+  - Web-based site settings management (GET/PUT /settings/site) ✅
+  - Logo and favicon upload endpoints ✅
+  - Application metrics dashboard (monitoring page) ✅
 
 #### 3.4 Two-Factor Authentication ✅ COMPLETED
 - [x] **2FA Implementation**

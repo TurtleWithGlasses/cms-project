@@ -17,6 +17,7 @@ from app.scheduler import schedule_content
 from app.schemas.content import ContentCreate, ContentResponse, ContentUpdate
 from app.schemas.content_version import ContentVersionOut
 from app.services import content_service, content_version_service
+from app.services.websocket_manager import broadcast_content_event
 from app.utils.activity_log import log_activity
 from app.utils.cache import CacheManager, cache_manager
 from app.utils.field_selector import FieldSelector
@@ -90,6 +91,12 @@ async def create_draft(
         # Invalidate content list cache
         await cache_manager.invalidate_content()
 
+        # Broadcast WebSocket event
+        try:
+            await broadcast_content_event("content.created", new_content.id, new_content.title, current_user.id)
+        except Exception as e:
+            logger.warning(f"WebSocket broadcast failed: {e}")
+
         return new_content
 
     except Exception as e:
@@ -162,6 +169,14 @@ async def update_content(
 
         # Invalidate content cache
         await cache_manager.invalidate_content(content_id)
+
+        # Broadcast WebSocket event
+        try:
+            await broadcast_content_event(
+                "content.updated", content_id, existing_content.title, existing_content.author_id
+            )
+        except Exception as e:
+            logger.warning(f"WebSocket broadcast failed: {e}")
 
     except Exception as e:
         await db.rollback()
@@ -256,6 +271,12 @@ async def approve_content(
 
         # Invalidate content cache
         await cache_manager.invalidate_content(content_id)
+
+        # Broadcast WebSocket event
+        try:
+            await broadcast_content_event("content.published", content.id, content.title, current_user.id)
+        except Exception as ws_err:
+            logger.warning(f"WebSocket broadcast failed: {ws_err}")
 
     except Exception as e:
         await db.rollback()

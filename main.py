@@ -66,6 +66,7 @@ from app.routes import (
     roles,
     search,
     seo,
+    settings as settings_routes,
     teams,
     templates as templates_routes,
     two_factor,
@@ -244,6 +245,9 @@ def create_app() -> FastAPI:
 
     # Content relations routes
     app.include_router(content_relations.router, prefix="/api/v1", tags=["Content Relations"])
+
+    # Site settings routes
+    app.include_router(settings_routes.router, prefix="/api/v1", tags=["Settings"])
 
     # Configure rate limiting
     configure_rate_limiting(app)

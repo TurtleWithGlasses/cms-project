@@ -4,6 +4,7 @@ Comment Routes
 API endpoints for comment management with moderation support.
 """
 
+import contextlib
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -16,6 +17,7 @@ from app.models.comment import CommentStatus
 from app.models.comment_engagement import ReactionType, ReportReason, ReportStatus
 from app.models.user import User
 from app.services.comment_service import CommentService
+from app.services.websocket_manager import broadcast_comment_event
 from app.utils.activity_log import log_activity
 
 router = APIRouter(tags=["Comments"])
@@ -321,6 +323,10 @@ async def delete_comment(
             user_id=current_user.id,
             description=f"Deleted comment {comment_id}",
         )
+
+        # Broadcast WebSocket event (non-critical)
+        with contextlib.suppress(Exception):
+            await broadcast_comment_event("comment.deleted", comment_id, 0, current_user.id)
 
     except PermissionError as e:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e)) from e
@@ -673,6 +679,10 @@ async def approve_comment(
         description=f"Approved comment {comment_id}",
         details={"comment_id": comment_id, "new_status": "approved"},
     )
+
+    # Broadcast WebSocket event (non-critical)
+    with contextlib.suppress(Exception):
+        await broadcast_comment_event("comment.approved", comment_id, comment.content_id, current_user.id)
 
     comment = await service.get_comment(comment.id)
     return _comment_to_response(comment)

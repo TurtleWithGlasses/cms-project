@@ -25,7 +25,7 @@ from app.services.bulk_operations_service import bulk_operations_service
 router = APIRouter(tags=["Bulk Operations"])
 
 
-@router.post("/content/publish", response_model=BulkOperationResponse)
+@router.post("/content/bulk/publish", response_model=BulkOperationResponse)
 async def bulk_publish_content(
     request: BulkContentPublishRequest,
     current_user: User = Depends(get_current_user_with_role([RoleEnum.ADMIN, RoleEnum.SUPERADMIN, RoleEnum.MANAGER])),
@@ -55,7 +55,7 @@ async def bulk_publish_content(
     )
 
 
-@router.post("/content/update-status", response_model=BulkOperationResponse)
+@router.post("/content/bulk/update-status", response_model=BulkOperationResponse)
 async def bulk_update_content_status(
     request: BulkContentStatusUpdateRequest,
     current_user: User = Depends(get_current_user_with_role([RoleEnum.ADMIN, RoleEnum.SUPERADMIN, RoleEnum.MANAGER])),
@@ -87,7 +87,7 @@ async def bulk_update_content_status(
     )
 
 
-@router.post("/content/delete", response_model=BulkOperationResponse, status_code=status.HTTP_200_OK)
+@router.post("/content/bulk/delete", response_model=BulkOperationResponse, status_code=status.HTTP_200_OK)
 async def bulk_delete_content(
     request: BulkContentDeleteRequest,
     current_user: User = Depends(get_current_user_with_role([RoleEnum.ADMIN, RoleEnum.SUPERADMIN])),
@@ -115,7 +115,7 @@ async def bulk_delete_content(
     )
 
 
-@router.post("/content/assign-tags", response_model=BulkOperationResponse)
+@router.post("/content/bulk/assign-tags", response_model=BulkOperationResponse)
 async def bulk_assign_tags(
     request: BulkTagAssignRequest,
     current_user: User = Depends(get_current_user_with_role([RoleEnum.ADMIN, RoleEnum.SUPERADMIN, RoleEnum.EDITOR])),
@@ -145,7 +145,7 @@ async def bulk_assign_tags(
     )
 
 
-@router.post("/content/update-category", response_model=BulkOperationResponse)
+@router.post("/content/bulk/update-category", response_model=BulkOperationResponse)
 async def bulk_update_category(
     request: BulkCategoryUpdateRequest,
     current_user: User = Depends(get_current_user_with_role([RoleEnum.ADMIN, RoleEnum.SUPERADMIN, RoleEnum.EDITOR])),
@@ -174,7 +174,7 @@ async def bulk_update_category(
     )
 
 
-@router.post("/users/update-roles", response_model=BulkOperationResponse)
+@router.post("/users/bulk/update-roles", response_model=BulkOperationResponse)
 async def bulk_update_user_roles(
     request: BulkUserRoleUpdateRequest,
     current_user: User = Depends(get_current_user_with_role([RoleEnum.ADMIN, RoleEnum.SUPERADMIN])),

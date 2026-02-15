@@ -209,6 +209,9 @@ export const analyticsApi = {
   getMediaStats: () => api.get('/analytics/media'),
   getMyPerformance: () => api.get('/analytics/my-performance'),
   getUserPerformance: (userId) => api.get(`/analytics/user/${userId}/performance`),
+  getPopularContent: (days = 30, limit = 10) => api.get('/analytics/content/popular', { params: { days, limit } }),
+  getContentViews: (contentId, days = 30) => api.get(`/analytics/content/${contentId}/views`, { params: { days } }),
+  getSessionAnalytics: (days = 30) => api.get('/analytics/sessions', { params: { days } }),
 }
 
 // Monitoring API - Note: health endpoints are at root level, not under /monitoring
@@ -217,6 +220,7 @@ export const monitoringApi = {
   getReadiness: () => axios.get('/ready'),
   getDetailedHealth: () => axios.get('/health/detailed'),
   getMetrics: () => axios.get('/metrics'),
+  getMetricsSummary: () => axios.get('/metrics/summary'),
 }
 
 // Workflow API
@@ -271,13 +275,12 @@ export const cacheApi = {
 
 // Bulk Actions API
 export const bulkActionsApi = {
-  publish: (ids) => api.post('/content/bulk/publish', { ids }),
-  unpublish: (ids) => api.post('/content/bulk/unpublish', { ids }),
-  archive: (ids) => api.post('/content/bulk/archive', { ids }),
-  delete: (ids) => api.post('/content/bulk/delete', { ids }),
-  updateCategory: (ids, categoryId) => api.post('/content/bulk/category', { ids, category_id: categoryId }),
-  addTags: (ids, tagIds) => api.post('/content/bulk/tags/add', { ids, tag_ids: tagIds }),
-  removeTags: (ids, tagIds) => api.post('/content/bulk/tags/remove', { ids, tag_ids: tagIds }),
+  publish: (ids) => api.post('/content/bulk/publish', { content_ids: ids }),
+  updateStatus: (ids, status) => api.post('/content/bulk/update-status', { content_ids: ids, status }),
+  delete: (ids) => api.post('/content/bulk/delete', { content_ids: ids }),
+  updateCategory: (ids, categoryId) => api.post('/content/bulk/update-category', { content_ids: ids, category_id: categoryId }),
+  assignTags: (ids, tagIds) => api.post('/content/bulk/assign-tags', { content_ids: ids, tag_ids: tagIds }),
+  updateUserRoles: (userIds, roleId) => api.post('/users/bulk/update-roles', { user_ids: userIds, role_id: roleId }),
 }
 
 // Two Factor API
