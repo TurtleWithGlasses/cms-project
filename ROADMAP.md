@@ -4,7 +4,7 @@
 
 This document outlines the comprehensive development roadmap for the CMS Project, a FastAPI-based content management system with role-based access control, content versioning, and scheduling capabilities. The roadmap addresses code quality improvements, security enhancements, feature additions, performance optimizations, and infrastructure modernization.
 
-**Current Version:** 1.10.0
+**Current Version:** 1.11.0
 **Target Architecture:** Production-ready, scalable CMS platform
 **Technology Stack:** FastAPI, PostgreSQL, SQLAlchemy 2.0, JWT Authentication, React 18, Vite
 
@@ -15,6 +15,28 @@ This document outlines the comprehensive development roadmap for the CMS Project
 ### Completed Work Summary
 
 The following major features and improvements have been completed:
+
+#### 2FA Recovery Mechanisms (v1.11.0)
+- [x] **Email Backup Authentication** - OTP-based fallback when authenticator app is unavailable
+  - `send_email_otp()` generates 6-digit OTP, stores SHA-256 hash with 10-minute expiry
+  - `verify_email_otp()` validates one-time codes against in-memory store
+  - `_send_otp_email()` sends branded HTML/text email via EmailService
+  - Routes: `POST /email-otp/send`, `POST /email-otp/verify` (requires auth)
+  - Login flow: `POST /token/send-email-otp` (uses temp_token from login step)
+  - `verify_2fa_and_get_token` now tries email OTP as fallback after TOTP/backup codes
+  - Files: `app/services/two_factor_service.py`, `app/routes/two_factor.py`, `app/routes/auth.py`
+- [x] **Admin 2FA Reset** - Admin endpoint to reset locked-out users' 2FA
+  - `admin_reset_2fa()` deletes TwoFactorAuth record and sends notification email
+  - Self-reset prevention (cannot reset your own 2FA via admin endpoint)
+  - Activity logging for audit trail
+  - Route: `POST /admin/reset` (requires admin/superadmin role)
+  - Files: `app/services/two_factor_service.py`, `app/routes/two_factor.py`
+- [x] **Frontend Updates**
+  - Added "Send code to recovery email" button on 2FA verification page
+  - New API methods: `sendEmailOtp`, `verifyEmailOtp`, `adminReset`, `sendEmailOtpForLogin`
+  - Files: `frontend/src/pages/auth/TwoFactorPage.jsx`, `frontend/src/services/api.js`
+- [x] **Tests** - 21 tests covering email OTP, admin reset, routes, and schemas
+  - File: `test/test_2fa_recovery.py`
 
 #### Admin Dashboard Enhancement (v1.10.0)
 - [x] **Site Settings Backend** - New `app/routes/settings.py` with JSON file storage
@@ -836,7 +858,7 @@ The following major features and improvements have been completed:
   - Logo and favicon upload endpoints ✅
   - Application metrics dashboard (monitoring page) ✅
 
-#### 3.4 Two-Factor Authentication ✅ COMPLETED
+#### 3.4 Two-Factor Authentication ✅ COMPLETED (v1.11.0)
 - [x] **2FA Implementation**
   - Add TOTP support (pyotp library) ✅
   - Create 2FA setup flow ✅
@@ -844,10 +866,11 @@ The following major features and improvements have been completed:
   - Backup codes generation ✅
   - Files: `app/services/two_factor_service.py`, `app/routes/auth.py`
 
-- [ ] **Recovery Mechanisms** (Partial)
-  - SMS backup codes (optional)
-  - Email backup authentication
-  - Admin 2FA reset capability
+- [x] **Recovery Mechanisms** ✅ COMPLETED
+  - ~~SMS backup codes~~ — deferred (requires SMS provider integration)
+  - Email backup authentication (OTP via recovery email) ✅
+  - Admin 2FA reset capability ✅
+  - Files: `app/services/two_factor_service.py`, `app/routes/two_factor.py`, `app/routes/auth.py`
 
 ---
 
@@ -1269,8 +1292,8 @@ This roadmap transforms the CMS Project from a functional MVP to a production-re
 
 ---
 
-**Document Version:** 1.7.0
-**Last Updated:** 2026-02-10
+**Document Version:** 1.8.0
+**Last Updated:** 2026-02-18
 **Maintained By:** Development Team
 **Review Cycle:** Quarterly
 

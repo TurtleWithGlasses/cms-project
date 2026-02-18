@@ -1,15 +1,18 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../../store/authStore'
+import { twoFactorApi } from '../../services/api'
 import Button from '../../components/ui/Button'
 import { Card, CardContent } from '../../components/ui/Card'
 
 function TwoFactorPage() {
   const [code, setCode] = useState(['', '', '', '', '', ''])
   const [error, setError] = useState('')
+  const [info, setInfo] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [emailSending, setEmailSending] = useState(false)
   const inputRefs = useRef([])
-  const { verify2FA, requires2FA } = useAuthStore()
+  const { verify2FA, requires2FA, tempToken } = useAuthStore()
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -117,15 +120,38 @@ function TwoFactorPage() {
               Verify
             </Button>
 
-            <p className="text-center text-sm text-gray-600">
-              Lost access to your authenticator?{' '}
-              <button
-                type="button"
-                className="text-primary-600 hover:text-primary-700 font-medium"
-              >
-                Use backup code
-              </button>
-            </p>
+            {info && (
+              <div className="bg-blue-50 text-blue-600 px-4 py-3 rounded-lg text-sm text-center">
+                {info}
+              </div>
+            )}
+
+            <div className="text-center text-sm text-gray-600 space-y-2">
+              <p>
+                Lost access to your authenticator? You can also use a backup code.
+              </p>
+              {tempToken && (
+                <button
+                  type="button"
+                  disabled={emailSending}
+                  onClick={async () => {
+                    setEmailSending(true)
+                    setError('')
+                    try {
+                      const res = await twoFactorApi.sendEmailOtpForLogin(tempToken)
+                      setInfo(res.data.message || 'Verification code sent to your recovery email')
+                    } catch (err) {
+                      setError(err.response?.data?.detail || 'Failed to send email code')
+                    } finally {
+                      setEmailSending(false)
+                    }
+                  }}
+                  className="text-primary-600 hover:text-primary-700 font-medium"
+                >
+                  {emailSending ? 'Sending...' : 'Send code to recovery email'}
+                </button>
+              )}
+            </div>
           </form>
         </CardContent>
       </Card>

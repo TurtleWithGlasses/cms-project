@@ -287,9 +287,15 @@ export const bulkActionsApi = {
 export const twoFactorApi = {
   getStatus: () => api.get('/2fa/status'),
   setup: (method) => api.post('/2fa/setup', { method }),
+  verifySetup: (code) => api.post('/2fa/verify-setup', { code }),
   verify: (code) => api.post('/2fa/verify', { code }),
   disable: (code) => api.post('/2fa/disable', { code }),
-  regenerateBackupCodes: () => api.post('/2fa/backup-codes/regenerate'),
+  regenerateBackupCodes: (code) => api.post('/2fa/backup-codes/regenerate', { code }),
+  setRecoveryEmail: (email, code) => api.post('/2fa/recovery-email', { email, code }),
+  sendEmailOtp: () => api.post('/2fa/email-otp/send'),
+  verifyEmailOtp: (code) => api.post('/2fa/email-otp/verify', { code }),
+  adminReset: (userId) => api.post('/2fa/admin/reset', { user_id: userId }),
+  sendEmailOtpForLogin: (tempToken) => axios.post('/auth/token/send-email-otp', { temp_token: tempToken }),
 }
 
 // Site Settings API

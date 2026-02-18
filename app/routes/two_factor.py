@@ -8,10 +8,12 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth import get_current_user
+from app.auth import get_current_user, get_current_user_with_role
+from app.constants.roles import RoleEnum
 from app.database import get_db
 from app.models.user import User
 from app.services.two_factor_service import TwoFactorService
+from app.utils.activity_log import log_activity
 
 router = APIRouter(tags=["Two-Factor Authentication"])
 
@@ -71,6 +73,18 @@ class BackupCodesResponse(BaseModel):
 
     backup_codes: list[str]
     message: str
+
+
+class EmailOtpRequest(BaseModel):
+    """Request to verify an email OTP."""
+
+    code: str = Field(..., min_length=6, max_length=6, pattern=r"^[0-9]+$")
+
+
+class AdminResetRequest(BaseModel):
+    """Request for admin to reset user's 2FA."""
+
+    user_id: int
 
 
 # ============== Status & Setup ==============
@@ -223,5 +237,93 @@ async def set_recovery_email(
     try:
         await service.set_recovery_email(current_user.id, data.email, data.code)
         return {"success": True, "message": f"Recovery email set to {data.email}"}
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+
+
+# ============== Email Backup Authentication ==============
+
+
+@router.post("/email-otp/send")
+async def send_email_otp(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """
+    Send a one-time verification code to the user's recovery email.
+
+    Use this as a fallback when the authenticator app is unavailable.
+    Requires a recovery email to be configured.
+    """
+    service = TwoFactorService(db)
+
+    try:
+        result = await service.send_email_otp(current_user.id)
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+
+
+@router.post("/email-otp/verify")
+async def verify_email_otp(
+    data: EmailOtpRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """
+    Verify an email OTP code.
+
+    This code was sent to the user's recovery email via /email-otp/send.
+    Codes expire after 10 minutes and are single-use.
+    """
+    service = TwoFactorService(db)
+
+    is_valid = await service.verify_email_otp(current_user.id, data.code)
+
+    if not is_valid:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired verification code",
+        )
+
+    return {"valid": True, "message": "Email verification code accepted"}
+
+
+# ============== Admin 2FA Reset ==============
+
+
+@router.post("/admin/reset")
+async def admin_reset_2fa(
+    data: AdminResetRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user_with_role([RoleEnum.ADMIN, RoleEnum.SUPERADMIN])),
+) -> dict:
+    """
+    Admin endpoint to reset a user's 2FA.
+
+    Use when a user is locked out of their account due to lost
+    authenticator app and no remaining backup codes.
+
+    **Requires**: Admin or Superadmin role
+    """
+    if data.user_id == current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot reset your own 2FA via admin endpoint. Use /2fa/disable instead.",
+        )
+
+    service = TwoFactorService(db)
+
+    try:
+        result = await service.admin_reset_2fa(data.user_id, current_user.id)
+
+        await log_activity(
+            action="admin_2fa_reset",
+            user_id=current_user.id,
+            description=f"Admin reset 2FA for user {result['username']} (ID: {data.user_id})",
+            details={"target_user_id": data.user_id, "target_username": result["username"]},
+        )
+
+        return result
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e

@@ -32,6 +32,13 @@ BACKUP_CODE_COUNT = 10
 # Backup code length (characters)
 BACKUP_CODE_LENGTH = 8
 
+# Email OTP settings
+EMAIL_OTP_LENGTH = 6
+EMAIL_OTP_EXPIRY_SECONDS = 600  # 10 minutes
+
+# In-memory store for email OTPs (production would use Redis)
+_email_otp_store: dict[int, dict] = {}
+
 
 class TwoFactorService:
     """Service for managing two-factor authentication."""
@@ -284,6 +291,193 @@ class TwoFactorService:
         """Check if 2FA is enabled for a user."""
         tfa = await self._get_tfa(user_id)
         return tfa is not None and tfa.is_enabled
+
+    # ============== Email Backup Authentication ==============
+
+    async def send_email_otp(self, user_id: int) -> dict:
+        """
+        Send a one-time password to the user's recovery email.
+
+        Used as a fallback when authenticator app is unavailable.
+
+        Returns:
+            dict with masked email and status
+        """
+        tfa = await self._get_tfa(user_id)
+        if not tfa or not tfa.is_enabled:
+            raise ValueError("2FA is not enabled.")
+
+        if not tfa.recovery_email:
+            raise ValueError("No recovery email configured. Set one via /2fa/recovery-email first.")
+
+        # Generate 6-digit OTP
+        otp = "".join(secrets.choice("0123456789") for _ in range(EMAIL_OTP_LENGTH))
+
+        # Store OTP with expiry
+        _email_otp_store[user_id] = {
+            "otp_hash": hashlib.sha256(otp.encode()).hexdigest(),
+            "expires_at": datetime.now(timezone.utc).timestamp() + EMAIL_OTP_EXPIRY_SECONDS,
+        }
+
+        # Send email
+        self._send_otp_email(tfa.recovery_email, otp)
+
+        # Mask email for response
+        email = tfa.recovery_email
+        local, domain = email.split("@")
+        masked = f"{local[:2]}{'*' * (len(local) - 2)}@{domain}" if len(local) > 2 else f"{local[0]}*@{domain}"
+
+        logger.info(f"Email OTP sent for user {user_id}")
+        return {
+            "sent": True,
+            "masked_email": masked,
+            "expires_in": EMAIL_OTP_EXPIRY_SECONDS,
+            "message": f"Verification code sent to {masked}",
+        }
+
+    async def verify_email_otp(self, user_id: int, otp: str) -> bool:
+        """
+        Verify an email OTP code.
+
+        Args:
+            user_id: User ID
+            otp: The OTP code from email
+
+        Returns:
+            True if OTP is valid
+        """
+        stored = _email_otp_store.get(user_id)
+        if not stored:
+            return False
+
+        # Check expiry
+        if datetime.now(timezone.utc).timestamp() > stored["expires_at"]:
+            _email_otp_store.pop(user_id, None)
+            return False
+
+        # Verify OTP
+        otp_hash = hashlib.sha256(otp.encode()).hexdigest()
+        if otp_hash == stored["otp_hash"]:
+            _email_otp_store.pop(user_id, None)  # One-time use
+
+            # Update last used
+            tfa = await self._get_tfa(user_id)
+            if tfa:
+                tfa.last_used_at = datetime.now(timezone.utc)
+                await self.db.commit()
+
+            logger.info(f"Email OTP verified for user {user_id}")
+            return True
+
+        return False
+
+    def _send_otp_email(self, email: str, otp: str) -> None:
+        """Send OTP code via email service."""
+        from app.services.email_service import EmailService
+
+        email_service = EmailService()
+
+        html_body = f"""
+        <h2>Your 2FA Verification Code</h2>
+        <p>Use this code to verify your identity:</p>
+        <div style="font-size: 32px; font-weight: bold; letter-spacing: 8px;
+                    padding: 16px; background: #f0f0f0; text-align: center;
+                    border-radius: 8px; margin: 16px 0;">{otp}</div>
+        <p>This code expires in 10 minutes.</p>
+        <p>If you did not request this code, please ignore this email
+        and secure your account.</p>
+        """
+
+        text_body = f"Your 2FA verification code is: {otp}\nThis code expires in 10 minutes."
+
+        email_service._send_email(
+            to_email=email,
+            subject=f"{APP_NAME} - Your 2FA Verification Code",
+            html_body=html_body,
+            text_body=text_body,
+        )
+
+    # ============== Admin 2FA Reset ==============
+
+    async def admin_reset_2fa(self, target_user_id: int, admin_user_id: int) -> dict:
+        """
+        Admin reset of a user's 2FA.
+
+        Completely removes 2FA for a user who is locked out.
+        Only admins should call this.
+
+        Args:
+            target_user_id: User whose 2FA to reset
+            admin_user_id: Admin performing the reset
+
+        Returns:
+            dict with reset status
+        """
+        tfa = await self._get_tfa(target_user_id)
+        if not tfa:
+            raise ValueError("User does not have 2FA configured.")
+
+        if not tfa.is_enabled:
+            raise ValueError("User's 2FA is not enabled.")
+
+        # Get user info for logging
+        result = await self.db.execute(select(User).where(User.id == target_user_id))
+        target_user = result.scalar_one_or_none()
+        if not target_user:
+            raise ValueError("User not found.")
+
+        username = target_user.username
+        user_email = target_user.email
+
+        # Delete the 2FA record
+        await self.db.delete(tfa)
+        await self.db.commit()
+
+        logger.warning(f"Admin {admin_user_id} reset 2FA for user {target_user_id} ({username})")
+
+        # Notify user via email
+        try:
+            self._send_2fa_reset_notification(user_email, username)
+        except Exception as e:
+            logger.warning(f"Failed to send 2FA reset notification: {e}")
+
+        return {
+            "reset": True,
+            "user_id": target_user_id,
+            "username": username,
+            "message": f"2FA has been reset for user {username}",
+        }
+
+    def _send_2fa_reset_notification(self, email: str, username: str) -> None:
+        """Notify user that their 2FA was reset by an admin."""
+        from app.services.email_service import EmailService
+
+        email_service = EmailService()
+
+        html_body = f"""
+        <h2>Two-Factor Authentication Reset</h2>
+        <p>Hello {username},</p>
+        <p>An administrator has reset your two-factor authentication.
+        You can now log in without a verification code.</p>
+        <p><strong>If you did not request this reset,
+        please contact your administrator immediately
+        and re-enable 2FA on your account.</strong></p>
+        <p>To set up 2FA again, go to your account settings.</p>
+        """
+
+        text_body = (
+            f"Hello {username},\n\n"
+            "An administrator has reset your two-factor authentication.\n"
+            "You can now log in without a verification code.\n\n"
+            "If you did not request this, contact your administrator immediately."
+        )
+
+        email_service._send_email(
+            to_email=email,
+            subject=f"{APP_NAME} - 2FA Reset Notification",
+            html_body=html_body,
+            text_body=text_body,
+        )
 
     # ============== Private Methods ==============
 

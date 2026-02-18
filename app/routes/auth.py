@@ -3,6 +3,8 @@ from datetime import timedelta
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
+from jose import JWTError, jwt
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
@@ -114,8 +116,6 @@ async def verify_2fa_and_get_token(
 
     Rate limited to 5 requests per minute per IP address.
     """
-    from jose import JWTError, jwt
-
     from ..constants import ALGORITHM, SECRET_KEY
 
     # Decode temporary token
@@ -137,9 +137,13 @@ async def verify_2fa_and_get_token(
             detail="Invalid or expired temporary token",
         ) from e
 
-    # Verify 2FA code
+    # Verify 2FA code (TOTP, backup code, or email OTP)
     two_factor_service = TwoFactorService(db)
     is_valid = await two_factor_service.verify_code(user_id, data.code)
+
+    # Also try email OTP if TOTP/backup code failed
+    if not is_valid:
+        is_valid = await two_factor_service.verify_email_otp(user_id, data.code)
 
     if not is_valid:
         logger.warning(f"Invalid 2FA code for user_id: {user_id}")
@@ -175,6 +179,56 @@ async def verify_2fa_and_get_token(
         token_type="Bearer",
         expires_in=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
     )
+
+
+class TempTokenRequest(BaseModel):
+    """Request with temp_token for email OTP during login."""
+
+    temp_token: str
+
+
+@router.post("/token/send-email-otp")
+@limiter.limit("3/minute")
+async def send_email_otp_for_login(
+    request: Request,
+    data: TempTokenRequest,
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """
+    Send email OTP as a fallback during 2FA login.
+
+    Use when authenticator app is unavailable. Requires:
+    1. A valid temp_token from the initial login step
+    2. A recovery email configured on the account
+
+    Rate limited to 3 requests per minute.
+    """
+    from ..constants import ALGORITHM, SECRET_KEY
+
+    # Decode temporary token to get user_id
+    try:
+        payload = jwt.decode(data.temp_token, SECRET_KEY, algorithms=[ALGORITHM])
+        token_type = payload.get("type")
+        user_id = payload.get("user_id")
+
+        if token_type != "2fa_pending" or not user_id:  # nosec B105
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid temporary token",
+            )
+    except JWTError as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired temporary token",
+        ) from e
+
+    service = TwoFactorService(db)
+
+    try:
+        result = await service.send_email_otp(user_id)
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
 
 
 @router.post("/logout", status_code=status.HTTP_200_OK)
