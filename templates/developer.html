@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ app_name }} — Developer Portal</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0d1117;
+      --surface: #161b22;
+      --border: #30363d;
+      --accent: #58a6ff;
+      --accent2: #3fb950;
+      --warn: #d29922;
+      --text: #c9d1d9;
+      --muted: #8b949e;
+      --code-bg: #1f2428;
+      --radius: 6px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+      font-size: 15px;
+      line-height: 1.6;
+    }
+
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 56px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    header .logo { font-weight: 700; font-size: 1.1rem; color: var(--accent); }
+    header .logo span { color: var(--text); font-weight: 400; }
+
+    header nav a {
+      color: var(--muted);
+      text-decoration: none;
+      margin-left: 1.5rem;
+      font-size: 0.9rem;
+      transition: color 0.15s;
+    }
+    header nav a:hover { color: var(--accent); }
+
+    .badge {
+      background: var(--accent);
+      color: var(--bg);
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: 10px;
+      margin-left: 6px;
+      vertical-align: middle;
+    }
+
+    main { max-width: 960px; margin: 0 auto; padding: 2.5rem 1.5rem 4rem; }
+
+    .hero {
+      text-align: center;
+      padding: 3rem 0 2rem;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 3rem;
+    }
+    .hero h1 { font-size: 2.2rem; color: var(--text); margin-bottom: 0.5rem; }
+    .hero h1 span { color: var(--accent); }
+    .hero p { color: var(--muted); font-size: 1.05rem; }
+    .hero .version {
+      display: inline-block;
+      margin-top: 1rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      color: var(--accent2);
+    }
+
+    .quick-links {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin-bottom: 3rem;
+    }
+
+    .quick-link {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.25rem 1.5rem;
+      text-decoration: none;
+      color: var(--text);
+      transition: border-color 0.15s, transform 0.1s;
+    }
+    .quick-link:hover { border-color: var(--accent); transform: translateY(-2px); }
+    .quick-link .icon { font-size: 1.5rem; margin-bottom: 0.5rem; }
+    .quick-link .title { font-weight: 600; font-size: 0.95rem; color: var(--accent); }
+    .quick-link .desc { font-size: 0.82rem; color: var(--muted); margin-top: 0.2rem; }
+
+    section { margin-bottom: 3rem; }
+    h2 {
+      font-size: 1.3rem;
+      color: var(--text);
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 0.5rem;
+      margin-bottom: 1.25rem;
+    }
+    h3 { font-size: 1rem; color: var(--accent); margin: 1.25rem 0 0.5rem; }
+    p { color: var(--muted); margin-bottom: 0.75rem; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.88rem;
+      margin-bottom: 1rem;
+    }
+    th {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 8px 12px;
+      text-align: left;
+      color: var(--text);
+      font-weight: 600;
+    }
+    td {
+      border: 1px solid var(--border);
+      padding: 8px 12px;
+      color: var(--muted);
+    }
+    td code, th code { color: var(--accent2); background: var(--code-bg); padding: 1px 5px; border-radius: 3px; }
+
+    .tabs { display: flex; gap: 0; margin-bottom: 0; border-bottom: 1px solid var(--border); }
+    .tab-btn {
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: var(--muted);
+      cursor: pointer;
+      padding: 8px 18px;
+      font-size: 0.88rem;
+      margin-bottom: -1px;
+      transition: color 0.15s;
+    }
+    .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .tab-btn:hover { color: var(--text); }
+
+    .tab-pane { display: none; }
+    .tab-pane.active { display: block; }
+
+    pre {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem 1.25rem;
+      overflow-x: auto;
+      font-size: 0.83rem;
+      line-height: 1.55;
+      margin: 0.75rem 0;
+    }
+    code { font-family: "SF Mono", "Fira Code", Consolas, "Liberation Mono", monospace; }
+    pre code { color: var(--text); }
+
+    .highlight-kw { color: #ff7b72; }
+    .highlight-str { color: #a5d6ff; }
+    .highlight-var { color: var(--accent2); }
+    .highlight-comment { color: var(--muted); font-style: italic; }
+
+    .alert {
+      border-left: 3px solid var(--warn);
+      background: rgba(210, 153, 34, 0.08);
+      padding: 0.75rem 1rem;
+      border-radius: 0 var(--radius) var(--radius) 0;
+      font-size: 0.88rem;
+      color: var(--warn);
+      margin-bottom: 1rem;
+    }
+
+    .changelog-item {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin-bottom: 1rem;
+      overflow: hidden;
+    }
+    .changelog-header {
+      background: var(--surface);
+      padding: 0.75rem 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .changelog-version {
+      background: var(--accent);
+      color: var(--bg);
+      font-weight: 700;
+      font-size: 0.82rem;
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
+    .changelog-title { font-weight: 600; font-size: 0.95rem; }
+    .changelog-date { color: var(--muted); font-size: 0.82rem; margin-left: auto; }
+    .changelog-body { padding: 0.75rem 1rem; }
+    .changelog-body ul { list-style: none; }
+    .changelog-body li {
+      color: var(--muted);
+      font-size: 0.88rem;
+      padding: 3px 0;
+    }
+    .changelog-body li::before { content: "•  "; color: var(--accent2); }
+
+    footer {
+      text-align: center;
+      padding: 2rem;
+      border-top: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+    footer a { color: var(--accent); text-decoration: none; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">{{ app_name }} <span>Developer Portal</span></div>
+  <nav>
+    <a href="/docs">Swagger UI</a>
+    <a href="/redoc">ReDoc</a>
+    <a href="/graphql">GraphQL</a>
+    <a href="/api/v1/developer/changelog">Changelog JSON</a>
+    <a href="/login">Login</a>
+  </nav>
+</header>
+
+<main>
+
+  <div class="hero">
+    <h1>{{ app_name }} <span>API</span></h1>
+    <p>A production-ready CMS API built with FastAPI, PostgreSQL, and Redis.</p>
+    <div class="version">v{{ app_version }}</div>
+  </div>
+
+  <!-- Quick links -->
+  <div class="quick-links">
+    <a href="/docs" class="quick-link">
+      <div class="icon">📖</div>
+      <div class="title">Swagger UI</div>
+      <div class="desc">Interactive API explorer with try-it-out support</div>
+    </a>
+    <a href="/redoc" class="quick-link">
+      <div class="icon">📄</div>
+      <div class="title">ReDoc</div>
+      <div class="desc">Clean, readable API reference documentation</div>
+    </a>
+    <a href="/graphql" class="quick-link">
+      <div class="icon">⚡</div>
+      <div class="title">GraphQL</div>
+      <div class="desc">Flexible query interface with full schema introspection</div>
+    </a>
+    <a href="/openapi.json" class="quick-link">
+      <div class="icon">🔧</div>
+      <div class="title">OpenAPI JSON</div>
+      <div class="desc">Raw OpenAPI 3.x schema for SDK generation</div>
+    </a>
+  </div>
+
+  <!-- Authentication -->
+  <section id="auth">
+    <h2>Authentication</h2>
+    <p>
+      Two authentication methods are supported. Use <strong>JWT Bearer</strong> for user-facing integrations
+      and <strong>API Keys</strong> for server-to-server / machine-to-machine communication.
+    </p>
+
+    <table>
+      <tr>
+        <th>Method</th>
+        <th>Header</th>
+        <th>How to obtain</th>
+        <th>Expiry</th>
+      </tr>
+      <tr>
+        <td>JWT Bearer</td>
+        <td><code>Authorization: Bearer &lt;token&gt;</code></td>
+        <td><code>POST /auth/token</code></td>
+        <td>30 minutes (configurable)</td>
+      </tr>
+      <tr>
+        <td>API Key</td>
+        <td><code>X-API-Key: &lt;key&gt;</code></td>
+        <td><code>POST /api/v1/api-keys</code></td>
+        <td>Set at creation (optional)</td>
+      </tr>
+    </table>
+
+    <h3>Obtaining a JWT token</h3>
+    <div class="tabs" id="auth-tabs">
+      <button class="tab-btn active" onclick="switchTab('auth', 'curl')">curl</button>
+      <button class="tab-btn" onclick="switchTab('auth', 'python')">Python</button>
+      <button class="tab-btn" onclick="switchTab('auth', 'js')">JavaScript</button>
+    </div>
+
+    <div id="auth-curl" class="tab-pane active">
+<pre><code><span class="highlight-comment"># Obtain a JWT token</span>
+curl -s -X POST http://localhost:8000/auth/token \
+  -H <span class="highlight-str">"Content-Type: application/x-www-form-urlencoded"</span> \
+  -d <span class="highlight-str">"username=you@example.com&password=secret"</span> \
+  | jq <span class="highlight-str">'.access_token'</span>
+
+<span class="highlight-comment"># Use the token</span>
+curl http://localhost:8000/api/v1/content/ \
+  -H <span class="highlight-str">"Authorization: Bearer &lt;token&gt;"</span></code></pre>
+    </div>
+
+    <div id="auth-python" class="tab-pane">
+<pre><code><span class="highlight-kw">import</span> httpx
+
+<span class="highlight-var">BASE</span> = <span class="highlight-str">"http://localhost:8000"</span>
+
+<span class="highlight-comment"># Step 1 — authenticate</span>
+r = httpx.post(f<span class="highlight-str">"{BASE}/auth/token"</span>, data={
+    <span class="highlight-str">"username"</span>: <span class="highlight-str">"you@example.com"</span>,
+    <span class="highlight-str">"password"</span>: <span class="highlight-str">"secret"</span>,
+})
+r.raise_for_status()
+<span class="highlight-var">token</span> = r.json()[<span class="highlight-str">"access_token"</span>]
+
+<span class="highlight-comment"># Step 2 — make authenticated requests</span>
+<span class="highlight-var">headers</span> = {<span class="highlight-str">"Authorization"</span>: f<span class="highlight-str">"Bearer {token}"</span>}
+content = httpx.get(f<span class="highlight-str">"{BASE}/api/v1/content/"</span>, headers=<span class="highlight-var">headers</span>).json()
+<span class="highlight-kw">print</span>(content)</code></pre>
+    </div>
+
+    <div id="auth-js" class="tab-pane">
+<pre><code><span class="highlight-kw">const</span> <span class="highlight-var">BASE</span> = <span class="highlight-str">"http://localhost:8000"</span>;
+
+<span class="highlight-comment">// Step 1 — authenticate</span>
+<span class="highlight-kw">const</span> <span class="highlight-var">form</span> = <span class="highlight-kw">new</span> URLSearchParams({
+  username: <span class="highlight-str">"you@example.com"</span>,
+  password: <span class="highlight-str">"secret"</span>,
+});
+<span class="highlight-kw">const</span> { access_token } = <span class="highlight-kw">await</span> fetch(`<span class="highlight-str">${BASE}/auth/token</span>`, {
+  method: <span class="highlight-str">"POST"</span>,
+  body: <span class="highlight-var">form</span>,
+}).then(r => r.json());
+
+<span class="highlight-comment">// Step 2 — make authenticated requests</span>
+<span class="highlight-kw">const</span> content = <span class="highlight-kw">await</span> fetch(`<span class="highlight-str">${BASE}/api/v1/content/</span>`, {
+  headers: { Authorization: `<span class="highlight-str">Bearer ${access_token}</span>` },
+}).then(r => r.json());
+console.log(content);</code></pre>
+    </div>
+
+    <h3>Using an API Key</h3>
+    <div class="tabs" id="apikey-tabs">
+      <button class="tab-btn active" onclick="switchTab('apikey', 'curl')">curl</button>
+      <button class="tab-btn" onclick="switchTab('apikey', 'python')">Python</button>
+    </div>
+
+    <div id="apikey-curl" class="tab-pane active">
+<pre><code><span class="highlight-comment"># Create an API key (requires JWT auth)</span>
+curl -s -X POST http://localhost:8000/api/v1/api-keys \
+  -H <span class="highlight-str">"Authorization: Bearer &lt;token&gt;"</span> \
+  -H <span class="highlight-str">"Content-Type: application/json"</span> \
+  -d <span class="highlight-str">'{"name": "My Integration", "expires_in_days": 90}'</span>
+
+<span class="highlight-comment"># Use the API key</span>
+curl http://localhost:8000/api/v1/content/ \
+  -H <span class="highlight-str">"X-API-Key: &lt;your-api-key&gt;"</span></code></pre>
+    </div>
+
+    <div id="apikey-python" class="tab-pane">
+<pre><code><span class="highlight-kw">import</span> httpx
+
+<span class="highlight-var">API_KEY</span> = <span class="highlight-str">"your-api-key-here"</span>
+<span class="highlight-var">BASE</span> = <span class="highlight-str">"http://localhost:8000"</span>
+
+<span class="highlight-var">client</span> = httpx.Client(
+    base_url=<span class="highlight-var">BASE</span>,
+    headers={<span class="highlight-str">"X-API-Key"</span>: <span class="highlight-var">API_KEY</span>},
+)
+content = <span class="highlight-var">client</span>.get(<span class="highlight-str">"/api/v1/content/"</span>).json()
+<span class="highlight-kw">print</span>(content)</code></pre>
+    </div>
+  </section>
+
+  <!-- Quickstart -->
+  <section id="quickstart">
+    <h2>Quickstart — Create &amp; Publish Content</h2>
+    <p>A complete example: authenticate, create a content item, and publish it.</p>
+
+    <div class="tabs" id="qs-tabs">
+      <button class="tab-btn active" onclick="switchTab('qs', 'curl')">curl</button>
+      <button class="tab-btn" onclick="switchTab('qs', 'python')">Python</button>
+      <button class="tab-btn" onclick="switchTab('qs', 'js')">JavaScript</button>
+    </div>
+
+    <div id="qs-curl" class="tab-pane active">
+<pre><code><span class="highlight-comment"># 1. Obtain a token</span>
+TOKEN=$(curl -s -X POST http://localhost:8000/auth/token \
+  -d "username=admin@example.com&password=secret" | jq -r '.access_token')
+
+<span class="highlight-comment"># 2. Create a draft content item</span>
+CONTENT_ID=$(curl -s -X POST http://localhost:8000/api/v1/content/ \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Hello World",
+    "body": "My first article via the API.",
+    "slug": "hello-world",
+    "status": "draft"
+  }' | jq '.id')
+
+<span class="highlight-comment"># 3. Publish it</span>
+curl -X POST http://localhost:8000/api/v1/content/$CONTENT_ID/publish \
+  -H "Authorization: Bearer $TOKEN"</code></pre>
+    </div>
+
+    <div id="qs-python" class="tab-pane">
+<pre><code><span class="highlight-kw">import</span> httpx
+
+<span class="highlight-var">BASE</span> = <span class="highlight-str">"http://localhost:8000"</span>
+<span class="highlight-var">r</span> = httpx.post(f<span class="highlight-str">"{BASE}/auth/token"</span>, data={<span class="highlight-str">"username"</span>: <span class="highlight-str">"admin@example.com"</span>, <span class="highlight-str">"password"</span>: <span class="highlight-str">"secret"</span>})
+<span class="highlight-var">token</span> = <span class="highlight-var">r</span>.json()[<span class="highlight-str">"access_token"</span>]
+<span class="highlight-var">h</span> = {<span class="highlight-str">"Authorization"</span>: f<span class="highlight-str">"Bearer {token}"</span>}
+
+<span class="highlight-comment"># Create draft</span>
+<span class="highlight-var">content</span> = httpx.post(f<span class="highlight-str">"{BASE}/api/v1/content/"</span>, headers=<span class="highlight-var">h</span>, json={
+    <span class="highlight-str">"title"</span>: <span class="highlight-str">"Hello World"</span>,
+    <span class="highlight-str">"body"</span>: <span class="highlight-str">"My first article via the API."</span>,
+    <span class="highlight-str">"slug"</span>: <span class="highlight-str">"hello-world"</span>,
+    <span class="highlight-str">"status"</span>: <span class="highlight-str">"draft"</span>,
+}).json()
+
+<span class="highlight-comment"># Publish</span>
+httpx.post(f<span class="highlight-str">"{BASE}/api/v1/content/{content['id']}/publish"</span>, headers=<span class="highlight-var">h</span>)
+<span class="highlight-kw">print</span>(<span class="highlight-str">"Published!"</span>)</code></pre>
+    </div>
+
+    <div id="qs-js" class="tab-pane">
+<pre><code><span class="highlight-kw">const</span> BASE = <span class="highlight-str">"http://localhost:8000"</span>;
+<span class="highlight-kw">const</span> { access_token } = <span class="highlight-kw">await</span> fetch(`${BASE}/auth/token`, {
+  method: <span class="highlight-str">"POST"</span>, body: <span class="highlight-kw">new</span> URLSearchParams({ username: <span class="highlight-str">"admin@example.com"</span>, password: <span class="highlight-str">"secret"</span> }),
+}).then(r => r.json());
+<span class="highlight-kw">const</span> h = { Authorization: `Bearer ${access_token}`, <span class="highlight-str">"Content-Type"</span>: <span class="highlight-str">"application/json"</span> };
+
+<span class="highlight-comment">// Create draft</span>
+<span class="highlight-kw">const</span> { id } = <span class="highlight-kw">await</span> fetch(`${BASE}/api/v1/content/`, {
+  method: <span class="highlight-str">"POST"</span>, headers: h,
+  body: JSON.stringify({ title: <span class="highlight-str">"Hello World"</span>, body: <span class="highlight-str">"My first article."</span>, slug: <span class="highlight-str">"hello-world"</span>, status: <span class="highlight-str">"draft"</span> }),
+}).then(r => r.json());
+
+<span class="highlight-comment">// Publish</span>
+<span class="highlight-kw">await</span> fetch(`${BASE}/api/v1/content/${id}/publish`, { method: <span class="highlight-str">"POST"</span>, headers: h });
+console.log(<span class="highlight-str">"Published!"</span>);</code></pre>
+    </div>
+  </section>
+
+  <!-- Key endpoints -->
+  <section id="endpoints">
+    <h2>Key Endpoints</h2>
+
+    <h3>Content</h3>
+    <table>
+      <tr><th>Method</th><th>Path</th><th>Description</th></tr>
+      <tr><td>GET</td><td><code>/api/v1/content/</code></td><td>List content items</td></tr>
+      <tr><td>POST</td><td><code>/api/v1/content/</code></td><td>Create content item</td></tr>
+      <tr><td>GET</td><td><code>/api/v1/content/{id}</code></td><td>Get a single item</td></tr>
+      <tr><td>PUT</td><td><code>/api/v1/content/{id}</code></td><td>Update content item</td></tr>
+      <tr><td>POST</td><td><code>/api/v1/content/{id}/publish</code></td><td>Publish a draft</td></tr>
+      <tr><td>GET</td><td><code>/api/v1/content/xml</code></td><td>Export as XML</td></tr>
+      <tr><td>GET</td><td><code>/api/v1/content/wordpress</code></td><td>Export as WordPress WXR</td></tr>
+      <tr><td>GET</td><td><code>/api/v1/content/markdown</code></td><td>Export as Markdown ZIP</td></tr>
+    </table>
+
+    <h3>Search &amp; Analytics</h3>
+    <table>
+      <tr><th>Method</th><th>Path</th><th>Description</th></tr>
+      <tr><td>GET</td><td><code>/api/v1/search/?q=</code></td><td>Full-text search</td></tr>
+      <tr><td>GET</td><td><code>/api/v1/analytics/config</code></td><td>GA4 / Plausible config (public)</td></tr>
+      <tr><td>POST</td><td><code>/api/v1/analytics/events</code></td><td>Track custom event (fire-and-forget)</td></tr>
+    </table>
+
+    <h3>Import</h3>
+    <table>
+      <tr><th>Method</th><th>Path</th><th>Description</th></tr>
+      <tr><td>POST</td><td><code>/api/v1/content/wordpress</code></td><td>Import WordPress WXR export</td></tr>
+      <tr><td>POST</td><td><code>/api/v1/content/markdown</code></td><td>Import Markdown with frontmatter</td></tr>
+      <tr><td>POST</td><td><code>/api/v1/content/json</code></td><td>Import JSON content</td></tr>
+      <tr><td>POST</td><td><code>/api/v1/content/csv</code></td><td>Import CSV content</td></tr>
+    </table>
+
+    <h3>Social &amp; SEO (public)</h3>
+    <table>
+      <tr><th>Method</th><th>Path</th><th>Description</th></tr>
+      <tr><td>GET</td><td><code>/api/v1/social/content/{id}/share</code></td><td>Share URLs + OG meta</td></tr>
+      <tr><td>GET</td><td><code>/api/v1/social/content/{id}/meta</code></td><td>Full SEO meta + JSON-LD</td></tr>
+      <tr><td>GET</td><td><code>/sitemap.xml</code></td><td>XML sitemap (public)</td></tr>
+      <tr><td>GET</td><td><code>/rss</code></td><td>RSS 2.0 feed (public)</td></tr>
+      <tr><td>GET</td><td><code>/robots.txt</code></td><td>robots.txt (public)</td></tr>
+    </table>
+  </section>
+
+  <!-- GraphQL -->
+  <section id="graphql">
+    <h2>GraphQL</h2>
+    <p>The GraphQL API at <code>/graphql</code> supports both JWT and API Key authentication via request context.</p>
+
+    <div class="tabs" id="gql-tabs">
+      <button class="tab-btn active" onclick="switchTab('gql', 'query')">Query</button>
+      <button class="tab-btn" onclick="switchTab('gql', 'mutation')">Mutation</button>
+    </div>
+
+    <div id="gql-query" class="tab-pane active">
+<pre><code><span class="highlight-comment"># Fetch published content items</span>
+curl -s -X POST http://localhost:8000/graphql \
+  -H <span class="highlight-str">"Authorization: Bearer &lt;token&gt;"</span> \
+  -H <span class="highlight-str">"Content-Type: application/json"</span> \
+  -d <span class="highlight-str">'{"query": "{ contents { id title slug status } }"}'</span></code></pre>
+    </div>
+
+    <div id="gql-mutation" class="tab-pane">
+<pre><code><span class="highlight-comment"># Create a content item via GraphQL</span>
+curl -s -X POST http://localhost:8000/graphql \
+  -H <span class="highlight-str">"Authorization: Bearer &lt;token&gt;"</span> \
+  -H <span class="highlight-str">"Content-Type: application/json"</span> \
+  -d <span class="highlight-str">'{"query": "mutation { createContent(title: \"Hello\", body: \"World\", slug: \"hello\") { id title } }"}'</span></code></pre>
+    </div>
+  </section>
+
+  <!-- Rate Limits -->
+  <section id="rate-limits">
+    <h2>Rate Limits</h2>
+    <div class="alert">Rate limits are enforced per IP. Exceeding them returns HTTP 429.</div>
+    <table>
+      <tr><th>Endpoint group</th><th>Limit</th></tr>
+      <tr><td>Login (<code>/login</code>)</td><td>5 requests / minute</td></tr>
+      <tr><td>Registration (<code>/register</code>)</td><td>3 requests / hour</td></tr>
+      <tr><td>General API</td><td>Configured in <code>RATE_LIMIT_PER_MINUTE</code> setting</td></tr>
+    </table>
+  </section>
+
+  <!-- Changelog -->
+  <section id="changelog">
+    <h2>Recent Changelog</h2>
+    <p>Full machine-readable changelog available at <a href="/api/v1/developer/changelog">/api/v1/developer/changelog</a>.</p>
+
+    <div class="changelog-item">
+      <div class="changelog-header">
+        <span class="changelog-version">v1.15.0</span>
+        <span class="changelog-title">API Documentation &amp; Developer Portal</span>
+        <span class="changelog-date">2026-02-21</span>
+      </div>
+      <div class="changelog-body">
+        <ul>
+          <li>Enhanced OpenAPI schema with BearerAuth + APIKeyAuth security schemes</li>
+          <li>Per-tag descriptions for all 34 API tag groups</li>
+          <li>Developer portal at /developer with auth guides and quickstart examples</li>
+          <li>Changelog endpoint at /api/v1/developer/changelog</li>
+          <li>Swagger UI with persistAuthorization enabled</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="changelog-item">
+      <div class="changelog-header">
+        <span class="changelog-version">v1.14.0</span>
+        <span class="changelog-title">Import/Export — XML, WordPress WXR, Markdown</span>
+        <span class="changelog-date">2026-02-14</span>
+      </div>
+      <div class="changelog-body">
+        <ul>
+          <li>XML, WordPress WXR, and Markdown ZIP export endpoints</li>
+          <li>WordPress WXR and Markdown import with YAML frontmatter parsing</li>
+          <li>37 new tests</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="changelog-item">
+      <div class="changelog-header">
+        <span class="changelog-version">v1.13.0</span>
+        <span class="changelog-title">SEO JSON-LD, Social Sharing, Analytics Integration</span>
+        <span class="changelog-date">2026-02-07</span>
+      </div>
+      <div class="changelog-body">
+        <ul>
+          <li>Schema.org Article + WebSite JSON-LD structured data</li>
+          <li>Social sharing URLs (Twitter, Facebook, LinkedIn, WhatsApp, Email)</li>
+          <li>GA4 + Plausible analytics config + server-side event proxy</li>
+          <li>UTM tracking on content views</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <p>{{ app_name }} v{{ app_version }} &mdash;
+    <a href="/docs">Swagger UI</a> &middot;
+    <a href="/redoc">ReDoc</a> &middot;
+    <a href="/graphql">GraphQL</a> &middot;
+    <a href="/api/v1/developer/changelog">Changelog</a>
+  </p>
+</footer>
+
+<script>
+  function switchTab(group, tab) {
+    // Deactivate all buttons and panes in this group
+    document.querySelectorAll(`#${group}-tabs .tab-btn`).forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll(`[id^="${group}-"]`).forEach(pane => {
+      if (pane.classList.contains('tab-pane')) pane.classList.remove('active');
+    });
+    // Activate selected
+    const btn = [...document.querySelectorAll(`#${group}-tabs .tab-btn`)].find(b => b.textContent.trim().toLowerCase() === tab);
+    if (btn) btn.classList.add('active');
+    const pane = document.getElementById(`${group}-${tab}`);
+    if (pane) pane.classList.add('active');
+  }
+</script>
+
+</body>
+</html>

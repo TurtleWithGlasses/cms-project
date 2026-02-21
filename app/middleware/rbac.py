@@ -30,6 +30,8 @@ class RBACMiddleware(BaseHTTPMiddleware):
             "/token",
             "/favicon.ico",
             "/graphql",
+            "/developer",
+            "/api/v1/developer/changelog",
         }
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint):

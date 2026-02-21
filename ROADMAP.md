@@ -4,7 +4,7 @@
 
 This document outlines the comprehensive development roadmap for the CMS Project, a FastAPI-based content management system with role-based access control, content versioning, and scheduling capabilities. The roadmap addresses code quality improvements, security enhancements, feature additions, performance optimizations, and infrastructure modernization.
 
-**Current Version:** 1.14.0
+**Current Version:** 1.15.0
 **Target Architecture:** Production-ready, scalable CMS platform
 **Technology Stack:** FastAPI, PostgreSQL, SQLAlchemy 2.0, JWT Authentication, React 18, Vite
 
@@ -15,6 +15,15 @@ This document outlines the comprehensive development roadmap for the CMS Project
 ### Completed Work Summary
 
 The following major features and improvements have been completed:
+
+#### API Documentation & Developer Portal (v1.15.0)
+- [x] **Enhanced OpenAPI schema** — `BearerAuth` (JWT) and `APIKeyAuth` security scheme definitions via `_custom_openapi()`
+- [x] **Per-tag descriptions** — 34 API tag groups with detailed descriptions in `_OPENAPI_TAGS`
+- [x] **Developer portal** — `GET /developer` — self-contained HTML page with auth guide, quickstart examples (curl/Python/JS), key endpoints table, changelog summary
+- [x] **Changelog endpoint** — `GET /api/v1/developer/changelog` — structured JSON version history (public, no auth)
+- [x] **CHANGELOG.md** — full version history from v1.0.0 to v1.15.0
+- [x] **Swagger UI enhancement** — `persistAuthorization: true` so tokens survive page reload
+- [x] **Tests** — 28 tests in `test/test_developer_portal.py`
 
 #### Import/Export — XML, WordPress WXR, Markdown (v1.14.0)
 - [x] **XML Export** — `GET /api/v1/content/xml` — standard XML with full metadata; returns UTF-8 XML with declaration

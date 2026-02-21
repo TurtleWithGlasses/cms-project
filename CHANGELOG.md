@@ -1,0 +1,213 @@
+# Changelog
+
+All notable changes to the CMS Project are documented here.
+Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
+
+---
+
+## [1.15.0] — 2026-02-21 — Phase 4.4: API Documentation & Developer Portal
+
+### Added
+- Enhanced OpenAPI schema with `BearerAuth` (JWT) and `APIKeyAuth` security scheme definitions
+- Per-tag descriptions for all 34 API tag groups in `_OPENAPI_TAGS`
+- Richer `FastAPI()` constructor: `description`, `contact`, `license_info`, `openapi_tags`, `swagger_ui_parameters`
+- `GET /developer` — developer portal HTML page (public, no auth): auth guide, quickstart examples, key endpoints table, changelog summary
+- `GET /api/v1/developer/changelog` — machine-readable changelog as structured JSON (public)
+- `CHANGELOG.md` — this file
+
+### Changed
+- Swagger UI: `persistAuthorization: true` so tokens survive page reload
+- RBAC `public_paths` extended with `/developer` and `/api/v1/changelog`
+
+---
+
+## [1.14.0] — 2026-02-14 — Phase 4.3: Import/Export (XML, WordPress WXR, Markdown)
+
+### Added
+- `GET /api/v1/content/xml` — export all content as standard XML with full metadata
+- `GET /api/v1/content/wordpress` — export as WordPress WXR 1.2 (with `content:`, `dc:`, `wp:` namespaces; CDATA bodies)
+- `GET /api/v1/content/markdown` — export as ZIP archive of `.md` files with YAML frontmatter
+- `POST /api/v1/content/wordpress` — import WordPress WXR; defusedxml-safe; maps WP statuses; filters attachments
+- `POST /api/v1/content/markdown` — import single Markdown file with YAML frontmatter (stdlib-only parser)
+- `ExportService.export_content_xml()`, `export_content_wordpress()`, `export_content_markdown_zip()`
+- `parse_wordpress_xml()`, `parse_markdown_content()` in `import_service`
+- `import_content_wordpress()`, `import_content_markdown()` entry-point functions
+- 37 tests in `test/test_import_export.py`
+
+---
+
+## [1.13.0] — 2026-02-07 — Phase 4.2: SEO JSON-LD, Social Sharing, Analytics Integration
+
+### Added
+- `SEOService.generate_article_json_ld()` — Schema.org Article structured data
+- `SEOService.generate_website_json_ld()` — Schema.org WebSite + SearchAction
+- `SEOService.get_content_og_tags()` — Open Graph + Twitter Card meta dict
+- `SocialSharingService.get_share_urls()` — Twitter/X, Facebook, LinkedIn, WhatsApp, Email URLs
+- `SocialPostingService.post_on_publish()` — fire-and-forget auto-post stub (wired into content approval)
+- `GET /api/v1/social/content/{id}/share` — share URLs + OG/TC metadata (public)
+- `GET /api/v1/social/content/{id}/meta` — canonical + OG + JSON-LD + WebSite JSON-LD (public)
+- `GET /api/v1/analytics/config` — GA4 / Plausible frontend config (public)
+- `POST /api/v1/analytics/events` — server-side event proxy to GA4 + Plausible (fire-and-forget, status 202)
+- `_forward_event()` helper using `httpx.AsyncClient`
+- 5 UTM columns on `ContentView`: `utm_source`, `utm_medium`, `utm_campaign`, `utm_term`, `utm_content`
+- Alembic migration `o5p6q7r8s9t0_add_utm_to_content_views`
+- 8 new config settings: `twitter_handle`, `twitter_bearer_token`, `facebook_app_id`, `linkedin_company_id`, `google_analytics_measurement_id`, `google_analytics_api_secret`, `plausible_domain`, `plausible_api_url`
+- 22 tests in `test/test_social.py`, 18 tests in `test/test_analytics_config.py`
+
+### Changed
+- RBAC `dispatch()` extended with prefix check for `/api/v1/social/` and exact check for `/api/v1/analytics/config`
+
+---
+
+## [1.12.0] — 2026-01-31 — Phase 4.1: GraphQL API, Webhook Event Wiring, API Key Auth
+
+### Added
+- GraphQL endpoint at `/graphql` via `strawberry-graphql[fastapi]==0.296.1`
+- `GraphQLContext` inheriting `BaseContext` with `user` and `db` fields
+- `Query.contents`, `Query.users`, `Query.me`, `Query.content_by_id` resolvers
+- `Mutation.create_content`, `Mutation.update_content`, `Mutation.delete_content` mutations
+- `WebhookEventDispatcher` — fires webhooks on `content.published`, `content.updated`, `content.deleted`, `comment.created`, `user.created`, `media.uploaded`
+- `GET /api/v1/webhooks/{id}/pause` and `/resume` endpoints
+- `get_current_user_from_api_key()` and `get_current_user_any_auth()` dependency helpers
+- API key `X-API-Key` header support throughout protected routes
+- 48 tests: `test/test_graphql.py`, `test/test_webhook_events.py`, `test/test_api_key_auth.py`
+
+---
+
+## [1.11.0] — 2026-01-24 — Phase 3.4: 2FA Recovery Mechanisms
+
+### Added
+- Email OTP backup authentication — `send_email_otp()` generates 6-digit code (SHA-256 hash, 10-minute expiry)
+- `verify_email_otp()` validates one-time codes against in-memory store
+- `POST /api/v1/2fa/email/send-otp` and `POST /api/v1/2fa/email/verify-otp` endpoints
+- 10 backup recovery codes per user (bcrypt-hashed, stored in DB)
+- `POST /api/v1/2fa/recovery-codes/generate` and `/verify` endpoints
+- Admin 2FA reset: `POST /api/v1/2fa/admin/reset/{user_id}` (admin/superadmin only)
+- 2FA enforcement policy: `require_2fa_roles` config setting
+
+---
+
+## [1.10.0] — 2026-01-17 — Phase 3.3: Admin Dashboard Enhancement
+
+### Added
+- WebSocket real-time event broadcasting (`/api/v1/ws/events`)
+- `WebSocketManager` with per-channel subscription
+- `frontend/src/services/websocket.js` — auto-reconnect WebSocket client
+- `frontend/src/hooks/useWebSocket.js` — React hook integrating WebSocket + React Query
+- Site settings CRUD at `GET/PUT /api/v1/settings` (JSON file storage at `data/site_settings.json`)
+- 18 tests in `test/test_admin_dashboard.py`
+
+### Fixed
+- `ActivityLog` column reference changed from `created_at` to `timestamp` in `DashboardService`
+
+---
+
+## [1.9.0] — 2026-01-10 — Phase 3.2: Analytics & Metrics
+
+### Added
+- `ContentView` model for page-view tracking with session ID, IP, user agent, referrer
+- `GET /api/v1/analytics/overview` — aggregated stats (total views, unique visitors, popular content)
+- `GET /api/v1/analytics/popular` — top-N most-viewed content items
+- `POST /api/v1/analytics/track` — record a content view
+- Prometheus metrics via `PrometheusMiddleware`; `/metrics` endpoint
+- Slow query monitoring with `install_query_monitor()` and configurable threshold
+
+---
+
+## [1.8.0] — 2026-01-03 — Phase 3.1: Comment System
+
+### Added
+- `Comment` model with `parent_id` for threaded replies
+- `GET/POST /api/v1/comments/` and `GET/PUT/DELETE /api/v1/comments/{id}` endpoints
+- Comment moderation: `flag`, `approve`, `reject` actions
+- Webhook events: `comment.created`
+
+---
+
+## [1.7.0] — 2025-12-27 — Phase 2.6: Performance Optimization
+
+### Added
+- `ETagMiddleware` — conditional GET support; 304 Not Modified responses
+- `GZipMiddleware` — response compression above `gzip_minimum_size` bytes
+- `structlog`-based structured logging middleware
+- SQLAlchemy `selectinload` usage throughout for N+1 elimination
+
+---
+
+## [1.6.0] — 2025-12-20 — Phase 2.5: Advanced Content Features
+
+### Added
+- Content versioning: every save creates a `ContentVersion` snapshot
+- `GET /api/v1/content/{id}/versions` and `POST /api/v1/content/{id}/versions/{vid}/restore`
+- Editorial workflow: `submit_for_review`, `approve`, `reject` transitions
+- `ContentTemplate` model + CRUD endpoints
+- `ContentRelation` model + CRUD endpoints (related, series, parent/child)
+- Webhook events: `content.published`
+
+---
+
+## [1.5.0] — 2025-12-13 — Phase 2.3: Caching Layer
+
+### Added
+- Redis-backed response caching with `@cache_response` decorator
+- Automatic cache invalidation on content mutations
+- `GET /api/v1/cache/stats` and `DELETE /api/v1/cache/invalidate` endpoints
+
+---
+
+## [1.4.0] — 2025-12-06 — Phase 2.2: Search Engine
+
+### Added
+- Full-text search using PostgreSQL `tsvector` / `tsquery`
+- `GET /api/v1/search/?q=` with highlighting and excerpt extraction
+- Search analytics — query tracking and result counts
+
+---
+
+## [1.3.0] — 2025-11-29 — Phase 2.1: Media Management
+
+### Added
+- File upload endpoint with format validation (images + documents)
+- `Media` model with `MediaFolder` hierarchy
+- `GET/POST /api/v1/media/` and `GET/POST /api/v1/media/folders/`
+- Image metadata extraction (dimensions, format, file size)
+- Webhook event: `media.uploaded`
+
+---
+
+## [1.2.0] — 2025-11-22 — Phase 1: Foundation & Security
+
+### Added
+- `RBACMiddleware` — role-based access control for all non-public routes
+- `CSRFMiddleware` — double-submit cookie CSRF protection
+- `SecurityHeadersMiddleware` — HSTS, CSP, X-Frame-Options, X-Content-Type-Options
+- `slowapi` rate limiting with per-route overrides
+- `StructuredLoggingMiddleware` — JSON logs in production
+- Sentry SDK integration for error tracking and performance monitoring
+- `bandit` + `ruff` pre-commit hooks
+
+---
+
+## [1.1.0] — 2025-11-15
+
+### Added
+- Password reset flow: `POST /api/v1/password-reset/request` and `/confirm`
+- Email service (`EmailService`) with SMTP + HTML templates
+- Privacy & GDPR routes: data export, account deletion, consent management
+- Notification model + `GET/POST /api/v1/notifications/` endpoints
+- Team management: `Team`, `TeamMember` models + CRUD endpoints
+
+---
+
+## [1.0.0] — 2025-11-01 — Initial Release
+
+### Added
+- FastAPI application with PostgreSQL (async SQLAlchemy 2.0) + Redis
+- JWT authentication with `POST /auth/token` (OAuth2 password flow)
+- `User` model with registration, profile, role assignment
+- `Content` model: title, slug, body, excerpt, status, category, tags, meta fields
+- `Category` model with hierarchical organisation
+- `Role` model: user, admin, superadmin, manager
+- Alembic migration framework
+- Jinja2 HTML templates: login, register, dashboard, profile
+- `GET /health` health check endpoint

@@ -7,6 +7,7 @@ import sentry_sdk
 from fastapi import Depends, FastAPI, Form, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.openapi.utils import get_openapi
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -59,6 +60,7 @@ from app.routes import (
     comments,
     content_relations,
     dashboard,
+    developer,
     export,
     imports,
     media,
@@ -87,6 +89,134 @@ from app.services.auth_service import authenticate_user, register_user
 from app.services.content_service import update_user_info
 from app.utils.metrics import PrometheusMiddleware
 from app.utils.query_monitor import install_query_monitor
+
+# ── OpenAPI metadata ──────────────────────────────────────────────────────────
+
+_API_DESCRIPTION = """
+## CMS Project API
+
+A production-ready Content Management System API built with **FastAPI**, **PostgreSQL**,
+and **Redis**.
+
+### Authentication
+
+Two authentication methods are supported:
+
+| Method | Header | How to obtain |
+|--------|--------|---------------|
+| **JWT Bearer** | `Authorization: Bearer <token>` | `POST /auth/token` |
+| **API Key** | `X-API-Key: <key>` | `POST /api/v1/api-keys` |
+
+### Base URL
+
+```
+http://localhost:8000
+```
+
+### Developer Resources
+
+- **Interactive docs** — [Swagger UI](/docs)
+- **ReDoc** — [ReDoc](/redoc)
+- **Developer Portal** — [/developer](/developer)
+- **GraphQL Playground** — [/graphql](/graphql)
+"""
+
+_OPENAPI_TAGS = [
+    {"name": "Auth", "description": "JWT token authentication — login, OAuth2 password flow, token management"},
+    {"name": "Users", "description": "User account management — registration, profile updates, role assignment"},
+    {
+        "name": "Roles",
+        "description": "Role definitions — list and manage RBAC roles (user, admin, superadmin, manager)",
+    },
+    {
+        "name": "Content",
+        "description": "Content CRUD — create, read, update, delete, publish, approve, and version content items",
+    },
+    {
+        "name": "Search",
+        "description": "Full-text search — content search with highlighting, suggestions, and analytics",
+    },
+    {"name": "Categories", "description": "Category management — hierarchical content organisation"},
+    {
+        "name": "Password Reset",
+        "description": "Password reset flow — request token, validate, and set new password via email",
+    },
+    {"name": "Media", "description": "Media library — upload, process, and serve images and documents"},
+    {"name": "Media Folders", "description": "Media folder management — organise media assets into folder hierarchies"},
+    {
+        "name": "Bulk Operations",
+        "description": "Bulk content actions — publish, unpublish, delete, or update multiple items at once",
+    },
+    {
+        "name": "Export",
+        "description": "Data export — content and users as JSON, CSV, XML, WordPress WXR, or Markdown ZIP",
+    },
+    {
+        "name": "Import",
+        "description": "Data import — content from JSON, CSV, XML, WordPress WXR, or Markdown files with job tracking",
+    },
+    {
+        "name": "Analytics",
+        "description": "Analytics and reporting — page views, popular content, session data, GA4/Plausible config",
+    },
+    {"name": "Backups", "description": "Backup and restore — database, media, and config snapshots with scheduling"},
+    {"name": "Dashboard", "description": "Admin dashboard data — aggregated statistics and live activity feed"},
+    {
+        "name": "Comments",
+        "description": "Comment system — threaded comments, moderation, flagging, and approval workflow",
+    },
+    {
+        "name": "Two-Factor Authentication",
+        "description": "2FA management — TOTP setup, backup codes, email OTP, and admin reset",
+    },
+    {
+        "name": "API Keys",
+        "description": "API key management — create, list, revoke, and rotate machine-to-machine auth keys",
+    },
+    {
+        "name": "Webhooks",
+        "description": "Webhook subscriptions — register, list, pause/resume endpoints for event delivery",
+    },
+    {"name": "WebSocket", "description": "Real-time WebSocket — live content and moderation event broadcasting"},
+    {
+        "name": "Workflow",
+        "description": "Editorial workflow — submit for review, approve, reject, and track content states",
+    },
+    {
+        "name": "Social",
+        "description": "Social sharing — share URL generation (Twitter, Facebook, LinkedIn), OG/Twitter Card metadata, JSON-LD",
+    },
+    {
+        "name": "SEO",
+        "description": "SEO tooling — sitemap.xml, RSS/Atom feeds, robots.txt (all public, no auth required)",
+    },
+    {
+        "name": "GraphQL",
+        "description": "GraphQL API — flexible query interface; supports JWT and API key auth via context",
+    },
+    {
+        "name": "Monitoring",
+        "description": "Health and metrics — /health, /ready, /metrics (Prometheus), slow-query tracking",
+    },
+    {"name": "Privacy & GDPR", "description": "GDPR compliance — data export, account deletion, consent management"},
+    {"name": "Cache", "description": "Cache management — inspect and invalidate Redis cache entries"},
+    {"name": "Notifications", "description": "User notifications — in-app notification feed with read/unread state"},
+    {"name": "Teams", "description": "Team management — create teams, add/remove members, manage team roles"},
+    {
+        "name": "Content Templates",
+        "description": "Content templates — predefined structures for consistent content creation",
+    },
+    {
+        "name": "Content Relations",
+        "description": "Content relations — link related items (related posts, series, parent/child)",
+    },
+    {"name": "Settings", "description": "Site settings — global CMS configuration (site name, logo, contact info)"},
+    {
+        "name": "Developer Portal",
+        "description": "Developer documentation — portal page, changelog, and API reference links",
+    },
+    {"name": "Root", "description": "Root endpoint — API welcome message and version info"},
+]
 
 # Configure structured logging based on environment
 if settings.environment == "production":
@@ -134,10 +264,14 @@ def create_app() -> FastAPI:
     """Create the FastAPI application."""
     app = FastAPI(
         title=settings.app_name,
-        description="A custom CMS backend powered by FastAPI",
+        description=_API_DESCRIPTION,
         debug=settings.debug,
         version=settings.app_version,
         lifespan=lifespan,
+        openapi_tags=_OPENAPI_TAGS,
+        contact={"name": "CMS API Support", "url": "https://github.com/TurtleWithGlasses/cms-project"},
+        license_info={"name": "MIT"},
+        swagger_ui_parameters={"persistAuthorization": True, "tryItOutEnabled": False},
     )
 
     # CORS configuration - restrictive by default
@@ -174,6 +308,7 @@ def create_app() -> FastAPI:
             "/docs",
             "/redoc",
             "/openapi.json",  # Documentation
+            "/developer",  # Developer portal (public HTML page)
             "/api/v1",  # All v1 API endpoints
             "/auth/token",
             "/auth",  # Authentication endpoints
@@ -258,6 +393,9 @@ def create_app() -> FastAPI:
     # Site settings routes
     app.include_router(settings_routes.router, prefix="/api/v1", tags=["Settings"])
 
+    # Developer portal and changelog
+    app.include_router(developer.router, tags=["Developer Portal"])
+
     # GraphQL endpoint — auth handled per-resolver via context
     async def get_graphql_context(
         request: Request,
@@ -289,6 +427,41 @@ def create_app() -> FastAPI:
 
 
 app = create_app()
+
+
+def _custom_openapi() -> dict:
+    """Custom OpenAPI schema with security scheme definitions."""
+    if app.openapi_schema:
+        return app.openapi_schema
+    schema = get_openapi(
+        title=app.title,
+        version=app.version,
+        openapi_version=app.openapi_version,
+        description=app.description,
+        contact=app.contact,
+        license_info=app.license_info,
+        routes=app.routes,
+        tags=app.openapi_tags,
+    )
+    schema.setdefault("components", {})["securitySchemes"] = {
+        "BearerAuth": {
+            "type": "http",
+            "scheme": "bearer",
+            "bearerFormat": "JWT",
+            "description": "JWT access token. Obtain via `POST /auth/token`.",
+        },
+        "APIKeyAuth": {
+            "type": "apiKey",
+            "in": "header",
+            "name": "X-API-Key",
+            "description": "API key. Obtain via `POST /api/v1/api-keys`.",
+        },
+    }
+    app.openapi_schema = schema
+    return schema
+
+
+app.openapi = _custom_openapi
 
 
 @app.get("/", tags=["Root"])
