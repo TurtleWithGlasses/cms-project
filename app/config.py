@@ -7,7 +7,7 @@ load_dotenv()
 class Settings(BaseSettings):
     # Application settings
     app_name: str = "CMS Project"
-    app_version: str = "1.16.0"
+    app_version: str = "1.17.0"
     debug: bool = False
     environment: str = "development"
 
@@ -66,6 +66,10 @@ class Settings(BaseSettings):
     sentry_dsn: str | None = None
     sentry_traces_sample_rate: float = 0.1  # 10% of transactions
     sentry_profiles_sample_rate: float = 0.1  # 10% of profiled transactions
+
+    # OpenTelemetry distributed tracing
+    otel_exporter_endpoint: str | None = None  # e.g. "http://jaeger:4317" (OTLP/gRPC)
+    otel_service_name: str = "cms-api"
 
     # Social Media
     twitter_handle: str | None = None  # e.g. "@mycms" for OG/TC tags

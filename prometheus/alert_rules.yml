@@ -1,0 +1,164 @@
+---
+# Prometheus Alerting Rules for the CMS Project
+# Metrics are emitted by app/utils/metrics.py via PrometheusMiddleware.
+# All rules fire after their `for` duration so transient blips don't page.
+
+groups:
+  # ─── Availability ───────────────────────────────────────────────────────────
+  - name: cms_availability
+    rules:
+      - alert: InstanceDown
+        expr: up{job="cms-app"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "CMS instance {{ $labels.instance }} is unreachable"
+          description: >
+            Prometheus cannot scrape {{ $labels.instance }}.
+            The application may have crashed or the network is down.
+
+      - alert: HealthCheckDegraded
+        expr: cms_health_check_status{service="database"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Database health check failing on {{ $labels.instance }}"
+          description: >
+            The /health/detailed endpoint reports the database service as
+            unhealthy for 2+ minutes. Investigate DB connectivity.
+
+      - alert: RedisHealthCheckFailing
+        expr: cms_health_check_status{service="redis"} == 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis health check failing on {{ $labels.instance }}"
+          description: >
+            The /health/detailed endpoint reports Redis as unhealthy.
+            Caching and session management may be degraded.
+
+  # ─── Latency ────────────────────────────────────────────────────────────────
+  - name: cms_latency
+    rules:
+      - alert: HighP99RequestLatency
+        expr: |
+          histogram_quantile(
+            0.99,
+            sum(rate(cms_http_request_duration_seconds_bucket[5m])) by (le, endpoint)
+          ) > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "P99 latency > 2s on {{ $labels.endpoint }}"
+          description: >
+            The 99th-percentile response time for {{ $labels.endpoint }} has
+            exceeded 2 seconds for the past 5 minutes (current: {{ $value }}s).
+
+      - alert: HighP50RequestLatency
+        expr: |
+          histogram_quantile(
+            0.50,
+            sum(rate(cms_http_request_duration_seconds_bucket[5m])) by (le)
+          ) > 0.5
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Median response time > 500ms ({{ $value | humanizeDuration }})"
+          description: >
+            The median (P50) response time across all endpoints is above 500ms
+            for 10+ minutes — indicating broad performance degradation.
+
+  # ─── Error Rate ─────────────────────────────────────────────────────────────
+  - name: cms_errors
+    rules:
+      - alert: HighErrorRate
+        expr: |
+          (
+            sum(rate(cms_http_requests_total{status_code=~"5.."}[5m]))
+            /
+            sum(rate(cms_http_requests_total[5m]))
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "5xx error rate > 5% ({{ $value | humanizePercentage }})"
+          description: >
+            More than 5% of requests are returning 5xx errors over the last
+            5 minutes. Investigate application logs for root cause.
+
+      - alert: ElevatedClientErrorRate
+        expr: |
+          (
+            sum(rate(cms_http_requests_total{status_code=~"4.."}[5m]))
+            /
+            sum(rate(cms_http_requests_total[5m]))
+          ) > 0.20
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "4xx error rate > 20% ({{ $value | humanizePercentage }})"
+          description: >
+            More than 20% of requests are client errors (4xx). This may
+            indicate a frontend bug, misconfiguration, or an attack.
+
+  # ─── Database ────────────────────────────────────────────────────────────────
+  - name: cms_database
+    rules:
+      - alert: SlowDatabaseQueries
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum(rate(cms_db_query_duration_seconds_bucket[10m])) by (le)
+          ) > 0.5
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "P95 DB query latency > 500ms"
+          description: >
+            The 95th-percentile database query time has exceeded 500ms for
+            10+ minutes. Check for missing indexes or slow query patterns.
+
+  # ─── Cache ───────────────────────────────────────────────────────────────────
+  - name: cms_cache
+    rules:
+      - alert: LowCacheHitRate
+        expr: |
+          (
+            sum(rate(cms_cache_hits_total[10m]))
+            /
+            (
+              sum(rate(cms_cache_hits_total[10m]))
+              + sum(rate(cms_cache_misses_total[10m]))
+            )
+          ) < 0.5
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Cache hit rate below 50% ({{ $value | humanizePercentage }})"
+          description: >
+            Cache effectiveness has dropped below 50% for 15+ minutes.
+            The database is serving more traffic than expected.
+
+  # ─── Authentication ──────────────────────────────────────────────────────────
+  - name: cms_auth
+    rules:
+      - alert: AuthFailureSpike
+        expr: rate(cms_auth_attempts_total{result="failure"}[5m]) > 10
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Auth failures > 10/s — possible brute-force attack"
+          description: >
+            Authentication failure rate has exceeded 10 per second for 2+
+            minutes on {{ $labels.instance }}. Review access logs for
+            suspicious IP patterns and consider tightening rate limits.

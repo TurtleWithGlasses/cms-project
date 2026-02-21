@@ -6,16 +6,16 @@ global:
     monitor: 'cms-monitor'
     environment: 'production'
 
-# Alertmanager configuration (optional)
-# alerting:
-#   alertmanagers:
-#     - static_configs:
-#         - targets:
-#           - alertmanager:9093
+# Alert rules loaded from separate file
+rule_files:
+  - /etc/prometheus/alert_rules.yml
 
-# Rule files (optional)
-# rule_files:
-#   - "alert_rules.yml"
+# Alertmanager integration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - alertmanager:9093
 
 scrape_configs:
   # Prometheus self-monitoring
@@ -36,17 +36,17 @@ scrape_configs:
         regex: '([^:]+):.*'
         replacement: '${1}'
 
-  # Nginx metrics (if nginx-prometheus-exporter is used)
+  # Nginx metrics (requires nginx-prometheus-exporter sidecar)
   # - job_name: 'nginx'
   #   static_configs:
   #     - targets: ['nginx-exporter:9113']
 
-  # PostgreSQL metrics (if postgres_exporter is used)
-  # - job_name: 'postgres'
-  #   static_configs:
-  #     - targets: ['postgres-exporter:9187']
+  # PostgreSQL metrics (requires postgres_exporter)
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres-exporter:9187']
 
-  # Redis metrics (if redis_exporter is used)
-  # - job_name: 'redis'
-  #   static_configs:
-  #     - targets: ['redis-exporter:9121']
+  # Redis metrics (requires redis_exporter)
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis-exporter:9121']

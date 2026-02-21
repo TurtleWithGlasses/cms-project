@@ -4,7 +4,7 @@
 
 This document outlines the comprehensive development roadmap for the CMS Project, a FastAPI-based content management system with role-based access control, content versioning, and scheduling capabilities. The roadmap addresses code quality improvements, security enhancements, feature additions, performance optimizations, and infrastructure modernization.
 
-**Current Version:** 1.16.0
+**Current Version:** 1.17.0
 **Target Architecture:** Production-ready, scalable CMS platform
 **Technology Stack:** FastAPI, PostgreSQL, SQLAlchemy 2.0, JWT Authentication, React 18, Vite
 
@@ -15,6 +15,20 @@ This document outlines the comprehensive development roadmap for the CMS Project
 ### Completed Work Summary
 
 The following major features and improvements have been completed:
+
+#### Monitoring & Observability (v1.17.0)
+- [x] **OpenTelemetry distributed tracing** — `app/utils/tracing.py`; feature-flagged on `OTEL_EXPORTER_ENDPOINT`; instruments FastAPI + SQLAlchemy; OTLP/gRPC exporter; no-op in dev
+- [x] **Prometheus alerting rules** — `prometheus/alert_rules.yml`: 9 rules across 5 groups (InstanceDown, HealthCheckDegraded, RedisHealthCheckFailing, HighP99/P50 latency, HighErrorRate, ElevatedClientError, SlowDatabaseQueries, LowCacheHitRate, AuthFailureSpike)
+- [x] **Alertmanager** — `monitoring/alertmanager/alertmanager.yml`: Slack routing to `#cms-alerts` (all) + `#cms-critical` (critical), inhibit rules, resolve notification
+- [x] **Prometheus config updated** — `rule_files`, `alerting.alertmanagers`, postgres-exporter (9187) + redis-exporter (9121) scrape jobs enabled
+- [x] **Loki log aggregation** — `monitoring/loki/loki-config.yaml`: single-node boltdb-shipper, 30-day retention, ruler → Alertmanager
+- [x] **Promtail log shipping** — `monitoring/promtail/promtail-config.yaml`: tails `/var/log/cms/*.log` + Docker container stdout with JSON pipeline
+- [x] **Grafana provisioning** — datasources (Prometheus + Loki) + dashboard provider auto-configured at startup
+- [x] **Grafana CMS Overview dashboard** — `monitoring/grafana/dashboards/cms-overview.json`: 6 panels (request rate, error rate, P99 latency, cache hit rate, HTTP status timeseries, latency percentiles)
+- [x] **docker-compose.monitoring.yml** — standalone monitoring stack: Prometheus + Alertmanager + Grafana (port 3001) + Loki + Promtail + postgres-exporter + redis-exporter
+- [x] **RBAC public paths** — `/health`, `/ready`, `/health/detailed`, `/metrics`, `/metrics/summary` added to `public_paths` (required for Prometheus scraping + k8s probes)
+- [x] **Config settings** — `otel_exporter_endpoint` (None) + `otel_service_name` ("cms-api") added
+- [x] **Tests** — 68 tests in `test/test_monitoring_observability.py`
 
 #### CI/CD Pipeline & Deployment Automation (v1.16.0)
 - [x] **CI/CD pipeline overhaul** — `ci-cd.yml` rewritten with quality, test, build, security-scan, deploy-staging, deploy-production jobs
@@ -1067,26 +1081,23 @@ The following major features and improvements have been completed:
   - Dockerfile updated to Python 3.12-slim ✅
   - Files: `.github/workflows/{ci-cd,db-migrate,rollback,release}.yml`, `Dockerfile`
 
-#### 5.3 Monitoring & Observability
-- [ ] **Application Monitoring**
-  - Integrate Sentry for error tracking
-  - Add structured logging (JSON logs)
-  - Implement distributed tracing (OpenTelemetry)
-  - Health check endpoints (`/health`, `/ready`)
-  - New file: `middleware/logging.py`
+#### 5.3 Monitoring & Observability ✅ COMPLETED (v1.17.0)
+- [x] **Application Monitoring** ✅
+  - Sentry error tracking (feature-flagged on `SENTRY_DSN`) ✅
+  - Structured JSON logging with request IDs (`app/middleware/logging.py`) ✅
+  - OpenTelemetry distributed tracing — `app/utils/tracing.py` (OTLP/gRPC, no-op when unset) ✅
+  - Health check endpoints: `/health`, `/ready`, `/health/detailed` ✅
 
-- [ ] **Metrics & Alerting**
-  - Prometheus metrics exporter
-  - Grafana dashboard templates
-  - Alert rules for critical metrics
-  - PagerDuty/Slack integration
-  - New file: `monitoring/prometheus.py`
+- [x] **Metrics & Alerting** ✅
+  - Prometheus metrics exporter at `/metrics` ✅
+  - Grafana dashboard provisioning + CMS Overview dashboard ✅
+  - Alert rules: 9 rules covering availability, latency, errors, DB, cache, auth ✅
+  - Alertmanager: Slack routing (`#cms-alerts` + `#cms-critical`) ✅
 
-- [ ] **Logging Infrastructure**
-  - Centralized logging (ELK stack or Loki)
-  - Log aggregation and search
-  - Log retention policies
-  - Audit log compliance
+- [x] **Logging Infrastructure** ✅
+  - Loki log aggregation with 30-day retention ✅
+  - Promtail log shipping from file + Docker containers ✅
+  - Log pipeline with JSON parsing and label extraction ✅
 
 #### 5.4 Scalability & High Availability
 - [ ] **Database Optimization**

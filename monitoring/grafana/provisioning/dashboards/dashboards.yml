@@ -1,0 +1,18 @@
+---
+# Grafana dashboard provisioning configuration.
+# Grafana loads all JSON files from the path below on startup.
+
+apiVersion: 1
+
+providers:
+  - name: CMS Dashboards
+    orgId: 1
+    folder: CMS
+    folderUid: cms
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: false

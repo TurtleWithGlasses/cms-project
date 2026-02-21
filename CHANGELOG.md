@@ -5,6 +5,30 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.17.0] — 2026-02-21 — Phase 5.3: Monitoring & Observability
+
+### Added
+- `app/utils/tracing.py` — OpenTelemetry distributed tracing setup; lazy-imports SDK packages so app runs without an OTLP endpoint; auto-instruments FastAPI + SQLAlchemy when `OTEL_EXPORTER_ENDPOINT` is set
+- `prometheus/alert_rules.yml` — 9 Prometheus alert rules in 5 groups: availability (`InstanceDown`, `HealthCheckDegraded`, `RedisHealthCheckFailing`), latency (`HighP99RequestLatency`, `HighP50RequestLatency`), errors (`HighErrorRate`, `ElevatedClientErrorRate`), database (`SlowDatabaseQueries`), cache (`LowCacheHitRate`), auth (`AuthFailureSpike`)
+- `monitoring/alertmanager/alertmanager.yml` — Slack webhook routing; default `#cms-alerts`, critical severity also fans out to `#cms-critical`; inhibit rules silence matching warnings when critical fires
+- `monitoring/loki/loki-config.yaml` — single-node Loki log aggregation with boltdb-shipper storage, 30-day retention, Alertmanager ruler integration
+- `monitoring/promtail/promtail-config.yaml` — log shipping pipeline: `/var/log/cms/*.log` (structured JSON) + Docker container stdout; JSON pipeline stage extracts `level`, `request_id`, `method`, `status_code`, `duration_ms` labels
+- `monitoring/grafana/provisioning/datasources/prometheus.yml` — auto-provisions Prometheus datasource (`uid: prometheus`) as default on Grafana startup
+- `monitoring/grafana/provisioning/datasources/loki.yml` — auto-provisions Loki datasource (`uid: loki`) on Grafana startup
+- `monitoring/grafana/provisioning/dashboards/dashboards.yml` — Grafana dashboard provisioner pointing to `/var/lib/grafana/dashboards`
+- `monitoring/grafana/dashboards/cms-overview.json` — 6-panel CMS Overview Grafana dashboard: HTTP request rate, error rate %, P99 latency, cache hit rate %, request rate by status code (timeseries), latency percentiles P50/P95/P99 (timeseries)
+- `docker-compose.monitoring.yml` — standalone monitoring stack compose file: Prometheus v2.54.0, Alertmanager v0.27.0, Grafana 11.3.0 (port 3001), Loki 3.2.0, Promtail 3.2.0, postgres-exporter v0.15.0, redis-exporter v1.65.0; all services with healthchecks and named volumes
+- 68 tests in `test/test_monitoring_observability.py` — health endpoint registration and responses, Prometheus metric helpers, structured logging middleware, OTel config, alert rule YAML validation, monitoring infrastructure YAML/JSON validation, Sentry config
+
+### Changed
+- `prometheus/prometheus.yml` — added `rule_files` (alert_rules.yml), `alerting` block (Alertmanager at port 9093), postgres-exporter and redis-exporter scrape jobs
+- `app/middleware/rbac.py` — added `/health`, `/ready`, `/health/detailed`, `/metrics`, `/metrics/summary` to `public_paths` so Prometheus and k8s probes reach them without auth
+- `main.py` — import and call `setup_tracing(app)` after app initialization (no-op when `OTEL_EXPORTER_ENDPOINT` is unset)
+- `requirements.txt` — added `opentelemetry-sdk==1.28.0`, `opentelemetry-instrumentation-fastapi==0.49b0`, `opentelemetry-instrumentation-sqlalchemy==0.49b0`, `opentelemetry-exporter-otlp-proto-grpc==1.28.0`
+- `app/config.py` — added `otel_exporter_endpoint` (default `None`) and `otel_service_name` (default `"cms-api"`) settings; version bumped to 1.17.0
+
+---
+
 ## [1.16.0] — 2026-02-21 — Phase 5.2: CI/CD Pipeline & Deployment Automation
 
 ### Added

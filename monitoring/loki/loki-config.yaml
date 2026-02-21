@@ -1,0 +1,70 @@
+---
+# Loki configuration for the CMS Project (single-node / development mode).
+# For production, enable object storage (S3/GCS) and use distributed mode.
+#
+# Documentation: https://grafana.com/docs/loki/latest/configuration/
+
+auth_enabled: false
+
+server:
+  http_listen_port: 3100
+  grpc_listen_port: 9096
+  log_level: info
+
+common:
+  path_prefix: /loki
+  storage:
+    filesystem:
+      chunks_directory: /loki/chunks
+      rules_directory: /loki/rules
+  replication_factor: 1
+  ring:
+    instance_addr: 127.0.0.1
+    kvstore:
+      store: inmemory
+
+schema_config:
+  configs:
+    - from: "2024-01-01"
+      store: tsdb
+      object_store: filesystem
+      schema: v13
+      index:
+        prefix: index_
+        period: 24h
+
+ingester:
+  wal:
+    dir: /loki/wal
+  chunk_idle_period: 1h
+  max_chunk_age: 1h
+  chunk_target_size: 1048576   # 1 MiB
+  chunk_retain_period: 30s
+
+limits_config:
+  # 30-day log retention
+  retention_period: 720h
+  # Reject log lines larger than 256 KiB
+  max_line_size: 262144
+  # Reject pushes that exceed 4 MiB/stream/s
+  ingestion_rate_mb: 4
+  ingestion_burst_size_mb: 8
+
+compactor:
+  working_directory: /loki/compactor
+  delete_request_store: filesystem
+  retention_enabled: true
+  retention_delete_delay: 2h
+
+query_range:
+  results_cache:
+    cache:
+      embedded_cache:
+        enabled: true
+        max_size_mb: 100
+
+ruler:
+  alertmanager_url: http://alertmanager:9093
+
+analytics:
+  reporting_enabled: false

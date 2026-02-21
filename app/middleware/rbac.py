@@ -32,6 +32,12 @@ class RBACMiddleware(BaseHTTPMiddleware):
             "/graphql",
             "/developer",
             "/api/v1/developer/changelog",
+            # Monitoring endpoints — must be reachable by Prometheus and k8s probes
+            "/health",
+            "/ready",
+            "/health/detailed",
+            "/metrics",
+            "/metrics/summary",
         }
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint):

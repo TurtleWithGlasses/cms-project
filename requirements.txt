@@ -55,6 +55,10 @@ qrcode[pil]==7.4.2
 # Monitoring & Observability
 sentry-sdk[fastapi]==2.19.2
 prometheus-client==0.21.1
+opentelemetry-sdk==1.28.0
+opentelemetry-instrumentation-fastapi==0.49b0
+opentelemetry-instrumentation-sqlalchemy==0.49b0
+opentelemetry-exporter-otlp-proto-grpc==1.28.0
 
 # GraphQL API
 strawberry-graphql[fastapi]==0.296.1

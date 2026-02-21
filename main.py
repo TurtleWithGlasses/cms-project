@@ -89,6 +89,7 @@ from app.services.auth_service import authenticate_user, register_user
 from app.services.content_service import update_user_info
 from app.utils.metrics import PrometheusMiddleware
 from app.utils.query_monitor import install_query_monitor
+from app.utils.tracing import setup_tracing
 
 # ── OpenAPI metadata ──────────────────────────────────────────────────────────
 
@@ -415,6 +416,9 @@ def create_app() -> FastAPI:
 
     # Register exception handlers
     register_exception_handlers(app)
+
+    # OpenTelemetry distributed tracing (no-op when OTEL_EXPORTER_ENDPOINT is unset)
+    setup_tracing(app)
 
     if settings.debug:
         logger.info(f"Running in {settings.environment} mode")
