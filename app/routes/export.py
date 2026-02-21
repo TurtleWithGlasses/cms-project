@@ -88,6 +88,111 @@ async def export_content_csv(
     )
 
 
+@router.get("/content/xml")
+async def export_content_xml(
+    status: str | None = None,
+    author_id: int | None = None,
+    limit: int | None = None,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Export content as XML.
+
+    **Parameters**:
+    - status: Filter by content status
+    - author_id: Filter by author ID (non-admins can only export their own content)
+    - limit: Maximum number of records
+
+    **Returns**: XML file
+    """
+    if current_user.role.name not in [RoleEnum.ADMIN.value, RoleEnum.SUPERADMIN.value]:
+        author_id = current_user.id
+
+    xml_data = await export_service.export_content_xml(
+        db=db,
+        status=status,
+        author_id=author_id,
+        limit=limit,
+    )
+
+    return Response(
+        content=xml_data,
+        media_type="application/xml",
+        headers={"Content-Disposition": "attachment; filename=content_export.xml"},
+    )
+
+
+@router.get("/content/wordpress")
+async def export_content_wordpress(
+    status: str | None = None,
+    author_id: int | None = None,
+    limit: int | None = None,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Export content as WordPress eXtended RSS (WXR) for WordPress import.
+
+    **Parameters**:
+    - status: Filter by content status
+    - author_id: Filter by author ID (non-admins can only export their own content)
+    - limit: Maximum number of records
+
+    **Returns**: WordPress WXR XML file
+    """
+    if current_user.role.name not in [RoleEnum.ADMIN.value, RoleEnum.SUPERADMIN.value]:
+        author_id = current_user.id
+
+    wxr_data = await export_service.export_content_wordpress(
+        db=db,
+        status=status,
+        author_id=author_id,
+        limit=limit,
+    )
+
+    return Response(
+        content=wxr_data,
+        media_type="application/xml",
+        headers={"Content-Disposition": "attachment; filename=wordpress_export.xml"},
+    )
+
+
+@router.get("/content/markdown")
+async def export_content_markdown(
+    status: str | None = None,
+    author_id: int | None = None,
+    limit: int | None = None,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Export content as a ZIP archive of Markdown files with YAML frontmatter.
+
+    **Parameters**:
+    - status: Filter by content status
+    - author_id: Filter by author ID (non-admins can only export their own content)
+    - limit: Maximum number of records
+
+    **Returns**: ZIP archive containing one .md file per content item
+    """
+    if current_user.role.name not in [RoleEnum.ADMIN.value, RoleEnum.SUPERADMIN.value]:
+        author_id = current_user.id
+
+    zip_data = await export_service.export_content_markdown_zip(
+        db=db,
+        status=status,
+        author_id=author_id,
+        limit=limit,
+    )
+
+    return Response(
+        content=zip_data,
+        media_type="application/zip",
+        headers={"Content-Disposition": "attachment; filename=content_markdown.zip"},
+    )
+
+
 @router.get("/users/json")
 async def export_users_json(
     role_id: int | None = None,

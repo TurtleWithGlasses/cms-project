@@ -133,6 +133,44 @@ async def import_content_xml(
     return _job_to_response(job)
 
 
+@router.post("/content/wordpress", response_model=ImportJobResponse)
+async def import_content_wordpress(
+    file: UploadFile = File(...),
+    name: str | None = Form(None),
+    duplicate_handling: DuplicateHandling = Form(DuplicateHandling.SKIP),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Import content from a WordPress eXtended RSS (WXR) XML export file."""
+    job = await import_service.import_content_wordpress(
+        db=db,
+        file=file,
+        user_id=current_user.id,
+        name=name,
+        duplicate_handling=duplicate_handling,
+    )
+    return _job_to_response(job)
+
+
+@router.post("/content/markdown", response_model=ImportJobResponse)
+async def import_content_markdown(
+    file: UploadFile = File(...),
+    name: str | None = Form(None),
+    duplicate_handling: DuplicateHandling = Form(DuplicateHandling.SKIP),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Import a single Markdown file with YAML frontmatter as a content item."""
+    job = await import_service.import_content_markdown(
+        db=db,
+        file=file,
+        user_id=current_user.id,
+        name=name,
+        duplicate_handling=duplicate_handling,
+    )
+    return _job_to_response(job)
+
+
 @router.post("/users/csv", response_model=ImportJobResponse)
 async def import_users_csv(
     file: UploadFile = File(...),

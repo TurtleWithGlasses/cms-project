@@ -462,6 +462,183 @@ async def process_user_import(
     return job
 
 
+# WordPress namespace constants
+_WP_CONTENT_NS = "http://purl.org/rss/1.0/modules/content/"
+_WP_DC_NS = "http://purl.org/dc/elements/1.1/"
+_WP_NS = "http://wordpress.org/export/1.2/"
+
+# WordPress → CMS status mapping
+_WP_STATUS_MAP = {
+    "publish": "published",
+    "draft": "draft",
+    "pending": "pending",
+    "private": "draft",
+    "future": "pending",
+}
+
+
+async def parse_wordpress_xml(file_content: bytes) -> list[dict]:
+    """Parse WordPress eXtended RSS (WXR) format and return content records."""
+    try:
+        root = DefusedET.fromstring(file_content.decode("utf-8"))
+    except DefusedET.ParseError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid WordPress XML (WXR) format: {e!s}",
+        ) from e
+
+    items: list[dict] = []
+
+    for item in root.findall(".//item"):
+        # Only import posts and pages; skip attachments, nav_menu_items, etc.
+        post_type = item.findtext(f"{{{_WP_NS}}}post_type") or "post"
+        if post_type not in ("post", "page"):
+            continue
+
+        title = item.findtext("title") or ""
+        body = item.findtext(f"{{{_WP_CONTENT_NS}}}encoded") or item.findtext("description") or ""
+        slug = item.findtext(f"{{{_WP_NS}}}post_name") or ""
+        wp_status = item.findtext(f"{{{_WP_NS}}}status") or "draft"
+        creator = item.findtext(f"{{{_WP_DC_NS}}}creator") or ""
+
+        # Collect categories / tags
+        categories = [c.text for c in item.findall("category[@domain='category']") if c.text]
+        tags = [t.text for t in item.findall("category[@domain='post_tag']") if t.text]
+
+        record: dict = {
+            "title": title,
+            "body": body,
+            "slug": slug or None,
+            "status": _WP_STATUS_MAP.get(wp_status, "draft"),
+            "category": categories[0] if categories else None,
+            "tags": ", ".join(tags) if tags else None,
+            "_wp_creator": creator,  # informational — author is set to importer
+        }
+        items.append(record)
+
+    return items
+
+
+def _parse_frontmatter(text: str) -> tuple[dict, str]:
+    """
+    Split a Markdown file into (frontmatter dict, body).
+
+    Expects YAML-like frontmatter delimited by '---' lines.
+    Values are parsed as plain strings (no YAML library needed).
+    """
+    if not text.startswith("---"):
+        return {}, text
+
+    parts = text.split("---", 2)
+    if len(parts) < 3:
+        return {}, text
+
+    fm_text = parts[1].strip()
+    body = parts[2].strip()
+
+    metadata: dict = {}
+    for line in fm_text.splitlines():
+        if ":" not in line:
+            continue
+        key, _, value = line.partition(":")
+        key = key.strip()
+        value = value.strip().strip('"').strip("'")
+        if value.startswith("[") and value.endswith("]"):
+            # Simple list: [a, b, c]
+            value = value[1:-1]
+        metadata[key] = value
+
+    return metadata, body
+
+
+async def parse_markdown_content(file_content: bytes) -> list[dict]:
+    """
+    Parse a Markdown file with YAML frontmatter into a content record.
+
+    The file must contain at least a 'title' key in its frontmatter.
+    Returns a list with a single dict (one file = one content item).
+    """
+    try:
+        text = file_content.decode("utf-8")
+    except UnicodeDecodeError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"File is not valid UTF-8: {e!s}",
+        ) from e
+
+    metadata, body = _parse_frontmatter(text)
+
+    record: dict = {
+        "title": metadata.get("title") or "",
+        "body": body,
+        "slug": metadata.get("slug") or None,
+        "status": metadata.get("status", "draft"),
+        "category": metadata.get("category") or None,
+        "tags": metadata.get("tags") or None,
+        "meta_title": metadata.get("meta_title") or None,
+        "meta_description": metadata.get("meta_description") or None,
+        "meta_keywords": metadata.get("meta_keywords") or None,
+    }
+
+    return [record]
+
+
+async def import_content_wordpress(
+    db: AsyncSession,
+    file: UploadFile,
+    user_id: int,
+    name: str | None = None,
+    duplicate_handling: DuplicateHandling = DuplicateHandling.SKIP,
+) -> ImportJob:
+    """Import content from a WordPress WXR XML file."""
+    file_content = await file.read()
+
+    # Store as XML format (WXR is XML-based)
+    job = await create_import_job(
+        db=db,
+        name=name or f"WordPress import - {file.filename}",
+        import_type=ImportType.CONTENT,
+        import_format=ImportFormat.XML,
+        file_name=file.filename or "wordpress_export.xml",
+        created_by_id=user_id,
+        duplicate_handling=duplicate_handling,
+        field_mapping=None,
+    )
+    job.file_size = len(file_content)
+    await db.commit()
+
+    records = await parse_wordpress_xml(file_content)
+    return await process_content_import(db, job, records, user_id)
+
+
+async def import_content_markdown(
+    db: AsyncSession,
+    file: UploadFile,
+    user_id: int,
+    name: str | None = None,
+    duplicate_handling: DuplicateHandling = DuplicateHandling.SKIP,
+) -> ImportJob:
+    """Import a single Markdown file with YAML frontmatter as a content item."""
+    file_content = await file.read()
+
+    # Store as JSON format (markdown is converted to a dict)
+    job = await create_import_job(
+        db=db,
+        name=name or f"Markdown import - {file.filename}",
+        import_type=ImportType.CONTENT,
+        import_format=ImportFormat.JSON,
+        file_name=file.filename or "content.md",
+        created_by_id=user_id,
+        duplicate_handling=duplicate_handling,
+        field_mapping=None,
+    )
+    job.file_size = len(file_content)
+    await db.commit()
+
+    records = await parse_markdown_content(file_content)
+    return await process_content_import(db, job, records, user_id)
+
+
 async def import_content(
     db: AsyncSession,
     file: UploadFile,

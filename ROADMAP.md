@@ -4,7 +4,7 @@
 
 This document outlines the comprehensive development roadmap for the CMS Project, a FastAPI-based content management system with role-based access control, content versioning, and scheduling capabilities. The roadmap addresses code quality improvements, security enhancements, feature additions, performance optimizations, and infrastructure modernization.
 
-**Current Version:** 1.13.0
+**Current Version:** 1.14.0
 **Target Architecture:** Production-ready, scalable CMS platform
 **Technology Stack:** FastAPI, PostgreSQL, SQLAlchemy 2.0, JWT Authentication, React 18, Vite
 
@@ -15,6 +15,14 @@ This document outlines the comprehensive development roadmap for the CMS Project
 ### Completed Work Summary
 
 The following major features and improvements have been completed:
+
+#### Import/Export — XML, WordPress WXR, Markdown (v1.14.0)
+- [x] **XML Export** — `GET /api/v1/content/xml` — standard XML with full metadata; returns UTF-8 XML with declaration
+- [x] **WordPress WXR Export** — `GET /api/v1/content/wordpress` — WXR 1.2 format with `content:`, `dc:`, `wp:` namespaces; CDATA for body + titles; compatible with WordPress import tool
+- [x] **Markdown ZIP Export** — `GET /api/v1/content/markdown` — ZIP archive of `.md` files with YAML frontmatter (title, slug, status, author, category, tags, meta fields)
+- [x] **WordPress WXR Import** — `POST /api/v1/content/wordpress` — parses WXR XML using defusedxml; maps namespaced fields; filters attachments; maps WordPress statuses
+- [x] **Markdown Import** — `POST /api/v1/content/markdown` — single `.md` file with YAML frontmatter; no external deps (stdlib-only frontmatter parser)
+- [x] **Tests** — 37 tests in `test/test_import_export.py`
 
 #### Third-Party Integrations — SEO, Social, Analytics (v1.13.0)
 - [x] **Social Sharing Service** — `SocialSharingService.get_share_urls()` generates Twitter/X, Facebook, LinkedIn, WhatsApp, Email URLs
@@ -948,20 +956,29 @@ The following major features and improvements have been completed:
   - 40 tests covering social service, SEO JSON-LD, social routes, analytics config, event proxy, UTM model ✅
   - Files: `test/test_social.py`, `test/test_analytics_config.py`
 
-#### 4.3 Import/Export
-- [ ] **Content Export**
-  - Export to JSON/CSV/XML
-  - WordPress XML export format
-  - Markdown export
-  - Bulk content export
-  - New file: `services/export_service.py`
+#### 4.3 Import/Export ✅ COMPLETED (v1.14.0)
+- [x] **Content Export** ✅ COMPLETED
+  - Export to JSON/CSV ✅ (existed)
+  - Export to XML (`GET /api/v1/content/xml`) ✅
+  - WordPress XML export — WXR 1.2 format (`GET /api/v1/content/wordpress`) ✅
+  - Markdown ZIP export — YAML frontmatter + body (`GET /api/v1/content/markdown`) ✅
+  - Bulk content export (limit + filters) ✅
+  - Files: `app/services/export_service.py` (extended: `export_content_xml`, `export_content_wordpress`, `export_content_markdown_zip`)
+  - `app/routes/export.py` (extended: 3 new GET endpoints)
 
-- [ ] **Content Import**
-  - Import from JSON/CSV
-  - WordPress importer
-  - Markdown file import
-  - Bulk import validation
-  - New file: `services/import_service.py`
+- [x] **Content Import** ✅ COMPLETED
+  - Import from JSON/CSV/XML ✅ (existed)
+  - WordPress WXR importer (`POST /api/v1/content/wordpress`) ✅
+    - Parses WXR XML with namespace handling (content:encoded, wp:post_name, wp:status, dc:creator)
+    - Maps WordPress statuses → CMS statuses (publish→published, draft, pending)
+    - Skips attachments and non-post types
+  - Markdown file import (`POST /api/v1/content/markdown`) ✅
+    - YAML-like frontmatter parser (no external deps)
+    - Maps title, slug, status, category, tags, meta fields
+  - Bulk import validation + duplicate handling ✅ (existed — SKIP/UPDATE/FAIL strategies)
+  - Files: `app/services/import_service.py` (extended: `parse_wordpress_xml`, `parse_markdown_content`, `import_content_wordpress`, `import_content_markdown`)
+  - `app/routes/imports.py` (extended: 2 new POST endpoints)
+  - 37 tests in `test/test_import_export.py` (all passing)
 
 - [x] **Backup System** ✅ COMPLETED
   - Backup creation with configurable options (database, media, config) ✅
