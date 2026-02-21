@@ -71,6 +71,7 @@ from app.routes import (
     search,
     seo,
     settings as settings_routes,
+    social,
     teams,
     templates as templates_routes,
     two_factor,
@@ -217,6 +218,9 @@ def create_app() -> FastAPI:
 
     # SEO routes (sitemap, RSS, robots.txt)
     app.include_router(seo.router, tags=["SEO"])
+
+    # Social sharing and metadata routes
+    app.include_router(social.router, prefix="/api/v1", tags=["Social"])
 
     # API Keys routes
     app.include_router(api_keys.router, prefix="/api/v1", tags=["API Keys"])

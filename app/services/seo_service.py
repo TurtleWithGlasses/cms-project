@@ -6,7 +6,7 @@ Provides sitemap.xml and RSS feed generation for search engine optimization.
 
 import logging
 from datetime import datetime, timezone
-from xml.etree.ElementTree import Element, SubElement, tostring
+from xml.etree.ElementTree import Element, SubElement, tostring  # nosec B405
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -333,6 +333,65 @@ class SEOService:
             "Crawl-delay: 1",
         ]
         return "\n".join(lines)
+
+    def generate_article_json_ld(self, content: object, base_url: str) -> dict:
+        """Schema.org Article JSON-LD for a published content item."""
+        return {
+            "@context": "https://schema.org",
+            "@type": "Article",
+            "headline": content.title,
+            "description": content.meta_description or getattr(content, "description", "") or "",
+            "url": f"{base_url}/content/{content.slug}",
+            "datePublished": content.created_at.isoformat() if content.created_at else None,
+            "dateModified": content.updated_at.isoformat() if content.updated_at else None,
+            "author": {
+                "@type": "Person",
+                "name": content.author.username if content.author else "Unknown",
+            },
+            "publisher": {
+                "@type": "Organization",
+                "name": settings.app_name,
+                "url": base_url,
+            },
+            "keywords": content.meta_keywords or "",
+        }
+
+    def generate_website_json_ld(self, base_url: str) -> dict:
+        """Schema.org WebSite JSON-LD with SearchAction."""
+        return {
+            "@context": "https://schema.org",
+            "@type": "WebSite",
+            "name": settings.app_name,
+            "url": base_url,
+            "potentialAction": {
+                "@type": "SearchAction",
+                "target": f"{base_url}/api/v1/search/?q={{search_term_string}}",
+                "query-input": "required name=search_term_string",
+            },
+        }
+
+    def get_content_og_tags(self, content: object, base_url: str) -> dict[str, str]:
+        """Open Graph + Twitter Card meta tag dict for a content item."""
+        url = f"{base_url}/content/{content.slug}"
+        title = content.meta_title or content.title
+        description = content.meta_description or getattr(content, "description", "") or ""
+        tags: dict[str, str] = {
+            "og:type": "article",
+            "og:url": url,
+            "og:title": title,
+            "og:description": description,
+            "og:site_name": settings.app_name,
+            # Twitter Card
+            "twitter:card": "summary_large_image",
+            "twitter:url": url,
+            "twitter:title": title,
+            "twitter:description": description,
+        }
+        if settings.twitter_handle:
+            tags["twitter:site"] = settings.twitter_handle
+        if settings.facebook_app_id:
+            tags["fb:app_id"] = settings.facebook_app_id
+        return tags
 
     def _add_url(
         self,

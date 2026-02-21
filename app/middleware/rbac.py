@@ -47,6 +47,10 @@ class RBACMiddleware(BaseHTTPMiddleware):
         ):
             return await call_next(request)
 
+        # Allow public API paths (social sharing, analytics config)
+        if request.url.path.startswith("/api/v1/social/") or request.url.path == "/api/v1/analytics/config":
+            return await call_next(request)
+
         # Allow requests authenticated via API key — route-level dependency validates them
         x_api_key = request.headers.get("X-API-Key")
         token = request.cookies.get("access_token") or request.headers.get("Authorization", "").replace("Bearer ", "")

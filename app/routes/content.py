@@ -19,6 +19,7 @@ from app.scheduler import schedule_content
 from app.schemas.content import ContentCreate, ContentResponse, ContentUpdate
 from app.schemas.content_version import ContentVersionOut
 from app.services import content_service, content_version_service
+from app.services.social_service import SocialPostingService
 from app.services.webhook_service import WebhookEventDispatcher
 from app.services.websocket_manager import broadcast_content_event
 from app.utils.activity_log import log_activity
@@ -249,6 +250,7 @@ async def submit_for_approval(
 @router.patch("/{content_id}/approve", response_model=ContentResponse)
 async def approve_content(
     content_id: int,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user_with_role(["admin"])),
 ):
@@ -300,6 +302,10 @@ async def approve_content(
             asyncio.create_task(
                 WebhookEventDispatcher(db).content_published(content.id, content.title, current_user.id)
             )
+
+        # Social auto-post on publish (fire-and-forget stub)
+        with contextlib.suppress(Exception):
+            asyncio.create_task(SocialPostingService().post_on_publish(content, str(request.base_url).rstrip("/")))
 
     except Exception as e:
         await db.rollback()

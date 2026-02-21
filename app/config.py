@@ -7,7 +7,7 @@ load_dotenv()
 class Settings(BaseSettings):
     # Application settings
     app_name: str = "CMS Project"
-    app_version: str = "1.0.0"
+    app_version: str = "1.13.0"
     debug: bool = False
     environment: str = "development"
 
@@ -66,6 +66,18 @@ class Settings(BaseSettings):
     sentry_dsn: str | None = None
     sentry_traces_sample_rate: float = 0.1  # 10% of transactions
     sentry_profiles_sample_rate: float = 0.1  # 10% of profiled transactions
+
+    # Social Media
+    twitter_handle: str | None = None  # e.g. "@mycms" for OG/TC tags
+    twitter_bearer_token: str | None = None  # For auto-post (stub — not called unless set)
+    facebook_app_id: str | None = None  # For OG fb:app_id tag
+    linkedin_company_id: str | None = None  # For share URLs
+
+    # Analytics
+    google_analytics_measurement_id: str | None = None  # GA4 format: G-XXXXXXXXXX
+    google_analytics_api_secret: str | None = None  # GA4 Measurement Protocol API secret
+    plausible_domain: str | None = None  # e.g. "mycms.example.com"
+    plausible_api_url: str = "https://plausible.io"
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="ignore")
 

@@ -20,6 +20,13 @@ class ContentView(Base):
     duration_seconds = Column(Integer, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
+    # UTM campaign tracking
+    utm_source = Column(String(100), nullable=True)
+    utm_medium = Column(String(100), nullable=True)
+    utm_campaign = Column(String(100), nullable=True)
+    utm_term = Column(String(100), nullable=True)
+    utm_content = Column(String(100), nullable=True)
+
     # Relationships
     content = relationship("Content", back_populates="views")
     user = relationship("User", lazy="selectin")

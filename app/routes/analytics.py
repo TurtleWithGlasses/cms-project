@@ -4,14 +4,22 @@ Analytics Routes
 API endpoints for analytics and reporting.
 """
 
-from fastapi import APIRouter, Depends
+import asyncio
+import contextlib
+import logging
+
+import httpx
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import get_current_user, get_current_user_with_role
+from app.config import settings
 from app.constants.roles import RoleEnum
 from app.database import get_db
 from app.models.user import User
 from app.services.analytics_service import analytics_service
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["Analytics"])
 
@@ -228,3 +236,61 @@ async def get_session_analytics(
         days = 365
 
     return await analytics_service.get_session_analytics(db, days=days)
+
+
+@router.get("/analytics/config")
+async def get_analytics_config() -> dict:
+    """Return frontend analytics configuration (GA4, Plausible). Public endpoint."""
+    return {
+        "google_analytics": {
+            "enabled": bool(settings.google_analytics_measurement_id),
+            "measurement_id": settings.google_analytics_measurement_id,
+        },
+        "plausible": {
+            "enabled": bool(settings.plausible_domain),
+            "domain": settings.plausible_domain,
+            "api_url": settings.plausible_api_url,
+        },
+    }
+
+
+@router.post("/analytics/events", status_code=202)
+async def track_event(
+    request: Request,
+    payload: dict,
+) -> dict:
+    """Proxy a custom analytics event to GA4 and/or Plausible (fire-and-forget)."""
+    asyncio.create_task(_forward_event(payload, request))
+    return {"status": "accepted"}
+
+
+async def _forward_event(payload: dict, request: Request) -> None:
+    """Forward analytics event to GA4 Measurement Protocol and/or Plausible."""
+    with contextlib.suppress(Exception):
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            if settings.google_analytics_measurement_id and settings.google_analytics_api_secret:
+                ga4_url = (
+                    f"https://www.google-analytics.com/mp/collect"
+                    f"?measurement_id={settings.google_analytics_measurement_id}"
+                    f"&api_secret={settings.google_analytics_api_secret}"
+                )
+                with contextlib.suppress(Exception):
+                    await client.post(ga4_url, json=payload)
+
+            if settings.plausible_domain:
+                plausible_url = f"{settings.plausible_api_url}/api/event"
+                plausible_payload = {
+                    "name": payload.get("name", "custom"),
+                    "url": payload.get("url", str(request.url)),
+                    "domain": settings.plausible_domain,
+                    "props": payload.get("props", {}),
+                }
+                with contextlib.suppress(Exception):
+                    await client.post(
+                        plausible_url,
+                        json=plausible_payload,
+                        headers={
+                            "User-Agent": request.headers.get("user-agent", "CMS-Server"),
+                            "X-Forwarded-For": request.client.host if request.client else "127.0.0.1",
+                        },
+                    )

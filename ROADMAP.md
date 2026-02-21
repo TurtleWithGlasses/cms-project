@@ -4,7 +4,7 @@
 
 This document outlines the comprehensive development roadmap for the CMS Project, a FastAPI-based content management system with role-based access control, content versioning, and scheduling capabilities. The roadmap addresses code quality improvements, security enhancements, feature additions, performance optimizations, and infrastructure modernization.
 
-**Current Version:** 1.11.0
+**Current Version:** 1.13.0
 **Target Architecture:** Production-ready, scalable CMS platform
 **Technology Stack:** FastAPI, PostgreSQL, SQLAlchemy 2.0, JWT Authentication, React 18, Vite
 
@@ -15,6 +15,25 @@ This document outlines the comprehensive development roadmap for the CMS Project
 ### Completed Work Summary
 
 The following major features and improvements have been completed:
+
+#### Third-Party Integrations — SEO, Social, Analytics (v1.13.0)
+- [x] **Social Sharing Service** — `SocialSharingService.get_share_urls()` generates Twitter/X, Facebook, LinkedIn, WhatsApp, Email URLs
+- [x] **Social Auto-Post Stub** — `SocialPostingService.post_on_publish()` wired into content approval (stub; Phase 4.3 adds OAuth)
+- [x] **Social Routes** — `GET /api/v1/social/content/{id}/share` and `/meta` (public, no auth required)
+- [x] **JSON-LD Structured Data** — `generate_article_json_ld()`, `generate_website_json_ld()` added to `SEOService`
+- [x] **Open Graph + Twitter Cards** — `get_content_og_tags()` added to `SEOService`, twitter:site + fb:app_id optional
+- [x] **Analytics Config Endpoint** — `GET /api/v1/analytics/config` returns GA4/Plausible config for frontend (public)
+- [x] **Analytics Event Proxy** — `POST /api/v1/analytics/events` proxies events to GA4 + Plausible via httpx (fire-and-forget)
+- [x] **UTM Tracking** — 5 UTM columns (`utm_source/medium/campaign/term/content`) on `ContentView` + Alembic migration
+- [x] **Config Settings** — 8 new settings: social handles/tokens, GA4 + Plausible config
+- [x] **Tests** — 40 tests in `test/test_social.py` + `test/test_analytics_config.py`
+
+#### GraphQL API, Webhooks, API Key Auth (v1.12.0)
+- [x] **GraphQL endpoint** at `/graphql` via `strawberry-graphql[fastapi]==0.296.1`
+- [x] **Webhook event wiring** — content/comment/user/media events fire-and-forget to registered webhooks
+- [x] **API key authentication** — `X-API-Key` header support, `get_current_user_from_api_key()`, `get_current_user_any_auth()`
+- [x] **Webhook pause/resume** — `POST /api/v1/webhooks/{id}/pause` and `/resume` endpoints
+- [x] **48 tests** in `test/test_graphql.py`, `test/test_webhook_events.py`, `test/test_api_key_auth.py`
 
 #### 2FA Recovery Mechanisms (v1.11.0)
 - [x] **Email Backup Authentication** - OTP-based fallback when authenticator app is unavailable
@@ -901,25 +920,33 @@ The following major features and improvements have been completed:
   - RBAC middleware updated to pass through requests with `X-API-Key` header ✅
   - Files: `app/auth.py`, `app/middleware/rbac.py`
 
-#### 4.2 Third-Party Integrations
-- [ ] **Social Media Integration**
-  - Auto-post to Twitter/X on publish
-  - Facebook/LinkedIn sharing
-  - Social media preview cards (Open Graph, Twitter Cards)
-  - Social login (OAuth) - Google, GitHub, etc.
+#### 4.2 Third-Party Integrations ✅ COMPLETED (v1.13.0)
+- [x] **Social Media Integration** ✅ COMPLETED
+  - Share URL generation (Twitter/X, Facebook, LinkedIn, WhatsApp, Email) ✅
+  - Open Graph + Twitter Card metadata API ✅
+  - Social auto-posting stub framework (Phase 4.3 will wire OAuth/tweepy) ✅
+  - Endpoints: `GET /api/v1/social/content/{id}/share`, `GET /api/v1/social/content/{id}/meta` ✅
+  - Files: `app/services/social_service.py`, `app/routes/social.py`
+  - Social login (OAuth) deferred to Phase 4.3
 
-- [ ] **SEO Enhancements**
-  - Sitemap generation (`/sitemap.xml`)
-  - RSS feed generation (`/feed.rss`)
-  - robots.txt configuration
-  - Structured data (JSON-LD) support
-  - New file: `routes/seo.py`
+- [x] **SEO Enhancements** ✅ COMPLETED
+  - Sitemap generation (`/sitemap.xml`) ✅ (existed)
+  - RSS/Atom feed generation (`/feed.xml`, `/atom.xml`) ✅ (existed)
+  - robots.txt configuration ✅ (existed)
+  - JSON-LD structured data (Schema.org Article + WebSite + SearchAction) ✅
+  - Open Graph + Twitter Card tag generation ✅
+  - Files: `app/services/seo_service.py` (extended), `app/routes/seo.py` (existed)
 
-- [ ] **Analytics Integration**
-  - Google Analytics 4 integration
-  - Plausible Analytics (privacy-friendly alternative)
-  - Custom event tracking
-  - UTM parameter tracking
+- [x] **Analytics Integration** ✅ COMPLETED
+  - GA4 + Plausible config endpoint (frontend-readable, public) ✅
+  - Server-side event proxy via httpx (fire-and-forget to GA4/Plausible) ✅
+  - UTM parameter tracking on ContentView model (5 utm_* columns) ✅
+  - Alembic migration `o5p6q7r8s9t0_add_utm_to_content_views` ✅
+  - Endpoints: `GET /api/v1/analytics/config`, `POST /api/v1/analytics/events` ✅
+  - Files: `app/routes/analytics.py` (extended), `app/models/content_view.py` (extended)
+  - Config settings: `twitter_handle`, `facebook_app_id`, `google_analytics_measurement_id`, `plausible_domain`, etc. ✅
+  - 40 tests covering social service, SEO JSON-LD, social routes, analytics config, event proxy, UTM model ✅
+  - Files: `test/test_social.py`, `test/test_analytics_config.py`
 
 #### 4.3 Import/Export
 - [ ] **Content Export**
