@@ -4,7 +4,7 @@
 
 This document outlines the comprehensive development roadmap for the CMS Project, a FastAPI-based content management system with role-based access control, content versioning, and scheduling capabilities. The roadmap addresses code quality improvements, security enhancements, feature additions, performance optimizations, and infrastructure modernization.
 
-**Current Version:** 1.15.0
+**Current Version:** 1.16.0
 **Target Architecture:** Production-ready, scalable CMS platform
 **Technology Stack:** FastAPI, PostgreSQL, SQLAlchemy 2.0, JWT Authentication, React 18, Vite
 
@@ -15,6 +15,21 @@ This document outlines the comprehensive development roadmap for the CMS Project
 ### Completed Work Summary
 
 The following major features and improvements have been completed:
+
+#### CI/CD Pipeline & Deployment Automation (v1.16.0)
+- [x] **CI/CD pipeline overhaul** — `ci-cd.yml` rewritten with quality, test, build, security-scan, deploy-staging, deploy-production jobs
+- [x] **Python 3.12** — pipeline and Dockerfile both updated from 3.10 to 3.12
+- [x] **Ruff + Bandit + mypy + safety** — all wired into quality job (mypy/safety `continue-on-error`)
+- [x] **PostgreSQL + Redis in CI** — test job spins up both services; full `DATABASE_URL`, `REDIS_URL`, `REDIS_HOST`, `REDIS_PORT` env vars set
+- [x] **Docker build + GHCR push** — `docker/build-push-action@v5` with semver/sha/branch/latest tagging and SBOM generation
+- [x] **Container security scan** — Trivy → SARIF → GitHub Security tab
+- [x] **Staging auto-deploy** — SSH deploy on `develop` branch: pull → alembic upgrade → health check
+- [x] **Production blue-green deploy** — on `v*` tags: approval gate, port 8001 green → nginx reload → promote blue → GitHub Release
+- [x] **`db-migrate.yml`** — `workflow_dispatch` workflow: migrate staging or production to any Alembic revision with dry-run support
+- [x] **`rollback.yml`** — `workflow_dispatch` rollback to any image tag or `LAST_DEPLOYED_IMAGE`; optional migration downgrade
+- [x] **`release.yml`** — automated GitHub Release on `v*` tags; extracts changelog entry from `CHANGELOG.md`
+- [x] **Removed redundant `tests.yml` + `lint.yml`** — fully superseded by `ci-cd.yml`
+- [x] **Tests** — 66 tests in `test/test_cicd.py` (workflow YAML validation, Dockerfile checks, cross-workflow consistency)
 
 #### API Documentation & Developer Portal (v1.15.0)
 - [x] **Enhanced OpenAPI schema** — `BearerAuth` (JWT) and `APIKeyAuth` security scheme definitions via `_custom_openapi()`
@@ -1034,20 +1049,23 @@ The following major features and improvements have been completed:
   - Prometheus monitoring integration ✅
   - Files: `nginx/`, `prometheus/`
 
-#### 5.2 CI/CD Pipeline
-- [ ] **GitHub Actions / GitLab CI**
-  - Automated testing on PR
-  - Code quality checks (linting, type checking)
-  - Security scanning (Bandit, Safety)
-  - Build and push Docker images
-  - New file: `.github/workflows/ci.yml`
+#### 5.2 CI/CD Pipeline ✅ COMPLETED (v1.16.0)
+- [x] **GitHub Actions CI/CD**
+  - Automated testing on PR and push (quality → test → build pipeline) ✅
+  - Code quality checks: ruff lint + format, bandit, mypy, safety ✅
+  - Security scanning: Trivy container scanner → GitHub Security SARIF ✅
+  - Build and push Docker images to GHCR with semver + sha tags ✅
+  - SBOM generation (spdx-json) attached to every build ✅
+  - Files: `.github/workflows/ci-cd.yml`
 
-- [ ] **Deployment Automation**
-  - Automated deployment to staging
-  - Production deployment with approval gates
-  - Database migration automation
-  - Rollback procedures
-  - Blue-green deployment support
+- [x] **Deployment Automation**
+  - Automated staging deploy on `develop` branch (SSH + docker + alembic + health check) ✅
+  - Production blue-green deploy on `v*` tags with approval gate ✅
+  - Database migration automation via `db-migrate.yml` (`workflow_dispatch`) ✅
+  - Rollback via `rollback.yml` (`workflow_dispatch`, optional alembic downgrade) ✅
+  - Automated GitHub releases via `release.yml` with changelog extraction ✅
+  - Dockerfile updated to Python 3.12-slim ✅
+  - Files: `.github/workflows/{ci-cd,db-migrate,rollback,release}.yml`, `Dockerfile`
 
 #### 5.3 Monitoring & Observability
 - [ ] **Application Monitoring**

@@ -1,0 +1,119 @@
+name: Database Migration
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
+      revision:
+        description: 'Alembic revision target (default: head)'
+        required: false
+        default: 'head'
+      dry_run:
+        description: 'Show pending migrations without applying (alembic history)'
+        required: false
+        type: boolean
+        default: false
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  migrate:
+    name: Run Alembic Migration (${{ inputs.environment }})
+    runs-on: ubuntu-latest
+
+    environment:
+      name: ${{ inputs.environment }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Determine image tag
+        id: image
+        run: |
+          if [ "${{ inputs.environment }}" = "production" ]; then
+            # Use the latest semver tag for production
+            TAG=$(git tag --sort=-version:refname | grep '^v' | head -1)
+            echo "tag=${TAG:-latest}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=develop" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run migration (dry run — show pending)
+        if: inputs.dry_run == true
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ inputs.environment == 'production' && secrets.PRODUCTION_HOST || secrets.STAGING_HOST }}
+          username: ${{ inputs.environment == 'production' && secrets.PRODUCTION_USER || secrets.STAGING_USER }}
+          key: ${{ inputs.environment == 'production' && secrets.PRODUCTION_SSH_KEY || secrets.STAGING_SSH_KEY }}
+          script: |
+            set -e
+            IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.image.outputs.tag }}"
+            echo "==> Checking current migration state"
+            docker run --rm \
+              --env-file /opt/cms-project/.env \
+              --network cms_default \
+              "$IMAGE" alembic current
+
+            echo "==> Pending migrations to '${{ inputs.revision }}'"
+            docker run --rm \
+              --env-file /opt/cms-project/.env \
+              --network cms_default \
+              "$IMAGE" alembic history --indicate-current
+
+      - name: Run migration (apply)
+        if: inputs.dry_run != true
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ inputs.environment == 'production' && secrets.PRODUCTION_HOST || secrets.STAGING_HOST }}
+          username: ${{ inputs.environment == 'production' && secrets.PRODUCTION_USER || secrets.STAGING_USER }}
+          key: ${{ inputs.environment == 'production' && secrets.PRODUCTION_SSH_KEY || secrets.STAGING_SSH_KEY }}
+          script: |
+            set -e
+            IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.image.outputs.tag }}"
+            TARGET="${{ inputs.revision }}"
+
+            echo "==> Pulling image: $IMAGE"
+            docker pull "$IMAGE"
+
+            echo "==> Current migration state"
+            docker run --rm \
+              --env-file /opt/cms-project/.env \
+              --network cms_default \
+              "$IMAGE" alembic current
+
+            echo "==> Applying migrations to: $TARGET"
+            docker run --rm \
+              --env-file /opt/cms-project/.env \
+              --network cms_default \
+              "$IMAGE" alembic upgrade "$TARGET"
+
+            echo "==> Migration complete — new state:"
+            docker run --rm \
+              --env-file /opt/cms-project/.env \
+              --network cms_default \
+              "$IMAGE" alembic current
+
+      - name: Report migration result
+        if: always()
+        run: |
+          echo "## Database Migration" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Environment:** ${{ inputs.environment }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Revision target:** ${{ inputs.revision }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Dry run:** ${{ inputs.dry_run }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Status:** ${{ job.status }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Triggered by:** ${{ github.actor }}" >> "$GITHUB_STEP_SUMMARY"

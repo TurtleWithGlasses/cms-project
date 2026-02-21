@@ -1,0 +1,160 @@
+name: Rollback Deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment to roll back'
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
+      image_tag:
+        description: 'Explicit image tag to roll back to (leave blank to use LAST_DEPLOYED_IMAGE on server)'
+        required: false
+        default: ''
+      rollback_migrations:
+        description: 'Also run alembic downgrade -1 before switching image'
+        required: false
+        type: boolean
+        default: false
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  rollback:
+    name: Rollback ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+
+    environment:
+      name: ${{ inputs.environment }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Rollback staging
+        if: inputs.environment == 'staging'
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.STAGING_HOST }}
+          username: ${{ secrets.STAGING_USER }}
+          key: ${{ secrets.STAGING_SSH_KEY }}
+          script: |
+            set -e
+            EXPLICIT_TAG="${{ inputs.image_tag }}"
+            if [ -n "$EXPLICIT_TAG" ]; then
+              IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${EXPLICIT_TAG}"
+            else
+              IMAGE=$(cat /opt/cms-project/LAST_DEPLOYED_IMAGE 2>/dev/null || echo "")
+              if [ -z "$IMAGE" ]; then
+                echo "ERROR: No LAST_DEPLOYED_IMAGE file found and no explicit tag provided."
+                exit 1
+              fi
+            fi
+
+            echo "==> Rolling back to: $IMAGE"
+            docker pull "$IMAGE"
+
+            if [ "${{ inputs.rollback_migrations }}" = "true" ]; then
+              echo "==> Rolling back one migration step"
+              docker run --rm \
+                --env-file /opt/cms-project/.env \
+                --network cms_default \
+                "$IMAGE" alembic downgrade -1
+            fi
+
+            echo "==> Updating app container"
+            cd /opt/cms-project
+            IMAGE_TAG="${IMAGE##*:}" \
+              docker compose -f docker-compose.prod.yml up -d --no-deps --force-recreate app
+
+            echo "==> Waiting for app to start"
+            sleep 10
+
+            echo "==> Health check"
+            curl --fail --silent --max-time 10 http://localhost:8000/health \
+              || (docker compose -f docker-compose.prod.yml logs --tail=50 app && exit 1)
+
+            echo "==> Rollback complete: $IMAGE"
+
+      - name: Rollback production
+        if: inputs.environment == 'production'
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.PRODUCTION_HOST }}
+          username: ${{ secrets.PRODUCTION_USER }}
+          key: ${{ secrets.PRODUCTION_SSH_KEY }}
+          script: |
+            set -e
+            EXPLICIT_TAG="${{ inputs.image_tag }}"
+            if [ -n "$EXPLICIT_TAG" ]; then
+              IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${EXPLICIT_TAG}"
+            else
+              IMAGE=$(cat /opt/cms-project/LAST_DEPLOYED_IMAGE 2>/dev/null || echo "")
+              if [ -z "$IMAGE" ]; then
+                echo "ERROR: No LAST_DEPLOYED_IMAGE file found and no explicit tag provided."
+                exit 1
+              fi
+            fi
+
+            echo "==> Rolling back to: $IMAGE"
+            docker pull "$IMAGE"
+
+            if [ "${{ inputs.rollback_migrations }}" = "true" ]; then
+              echo "==> Rolling back one migration step"
+              docker run --rm \
+                --env-file /opt/cms-project/.env \
+                --network cms_default \
+                "$IMAGE" alembic downgrade -1
+            fi
+
+            echo "==> Updating blue container to rollback image"
+            cd /opt/cms-project
+            IMAGE_TAG="${IMAGE##*:}" APP_PORT=8001 \
+              docker compose -f docker-compose.prod.yml up -d --no-deps app_green
+
+            echo "==> Waiting for rollback container"
+            sleep 15
+
+            curl --fail --silent --max-time 10 http://localhost:8001/health \
+              || (docker compose -f docker-compose.prod.yml logs --tail=50 app_green && exit 1)
+
+            echo "==> Switching nginx upstream to rollback image"
+            sed -i 's/server localhost:8000/server localhost:8001/' /etc/nginx/conf.d/cms.conf
+            nginx -s reload
+
+            echo "==> Stopping current app"
+            docker compose -f docker-compose.prod.yml stop app || true
+
+            echo "==> Promoting rollback → blue"
+            IMAGE_TAG="${IMAGE##*:}" APP_PORT=8000 \
+              docker compose -f docker-compose.prod.yml up -d --no-deps app
+            sleep 10
+            curl --fail --silent --max-time 10 http://localhost:8000/health \
+              || (echo "Blue start failed, keeping rollback on green" && exit 0)
+
+            sed -i 's/server localhost:8001/server localhost:8000/' /etc/nginx/conf.d/cms.conf
+            nginx -s reload
+            docker compose -f docker-compose.prod.yml stop app_green || true
+
+            echo "==> Rollback complete: $IMAGE"
+
+      - name: Report rollback result
+        if: always()
+        run: |
+          echo "## Rollback" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Environment:** ${{ inputs.environment }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Image tag:** ${{ inputs.image_tag || '(from LAST_DEPLOYED_IMAGE)' }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Migration rollback:** ${{ inputs.rollback_migrations }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Status:** ${{ job.status }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Triggered by:** ${{ github.actor }}" >> "$GITHUB_STEP_SUMMARY"

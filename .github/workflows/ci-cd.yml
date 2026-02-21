@@ -14,7 +14,7 @@ env:
   PYTHON_VERSION: '3.12'
 
 jobs:
-  # Code Quality Checks
+  # ─── Code Quality ────────────────────────────────────────────────────────────
   quality:
     name: Code Quality
     runs-on: ubuntu-latest
@@ -27,29 +27,38 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: 'pip'
 
-      - name: Install dependencies
+      - name: Install quality tools
         run: |
           python -m pip install --upgrade pip
-          pip install ruff bandit safety
+          pip install ruff bandit safety mypy
 
-      - name: Run Ruff linter
+      - name: Ruff — lint
         run: ruff check app/ test/ --output-format=github
 
-      - name: Run Ruff formatter check
+      - name: Ruff — format check
         run: ruff format app/ test/ --check
 
-      - name: Run Bandit security linter
+      - name: Bandit — security lint
         run: bandit -r app/ -ll -ii -x app/tests
 
-      - name: Check dependencies for vulnerabilities
-        run: safety check -r requirements.txt --full-report
-        continue-on-error: true
+      - name: mypy — type checking
+        run: mypy app/ --config-file pyproject.toml
+        continue-on-error: true  # informational; does not block the pipeline
 
-  # Run Tests
+      - name: safety — dependency vulnerability scan
+        run: safety scan --full-report
+        continue-on-error: true  # informational; vulnerabilities logged but don't block
+
+  # ─── Tests ───────────────────────────────────────────────────────────────────
   test:
-    name: Tests
+    name: Tests (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
     needs: quality
+
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.12']
 
     services:
       postgres:
@@ -79,27 +88,34 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python
+      - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
+          python-version: ${{ matrix.python-version }}
           cache: 'pip'
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pytest-cov pytest-asyncio
 
       - name: Run tests with coverage
         env:
           DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/cms_test
           TEST_DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/cms_test
-          SECRET_KEY: test-secret-key-for-ci
+          SECRET_KEY: test-secret-key-for-ci-cd-pipeline-minimum-32-chars
           REDIS_URL: redis://localhost:6379/0
+          REDIS_HOST: localhost
+          REDIS_PORT: '6379'
           ENVIRONMENT: test
+          DEBUG: 'false'
         run: |
-          pytest test/ -v --cov=app --cov-report=xml --cov-report=term-missing --cov-fail-under=70
+          pytest test/ -v \
+            --cov=app \
+            --cov-report=xml \
+            --cov-report=term-missing \
+            --cov-fail-under=70 \
+            -q
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
@@ -110,7 +126,14 @@ jobs:
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
-  # Build Docker Image
+      - name: Write test summary
+        if: always()
+        run: |
+          echo "## Test Results" >> "$GITHUB_STEP_SUMMARY"
+          echo "Python: ${{ matrix.python-version }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "See output above for details." >> "$GITHUB_STEP_SUMMARY"
+
+  # ─── Build & Push Docker Image ───────────────────────────────────────────────
   build:
     name: Build Docker Image
     runs-on: ubuntu-latest
@@ -124,6 +147,8 @@ jobs:
     outputs:
       image-tag: ${{ steps.meta.outputs.tags }}
       image-digest: ${{ steps.build.outputs.digest }}
+      version: ${{ steps.meta.outputs.version }}
+      sha-tag: sha-${{ github.sha }}
 
     steps:
       - uses: actions/checkout@v4
@@ -138,7 +163,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract metadata
+      - name: Extract Docker metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
@@ -149,6 +174,7 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=sha,prefix=sha-
+            type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Build and push Docker image
         id: build
@@ -164,22 +190,24 @@ jobs:
             BUILD_DATE=${{ github.event.head_commit.timestamp }}
             VCS_REF=${{ github.sha }}
 
-      - name: Generate SBOM
+      - name: Generate SBOM (software bill of materials)
         uses: anchore/sbom-action@v0
         with:
-          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}
+          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-${{ github.sha }}
           format: spdx-json
           output-file: sbom.spdx.json
+        continue-on-error: true
 
-      - name: Upload SBOM
+      - name: Upload SBOM artifact
         uses: actions/upload-artifact@v4
         with:
           name: sbom
           path: sbom.spdx.json
+        if: always()
 
-  # Security Scan
+  # ─── Container Security Scan ─────────────────────────────────────────────────
   security-scan:
-    name: Security Scan
+    name: Container Security Scan
     runs-on: ubuntu-latest
     needs: build
     if: github.event_name == 'push'
@@ -198,13 +226,13 @@ jobs:
           output: 'trivy-results.sarif'
           severity: 'CRITICAL,HIGH'
 
-      - name: Upload Trivy scan results
+      - name: Upload Trivy scan results to GitHub Security
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: 'trivy-results.sarif'
         continue-on-error: true
 
-  # Deploy to Staging
+  # ─── Deploy to Staging ───────────────────────────────────────────────────────
   deploy-staging:
     name: Deploy to Staging
     runs-on: ubuntu-latest
@@ -217,35 +245,136 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Deploy to Staging
-        run: |
-          echo "Deploying to staging environment..."
-          echo "Image: ${{ needs.build.outputs.image-tag }}"
-          # Add your deployment commands here
-          # e.g., kubectl set image, docker-compose pull, etc.
+      - name: Deploy to Staging via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.STAGING_HOST }}
+          username: ${{ secrets.STAGING_USER }}
+          key: ${{ secrets.STAGING_SSH_KEY }}
+          script: |
+            set -e
+            IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-${{ github.sha }}"
 
-  # Deploy to Production
+            echo "==> Pulling image: $IMAGE"
+            docker pull "$IMAGE"
+
+            echo "==> Running database migrations"
+            docker run --rm \
+              --env-file /opt/cms-project/.env \
+              --network cms_default \
+              "$IMAGE" alembic upgrade head
+
+            echo "==> Saving current image for rollback"
+            docker inspect cms-api --format '{{.Config.Image}}' \
+              > /opt/cms-project/LAST_DEPLOYED_IMAGE 2>/dev/null || true
+
+            echo "==> Updating application container"
+            cd /opt/cms-project
+            IMAGE_TAG="sha-${{ github.sha }}" \
+              docker compose -f docker-compose.prod.yml up -d --no-deps --force-recreate app
+
+            echo "==> Waiting for app to start"
+            sleep 10
+
+            echo "==> Health check"
+            curl --fail --silent --max-time 10 http://localhost:8000/health \
+              || (docker compose -f docker-compose.prod.yml logs --tail=50 app && exit 1)
+
+            echo "==> Pruning old images"
+            docker image prune -f
+
+      - name: Report staging deployment
+        if: always()
+        run: |
+          echo "## Staging Deployment" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Status:** ${{ job.status }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Image:** sha-${{ github.sha }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Triggered by:** ${{ github.actor }}" >> "$GITHUB_STEP_SUMMARY"
+
+  # ─── Deploy to Production ────────────────────────────────────────────────────
   deploy-production:
     name: Deploy to Production
     runs-on: ubuntu-latest
     needs: [build, security-scan]
     if: startsWith(github.ref, 'refs/tags/v')
     environment:
-      name: production
+      name: production           # requires manual approval via GitHub Environments
       url: https://cms-project.example.com
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Deploy to Production
-        run: |
-          echo "Deploying to production environment..."
-          echo "Image: ${{ needs.build.outputs.image-tag }}"
-          # Add your deployment commands here
+      - name: Extract version from tag
+        id: version
+        run: echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy to Production via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.PRODUCTION_HOST }}
+          username: ${{ secrets.PRODUCTION_USER }}
+          key: ${{ secrets.PRODUCTION_SSH_KEY }}
+          script: |
+            set -e
+            IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.tag }}"
+
+            echo "==> Pulling release image: $IMAGE"
+            docker pull "$IMAGE"
+
+            echo "==> Saving current image tag for rollback"
+            docker inspect cms-api --format '{{.Config.Image}}' \
+              > /opt/cms-project/LAST_DEPLOYED_IMAGE 2>/dev/null || true
+
+            echo "==> Running database migrations"
+            docker run --rm \
+              --env-file /opt/cms-project/.env \
+              --network cms_default \
+              "$IMAGE" alembic upgrade head
+
+            echo "==> Blue-green: starting new container on port 8001"
+            cd /opt/cms-project
+            IMAGE_TAG="${{ steps.version.outputs.tag }}" APP_PORT=8001 \
+              docker compose -f docker-compose.prod.yml up -d --no-deps app_green
+
+            echo "==> Waiting for green container health check"
+            sleep 15
+            curl --fail --silent --max-time 10 http://localhost:8001/health \
+              || (docker compose -f docker-compose.prod.yml logs --tail=50 app_green && exit 1)
+
+            echo "==> Switching nginx upstream to green"
+            sed -i 's/server localhost:8000/server localhost:8001/' /etc/nginx/conf.d/cms.conf
+            nginx -s reload
+
+            echo "==> Stopping old blue container"
+            docker compose -f docker-compose.prod.yml stop app || true
+
+            echo "==> Promoting green → blue"
+            IMAGE_TAG="${{ steps.version.outputs.tag }}" APP_PORT=8000 \
+              docker compose -f docker-compose.prod.yml up -d --no-deps app
+            sleep 10
+            curl --fail --silent --max-time 10 http://localhost:8000/health \
+              || (echo "Blue start failed, keeping green" && exit 0)
+
+            sed -i 's/server localhost:8001/server localhost:8000/' /etc/nginx/conf.d/cms.conf
+            nginx -s reload
+            docker compose -f docker-compose.prod.yml stop app_green || true
+
+            echo "==> Deployment complete: ${{ steps.version.outputs.tag }}"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
+          name: "${{ steps.version.outputs.tag }}"
           generate_release_notes: true
+          files: |
+            CHANGELOG.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Report production deployment
+        if: always()
+        run: |
+          echo "## Production Deployment" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Status:** ${{ job.status }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Version:** ${{ steps.version.outputs.tag }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Triggered by:** ${{ github.actor }}" >> "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,76 @@
+name: Create Release
+
+# Triggers on version tags pushed directly (e.g. git tag v1.16.0 && git push --tags)
+# The ci-cd.yml deploy-production job also creates a release via softprops/action-gh-release,
+# but this workflow provides an independent, changelog-aware release note generator.
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history for git log
+
+      - name: Extract version from tag
+        id: version
+        run: echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+
+      - name: Extract changelog entry for this version
+        id: notes
+        run: |
+          TAG="${{ steps.version.outputs.tag }}"
+          VERSION="${TAG#v}"   # strip leading 'v'
+
+          # Pull the section for this version from CHANGELOG.md
+          # Section starts with "## [VERSION]" and ends at the next "## [" or end-of-file
+          NOTES=$(awk "/^## \[${VERSION}\]/{flag=1; next} /^## \[/{flag=0} flag" CHANGELOG.md)
+
+          if [ -z "$NOTES" ]; then
+            NOTES="See [CHANGELOG.md](CHANGELOG.md) for details."
+          fi
+
+          # Store multiline output
+          {
+            echo "notes<<EOF"
+            echo "$NOTES"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "${{ steps.version.outputs.tag }}"
+          body: |
+            ## What's Changed
+
+            ${{ steps.notes.outputs.notes }}
+
+            ---
+            **Docker image:** `ghcr.io/${{ github.repository }}:${{ steps.version.outputs.tag }}`
+
+            **Full Changelog:** https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md
+          files: |
+            CHANGELOG.md
+          draft: false
+          prerelease: ${{ contains(steps.version.outputs.tag, '-') }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Report release result
+        if: always()
+        run: |
+          echo "## GitHub Release" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Version:** ${{ steps.version.outputs.tag }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Status:** ${{ job.status }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Triggered by:** ${{ github.actor }}" >> "$GITHUB_STEP_SUMMARY"

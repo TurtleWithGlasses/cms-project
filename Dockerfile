@@ -1,5 +1,5 @@
 # Multi-stage build for optimized production image
-FROM python:3.10-slim as builder
+FROM python:3.12-slim as builder
 
 # Set build-time arguments
 ARG POETRY_VERSION=1.6.1
@@ -27,7 +27,7 @@ RUN pip install --upgrade pip && \
     pip install -r requirements.txt
 
 # Production stage
-FROM python:3.10-slim
+FROM python:3.12-slim
 
 # Set environment variables for production
 ENV PYTHONUNBUFFERED=1 \
@@ -46,7 +46,7 @@ RUN groupadd -r appuser && useradd -r -g appuser appuser
 WORKDIR /app
 
 # Copy Python dependencies from builder
-COPY --from=builder /usr/local/lib/python3.10/site-packages /usr/local/lib/python3.10/site-packages
+COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 
 # Copy application code

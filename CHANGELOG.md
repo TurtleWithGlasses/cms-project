@@ -5,6 +5,31 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.16.0] — 2026-02-21 — Phase 5.2: CI/CD Pipeline & Deployment Automation
+
+### Added
+- `ci-cd.yml` — full CI/CD pipeline: quality → test → build → security-scan → deploy-staging → deploy-production
+  - quality job: ruff lint + format check, bandit, mypy (continue-on-error), safety scan (continue-on-error)
+  - test job: PostgreSQL 15 + Redis 7 service containers; full `DATABASE_URL`, `REDIS_URL`, `SECRET_KEY` env; pytest `--cov-fail-under=70`; Codecov upload
+  - build job: Docker Buildx + GHCR push; semver/sha/branch/latest tags; Anchore SBOM (spdx-json)
+  - security-scan job: Trivy vulnerability scanner → SARIF → GitHub Security tab
+  - deploy-staging job: triggers on `develop`; SSH → docker pull → `alembic upgrade head` → `docker compose up --no-deps` → `curl /health`
+  - deploy-production job: triggers on `v*` tags; environment approval gate; blue-green (port 8001 → nginx → promote blue → stop green); `softprops/action-gh-release`
+- `db-migrate.yml` — `workflow_dispatch` workflow for on-demand Alembic migrations (staging/production, any revision, dry-run mode)
+- `rollback.yml` — `workflow_dispatch` rollback to explicit image tag or server `LAST_DEPLOYED_IMAGE`; optional `alembic downgrade -1`
+- `release.yml` — automated GitHub Release on `v*` tags; extracts changelog section from `CHANGELOG.md`; marks pre-release if tag contains `-`
+- 66 tests in `test/test_cicd.py` — YAML validation, workflow structure checks, Dockerfile assertions, cross-workflow version consistency
+
+### Changed
+- `Dockerfile` — base images updated from `python:3.10-slim` → `python:3.12-slim`; site-packages path updated accordingly
+- `ci-cd.yml` — fully replaces the old placeholder-based workflow; `PYTHON_VERSION` env var set to `3.12`
+
+### Removed
+- `.github/workflows/tests.yml` — superseded by test job in `ci-cd.yml`
+- `.github/workflows/lint.yml` — superseded by quality job in `ci-cd.yml`
+
+---
+
 ## [1.15.0] — 2026-02-21 — Phase 4.4: API Documentation & Developer Portal
 
 ### Added
