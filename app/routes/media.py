@@ -4,6 +4,8 @@ Media Routes
 API endpoints for file upload and media management.
 """
 
+import asyncio
+import contextlib
 from pathlib import Path
 from typing import Annotated
 
@@ -25,6 +27,7 @@ from app.schemas.media import (
     MediaUploadResponse,
 )
 from app.services.upload_service import IMAGE_SIZES, UPLOAD_DIR, upload_service
+from app.services.webhook_service import WebhookEventDispatcher
 from app.utils.security import validate_file_path
 
 router = APIRouter(tags=["Media"])
@@ -48,6 +51,10 @@ async def upload_file(
     Rate limit: 10 uploads per hour
     """
     media = await upload_service.upload_file(file, current_user, db)
+
+    # Dispatch webhook event (fire-and-forget)
+    with contextlib.suppress(Exception):
+        asyncio.create_task(WebhookEventDispatcher(db).media_uploaded(media.id, media.filename, current_user.id))
 
     base_url = "/api/v1/media"
 

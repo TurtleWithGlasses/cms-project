@@ -376,3 +376,31 @@ async def test_webhook(
         "error": webhook_result["error"],
         "message": "Test delivery completed" if webhook_result["success"] else "Test delivery failed",
     }
+
+
+@router.post("/{webhook_id}/pause")
+async def pause_webhook(
+    webhook_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """Pause a webhook. Stops event delivery without deleting the webhook."""
+    service = WebhookService(db)
+    try:
+        return await service.pause_webhook(webhook_id, current_user.id)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
+
+
+@router.post("/{webhook_id}/resume")
+async def resume_webhook(
+    webhook_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """Resume a paused webhook. Re-enables event delivery."""
+    service = WebhookService(db)
+    try:
+        return await service.resume_webhook(webhook_id, current_user.id)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e

@@ -1,3 +1,4 @@
+import contextlib
 import logging
 from contextlib import asynccontextmanager
 from datetime import timedelta
@@ -10,12 +11,15 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.middleware.sessions import SessionMiddleware
+from strawberry.fastapi import GraphQLRouter
 
 from app.auth import (
     create_access_token,
     get_current_user,
 )
 from app.config import settings
+from app.graphql.context import GraphQLContext
+from app.graphql.schema import schema
 
 # Initialize Sentry for error tracking (only if DSN is configured)
 if settings.sentry_dsn:
@@ -173,6 +177,7 @@ def create_app() -> FastAPI:
             "/auth/token",
             "/auth",  # Authentication endpoints
             "/",  # Root endpoint
+            "/graphql",  # GraphQL endpoint — uses context-based auth
         ],
     )
     app.add_middleware(
@@ -249,6 +254,20 @@ def create_app() -> FastAPI:
     # Site settings routes
     app.include_router(settings_routes.router, prefix="/api/v1", tags=["Settings"])
 
+    # GraphQL endpoint — auth handled per-resolver via context
+    async def get_graphql_context(
+        request: Request,
+        db: AsyncSession = Depends(get_db),
+    ) -> GraphQLContext:
+        """Build GraphQL context. User is optional (None for unauthenticated requests)."""
+        user = None
+        with contextlib.suppress(Exception):
+            user = await get_current_user(request=request, db=db)
+        return GraphQLContext(user=user, db=db)
+
+    graphql_app = GraphQLRouter(schema, context_getter=get_graphql_context)
+    app.include_router(graphql_app, prefix="/graphql", tags=["GraphQL"])
+
     # Configure rate limiting
     configure_rate_limiting(app)
 
@@ -292,7 +311,14 @@ async def post_register(
     password: str = Form(...),
     db: AsyncSession = Depends(get_db),
 ):
-    await register_user(username, email, password, db)
+    import asyncio
+    import contextlib
+
+    from app.services.webhook_service import WebhookEventDispatcher
+
+    new_user = await register_user(username, email, password, db)
+    with contextlib.suppress(Exception):
+        asyncio.create_task(WebhookEventDispatcher(db).user_created(new_user.id, new_user.email))
     return RedirectResponse("/login", status_code=302)
 
 

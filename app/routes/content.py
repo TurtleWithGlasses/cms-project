@@ -1,3 +1,5 @@
+import asyncio
+import contextlib
 import logging
 from datetime import datetime, timezone
 
@@ -17,6 +19,7 @@ from app.scheduler import schedule_content
 from app.schemas.content import ContentCreate, ContentResponse, ContentUpdate
 from app.schemas.content_version import ContentVersionOut
 from app.services import content_service, content_version_service
+from app.services.webhook_service import WebhookEventDispatcher
 from app.services.websocket_manager import broadcast_content_event
 from app.utils.activity_log import log_activity
 from app.utils.cache import CacheManager, cache_manager
@@ -96,6 +99,12 @@ async def create_draft(
             await broadcast_content_event("content.created", new_content.id, new_content.title, current_user.id)
         except Exception as e:
             logger.warning(f"WebSocket broadcast failed: {e}")
+
+        # Dispatch webhook event (fire-and-forget)
+        with contextlib.suppress(Exception):
+            asyncio.create_task(
+                WebhookEventDispatcher(db).content_created(new_content.id, new_content.title, current_user.id)
+            )
 
         return new_content
 
@@ -177,6 +186,14 @@ async def update_content(
             )
         except Exception as e:
             logger.warning(f"WebSocket broadcast failed: {e}")
+
+        # Dispatch webhook event (fire-and-forget)
+        with contextlib.suppress(Exception):
+            asyncio.create_task(
+                WebhookEventDispatcher(db).content_updated(
+                    content_id, existing_content.title, existing_content.author_id
+                )
+            )
 
     except Exception as e:
         await db.rollback()
@@ -277,6 +294,12 @@ async def approve_content(
             await broadcast_content_event("content.published", content.id, content.title, current_user.id)
         except Exception as ws_err:
             logger.warning(f"WebSocket broadcast failed: {ws_err}")
+
+        # Dispatch webhook event (fire-and-forget)
+        with contextlib.suppress(Exception):
+            asyncio.create_task(
+                WebhookEventDispatcher(db).content_published(content.id, content.title, current_user.id)
+            )
 
     except Exception as e:
         await db.rollback()

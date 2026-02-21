@@ -4,6 +4,7 @@ Comment Routes
 API endpoints for comment management with moderation support.
 """
 
+import asyncio
 import contextlib
 from datetime import datetime
 
@@ -17,6 +18,7 @@ from app.models.comment import CommentStatus
 from app.models.comment_engagement import ReactionType, ReportReason, ReportStatus
 from app.models.user import User
 from app.services.comment_service import CommentService
+from app.services.webhook_service import WebhookEventDispatcher
 from app.services.websocket_manager import broadcast_comment_event
 from app.utils.activity_log import log_activity
 
@@ -225,6 +227,10 @@ async def create_comment(
             description=f"Created comment on content {content_id}",
             content_id=content_id,
         )
+
+        # Dispatch webhook event (fire-and-forget)
+        with contextlib.suppress(Exception):
+            asyncio.create_task(WebhookEventDispatcher(db).comment_created(comment.id, content_id, current_user.id))
 
         return _comment_to_response(comment)
 
@@ -683,6 +689,10 @@ async def approve_comment(
     # Broadcast WebSocket event (non-critical)
     with contextlib.suppress(Exception):
         await broadcast_comment_event("comment.approved", comment_id, comment.content_id, current_user.id)
+
+    # Dispatch webhook event (fire-and-forget)
+    with contextlib.suppress(Exception):
+        asyncio.create_task(WebhookEventDispatcher(db).comment_approved(comment_id, comment.content_id))
 
     comment = await service.get_comment(comment.id)
     return _comment_to_response(comment)

@@ -29,6 +29,7 @@ class RBACMiddleware(BaseHTTPMiddleware):
             "/auth/token",
             "/token",
             "/favicon.ico",
+            "/graphql",
         }
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint):
@@ -46,9 +47,13 @@ class RBACMiddleware(BaseHTTPMiddleware):
         ):
             return await call_next(request)
 
+        # Allow requests authenticated via API key — route-level dependency validates them
+        x_api_key = request.headers.get("X-API-Key")
         token = request.cookies.get("access_token") or request.headers.get("Authorization", "").replace("Bearer ", "")
-        if not token:
+        if not token and not x_api_key:
             return RedirectResponse(url="/login")
+        if not token and x_api_key:
+            return await call_next(request)
 
         if token.startswith("Bearer "):
             token = token[len("Bearer ") :]

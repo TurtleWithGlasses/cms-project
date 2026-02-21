@@ -878,26 +878,28 @@ The following major features and improvements have been completed:
 
 **Goal:** Enhance API capabilities, add integrations, improve developer experience
 
-#### 4.1 API Enhancements
-- [ ] **GraphQL API**
-  - Add GraphQL endpoint (Strawberry or Graphene)
-  - Implement content queries and mutations
-  - Add GraphQL playground
-  - New files: `graphql/schema.py`, `graphql/resolvers.py`
+#### 4.1 API Enhancements ✅ COMPLETED (v1.12.0)
+- [x] **GraphQL API** ✅ COMPLETED
+  - GraphQL endpoint at `/graphql` via `strawberry-graphql[fastapi]==0.296.1` ✅
+  - Query resolvers: `me`, `content`, `contents`, `categories`, `comments` ✅
+  - Mutation resolvers: `createContent`, `updateContent` (auth-required) ✅
+  - GraphiQL playground available at GET `/graphql` ✅
+  - Files: `app/graphql/__init__.py`, `app/graphql/context.py`, `app/graphql/types.py`, `app/graphql/queries.py`, `app/graphql/mutations.py`, `app/graphql/schema.py`
 
-- [ ] **Webhooks System**
-  - Create webhook model for event subscriptions
-  - Implement webhook delivery system
-  - Add webhook retry logic
-  - Webhook signature verification
-  - New files: `models/webhook.py`, `services/webhook_service.py`
+- [x] **Webhooks System** ✅ COMPLETED
+  - Webhook model, service, and 9 CRUD endpoints (existed since v1.x) ✅
+  - `WebhookEventDispatcher` wired into content, comment, user, and media routes ✅
+  - Events dispatched: `content.created`, `content.updated`, `content.published`, `comment.created`, `comment.approved`, `user.created`, `media.uploaded` ✅
+  - New pause/resume endpoints: `POST /api/v1/webhooks/{id}/pause`, `POST /api/v1/webhooks/{id}/resume` ✅
+  - Added `comment_approved` dispatcher method to `WebhookEventDispatcher` ✅
+  - Files: `app/services/webhook_service.py`, `app/routes/webhooks.py`, `app/routes/content.py`, `app/routes/comments.py`, `app/routes/media.py`, `main.py`
 
-- [ ] **API Key Management**
-  - Create API key model and endpoints
-  - Implement API key authentication
-  - Add API key scopes/permissions
-  - Rate limiting per API key
-  - New files: `models/api_key.py`, `middleware/api_key_auth.py`
+- [x] **API Key Management** ✅ COMPLETED
+  - API key model and 9 CRUD endpoints (existed since v1.x) ✅
+  - `get_current_user_from_api_key()` dependency (validates `X-API-Key` header) ✅
+  - `get_current_user_any_auth()` dependency (JWT-first, API key fallback) ✅
+  - RBAC middleware updated to pass through requests with `X-API-Key` header ✅
+  - Files: `app/auth.py`, `app/middleware/rbac.py`
 
 #### 4.2 Third-Party Integrations
 - [ ] **Social Media Integration**
@@ -1292,8 +1294,8 @@ This roadmap transforms the CMS Project from a functional MVP to a production-re
 
 ---
 
-**Document Version:** 1.8.0
-**Last Updated:** 2026-02-18
+**Document Version:** 1.12.0
+**Last Updated:** 2026-02-21
 **Maintained By:** Development Team
 **Review Cycle:** Quarterly
 

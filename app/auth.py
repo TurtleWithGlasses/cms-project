@@ -517,3 +517,78 @@ def has_permission(role: str, permission: str) -> bool:
         status_code=status.HTTP_403_FORBIDDEN,
         detail=f"Role '{role}' does not have permission '{permission}'",
     )
+
+
+# ============================================================================
+# API Key Authentication
+# ============================================================================
+
+
+async def get_current_user_from_api_key(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    """
+    Authenticate a request using an API key from the X-API-Key header.
+
+    Args:
+        request: The incoming HTTP request
+        db: Database session
+
+    Returns:
+        The User associated with the valid API key
+
+    Raises:
+        HTTPException: If the API key is missing, invalid, expired, or rate-limited
+    """
+    from app.services.api_key_service import APIKeyService  # avoid circular import
+
+    api_key_header = request.headers.get("X-API-Key")
+    if not api_key_header:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="API key required")
+
+    service = APIKeyService(db)
+    api_key = await service.validate_api_key(api_key_header)
+    if not api_key:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired API key")
+
+    result = await db.execute(select(User).where(User.id == api_key.user_id).options(selectinload(User.role)))
+    user = result.scalars().first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="API key user not found")
+
+    logger.debug(f"API key auth: user {user.username} (key prefix {api_key.key_prefix})")
+    return user
+
+
+async def get_current_user_any_auth(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    """
+    Authenticate via Bearer JWT token first, then fall back to X-API-Key header.
+
+    Args:
+        request: The incoming HTTP request
+        db: Database session
+
+    Returns:
+        The authenticated User
+
+    Raises:
+        HTTPException: If neither authentication method succeeds
+    """
+    token = (
+        request.cookies.get("access_token") or request.headers.get("Authorization", "").replace("Bearer ", "").strip()
+    )
+    if token:
+        return await get_current_user(request=request, db=db)
+
+    api_key_header = request.headers.get("X-API-Key")
+    if api_key_header:
+        return await get_current_user_from_api_key(request=request, db=db)
+
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Authentication required. Provide a Bearer token or X-API-Key header.",
+    )

@@ -227,6 +227,28 @@ class WebhookService:
             "message": "Store the new webhook secret securely - it won't be shown again!",
         }
 
+    async def pause_webhook(self, webhook_id: int, user_id: int) -> dict:
+        """Pause a webhook (stops event delivery without deleting)."""
+        webhook = await self.get_webhook_by_id(webhook_id, user_id)
+        if not webhook:
+            raise ValueError("Webhook not found.")
+        webhook.status = WebhookStatus.PAUSED
+        webhook.is_active = False
+        await self.db.commit()
+        logger.info(f"Webhook paused: {webhook_id}")
+        return {"id": webhook.id, "status": webhook.status.value, "is_active": webhook.is_active}
+
+    async def resume_webhook(self, webhook_id: int, user_id: int) -> dict:
+        """Resume a paused webhook."""
+        webhook = await self.get_webhook_by_id(webhook_id, user_id)
+        if not webhook:
+            raise ValueError("Webhook not found.")
+        webhook.status = WebhookStatus.ACTIVE
+        webhook.is_active = True
+        await self.db.commit()
+        logger.info(f"Webhook resumed: {webhook_id}")
+        return {"id": webhook.id, "status": webhook.status.value, "is_active": webhook.is_active}
+
     async def get_webhook_deliveries(
         self,
         webhook_id: int,
@@ -522,6 +544,16 @@ class WebhookEventDispatcher:
                 "comment_id": comment_id,
                 "content_id": content_id,
                 "author_id": author_id,
+            },
+        )
+
+    async def comment_approved(self, comment_id: int, content_id: int) -> None:
+        """Dispatch comment.approved event."""
+        await self.service.dispatch_event(
+            event=WebhookEvent.COMMENT_APPROVED.value,
+            payload={
+                "comment_id": comment_id,
+                "content_id": content_id,
             },
         )
 
