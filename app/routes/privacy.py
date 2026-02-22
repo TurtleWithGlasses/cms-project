@@ -14,9 +14,9 @@ from datetime import datetime, timezone
 from io import StringIO
 from typing import Any
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -76,6 +76,27 @@ class PrivacySettings(BaseModel):
     third_party_sharing: bool
     data_retention_days: int
     last_updated: str
+
+
+class ConsentRequest(BaseModel):
+    """Request model for recording user consent."""
+
+    consent_type: str = "privacy_policy"  # "privacy_policy" | "marketing" | "analytics"
+    policy_version: str | None = None  # defaults to current settings.privacy_policy_version
+
+
+class ConsentRecordResponse(BaseModel):
+    """Response model for a single consent record."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    user_id: int
+    consent_type: str
+    policy_version: str
+    consented_at: str
+    ip_address: str | None
+    user_agent: str | None
 
 
 @router.get("/settings", response_model=PrivacySettings)
@@ -442,3 +463,84 @@ def _convert_to_csv(data: dict[str, Any]) -> str:
             )
 
     return output.getvalue()
+
+
+# ── Consent Endpoints ─────────────────────────────────────────────────────────
+
+
+@router.post("/consent", response_model=ConsentRecordResponse)
+async def record_user_consent(
+    consent_req: ConsentRequest,
+    req: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> ConsentRecordResponse:
+    """
+    Record explicit user consent to a policy version (GDPR Article 7).
+
+    Logs the requesting IP address and User-Agent for the audit trail.
+    Every call creates a new record — duplicates are intentional.
+    """
+    from app.config import settings as app_settings
+    from app.services.gdpr_service import record_consent
+
+    version = consent_req.policy_version or app_settings.privacy_policy_version
+    ip_address = req.client.host if req.client else None
+    user_agent = req.headers.get("user-agent")
+
+    record = await record_consent(
+        user_id=current_user.id,
+        consent_type=consent_req.consent_type,
+        policy_version=version,
+        ip_address=ip_address,
+        user_agent=user_agent,
+        db=db,
+    )
+    return ConsentRecordResponse(
+        id=record.id,
+        user_id=record.user_id,
+        consent_type=record.consent_type,
+        policy_version=record.policy_version,
+        consented_at=record.consented_at.isoformat(),
+        ip_address=record.ip_address,
+        user_agent=record.user_agent,
+    )
+
+
+@router.get("/consent/history", response_model=list[ConsentRecordResponse])
+async def get_user_consent_history(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> list[ConsentRecordResponse]:
+    """Return the full consent history for the current user, newest first."""
+    from app.services.gdpr_service import get_consent_history
+
+    records = await get_consent_history(user_id=current_user.id, db=db)
+    return [
+        ConsentRecordResponse(
+            id=r.id,
+            user_id=r.user_id,
+            consent_type=r.consent_type,
+            policy_version=r.policy_version,
+            consented_at=r.consented_at.isoformat(),
+            ip_address=r.ip_address,
+            user_agent=r.user_agent,
+        )
+        for r in records
+    ]
+
+
+@router.get("/policy-version")
+async def get_policy_version() -> dict[str, str]:
+    """
+    Return the current privacy policy version (public, no auth required).
+
+    Clients can compare against the user's last-consented version to
+    prompt for re-consent when the policy changes.
+    """
+    from app.config import settings as app_settings
+
+    return {
+        "policy_version": app_settings.privacy_policy_version,
+        "description": ("POST /api/v1/consent to record consent to this policy version."),
+    }

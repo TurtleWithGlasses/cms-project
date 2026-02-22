@@ -7,7 +7,7 @@ load_dotenv()
 class Settings(BaseSettings):
     # Application settings
     app_name: str = "CMS Project"
-    app_version: str = "1.18.0"
+    app_version: str = "1.19.0"
     debug: bool = False
     environment: str = "development"
 
@@ -78,6 +78,8 @@ class Settings(BaseSettings):
     redis_sentinel_password: str | None = None  # separate password for Sentinel nodes if needed
     pool_monitor_interval_seconds: int = 15  # how often to scrape pool stats into Prometheus
     instance_id: str = "web"  # set per-instance via INSTANCE_ID env var (e.g. web1, web2)
+    audit_log_retention_days: int = 365  # activity logs older than this are pruned daily
+    privacy_policy_version: str = "1.0"  # increment when policy changes to prompt re-consent
 
     # Social Media
     twitter_handle: str | None = None  # e.g. "@mycms" for OG/TC tags

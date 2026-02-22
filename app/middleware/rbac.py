@@ -38,6 +38,9 @@ class RBACMiddleware(BaseHTTPMiddleware):
             "/health/detailed",
             "/metrics",
             "/metrics/summary",
+            # Security & privacy — public informational endpoints
+            "/api/v1/policy-version",
+            "/api/v1/security/headers",
         }
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint):

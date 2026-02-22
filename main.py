@@ -71,6 +71,7 @@ from app.routes import (
     privacy,
     roles,
     search,
+    security as security_routes,
     seo,
     settings as settings_routes,
     social,
@@ -87,9 +88,11 @@ from app.scheduler import scheduler
 from app.schemas.user import UserUpdate
 from app.services.auth_service import authenticate_user, register_user
 from app.services.content_service import update_user_info
+from app.utils.audit_retention import install_retention_policy
 from app.utils.metrics import PrometheusMiddleware
 from app.utils.pool_monitor import install_pool_monitor
 from app.utils.query_monitor import install_query_monitor
+from app.utils.secrets_validator import validate_secret_key
 from app.utils.tracing import setup_tracing
 
 # ── OpenAPI metadata ──────────────────────────────────────────────────────────
@@ -200,7 +203,14 @@ _OPENAPI_TAGS = [
         "name": "Monitoring",
         "description": "Health and metrics — /health, /ready, /metrics (Prometheus), slow-query tracking",
     },
-    {"name": "Privacy & GDPR", "description": "GDPR compliance — data export, account deletion, consent management"},
+    {
+        "name": "Privacy & GDPR",
+        "description": "GDPR compliance — data export, account deletion, consent management, policy version",
+    },
+    {
+        "name": "Security",
+        "description": "Security audit — posture checks and header configuration (audit: admin-only, headers: public)",
+    },
     {"name": "Cache", "description": "Cache management — inspect and invalidate Redis cache entries"},
     {"name": "Notifications", "description": "User notifications — in-app notification feed with read/unread state"},
     {"name": "Teams", "description": "Team management — create teams, add/remove members, manage team roles"},
@@ -256,6 +266,13 @@ async def lifespan(app: FastAPI):
 
     # Install connection pool metrics polling (publishes to Prometheus every N seconds)
     install_pool_monitor(scheduler, interval_seconds=settings.pool_monitor_interval_seconds)
+
+    # Validate SECRET_KEY quality at startup (non-blocking — warns only, never raises)
+    for _warning in validate_secret_key(settings.secret_key):
+        logger.warning("secrets_validator: %s", _warning)
+
+    # Install audit log retention policy (prunes ActivityLog rows older than retention_days)
+    install_retention_policy(scheduler, retention_days=settings.audit_log_retention_days)
 
     scheduler.start()
 
@@ -349,6 +366,9 @@ def create_app() -> FastAPI:
 
     # Privacy & GDPR compliance routes
     app.include_router(privacy.router, prefix="/api/v1", tags=["Privacy & GDPR"])
+
+    # Security audit routes — registered before wildcard routers to avoid shadowing
+    app.include_router(security_routes.router, prefix="/api/v1/security", tags=["Security"])
 
     # Comments routes
     app.include_router(comments.router, prefix="/api/v1", tags=["Comments"])

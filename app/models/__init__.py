@@ -11,6 +11,7 @@ from .comment_engagement import (
     ReportReason,
     ReportStatus,
 )
+from .consent_record import ConsentRecord
 from .content import Content
 from .content_relations import (
     ContentRedirect,
@@ -80,6 +81,7 @@ __all__ = [
     "CommentReaction",
     "CommentReport",
     "CommentStatus",
+    "ConsentRecord",
     "Content",
     "content_tags",
     "ContentRedirect",

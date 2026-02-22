@@ -5,6 +5,48 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.19.0] — 2026-02-22 — Phase 5.5: Security Compliance
+
+### Added
+
+#### Security Audit
+- `GET /api/v1/security/audit` (admin/superadmin) — full security posture report with score, per-check findings, and security feature flags
+- `GET /api/v1/security/headers` (public) — current security header configuration and OWASP recommendations including CSP, HSTS, X-Frame-Options, and advisory headers (COOP, CORP, COEP)
+- `app/routes/security.py` — new Security router with `SecurityAuditResponse` and `HeadersAuditResponse` models
+- `app/utils/secrets_validator.py` — `validate_secret_key()` (Shannon entropy check, known-weak list, length, distinct chars) and `get_security_posture()` (per-category findings with severity, score 0–100)
+- Startup validation: `validate_secret_key(settings.secret_key)` called in lifespan — logs warnings, never blocks startup
+
+#### GDPR Enhancements
+- `ConsentRecord` SQLAlchemy model (`app/models/consent_record.py`) — tracks consent events with `user_id` FK, `consent_type`, `policy_version`, `ip_address`, `user_agent`, `consented_at`
+- Alembic migration `p6q7r8s9t0u1` — creates `consent_records` table with composite indexes on `(user_id, consent_type)` and `(user_id, policy_version)`
+- `app/services/gdpr_service.py` — `record_consent()`, `get_consent_history()`, `has_valid_consent()`, `enforce_data_retention()` (Core-level DELETE for efficiency)
+- `POST /api/v1/consent` — record user consent with IP/User-Agent audit trail (GDPR Article 7)
+- `GET /api/v1/consent/history` — full consent history for current user (newest first)
+- `GET /api/v1/policy-version` (public) — current policy version for client-side re-consent prompts
+
+#### Audit Log Retention
+- `app/utils/audit_retention.py` — `install_retention_policy()` registers an APScheduler job that prunes `ActivityLog` rows older than `AUDIT_LOG_RETENTION_DAYS` (default 365) once daily
+- Mirrors `pool_monitor.py` APScheduler pattern exactly: `replace_existing=True`, `max_instances=1`
+
+#### Secrets Management
+- `AUDIT_LOG_RETENTION_DAYS` (int, default 365) and `PRIVACY_POLICY_VERSION` (str, default "1.0") added to `app/config.py`
+- Startup-time `SECRET_KEY` quality check: warns on empty, short (< 32 chars), known-weak values, low Shannon entropy, or fewer than 8 distinct chars
+
+### Changed
+- Version bumped to `1.19.0`
+- RBAC `public_paths` extended with `/api/v1/policy-version` and `/api/v1/security/headers`
+- OpenAPI tags updated with "Security" tag description
+
+### Tests
+- 72 tests in `test/test_security_compliance.py` — no live database required
+  - `TestSecretsValidation` (15): pure-function entropy/weakness/posture checks
+  - `TestGDPRService` (15): function existence, signatures, `AsyncMock` DB interaction
+  - `TestAuditRetention` (10): APScheduler scheduler mock verification
+  - `TestSecurityAuditRoute` (15): route registration, public/admin access control, response structure
+  - `TestConsentEndpoints` (17): consent routes, policy-version public endpoint, schema validation
+
+---
+
 ## [1.18.0] — 2026-02-22 — Phase 5.4: Scalability & High Availability
 
 ### Added
