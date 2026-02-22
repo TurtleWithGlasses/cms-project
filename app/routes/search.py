@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import require_role
-from app.database import get_db
+from app.database import get_read_db
 from app.models.user import User
 from app.schemas.search import (
     FullTextSearchResponse,
@@ -48,7 +48,7 @@ async def fulltext_search(
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
     highlight: bool = Query(True, description="Include highlighted snippets"),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_read_db),
 ):
     """
     Full-text search across all content using PostgreSQL tsvector.
@@ -106,7 +106,7 @@ async def get_search_facets(
         None,
         description="Optional query to filter facets to matching content only",
     ),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_read_db),
 ):
     """
     Get faceted search counts for categories, tags, statuses, and authors.
@@ -126,7 +126,7 @@ async def get_search_suggestions(
         description="Search prefix for autocomplete",
     ),
     limit: int = Query(10, ge=1, le=20),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_read_db),
 ):
     """
     Get autocomplete suggestions based on published content titles.
@@ -140,7 +140,7 @@ async def get_search_suggestions(
 async def get_search_analytics(
     days: int = Query(30, ge=1, le=365, description="Number of days to analyze"),
     current_user: User = Depends(require_role(["admin", "superadmin"])),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_read_db),
 ):
     """
     Get search analytics data including top queries, zero-result queries,

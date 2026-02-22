@@ -88,6 +88,7 @@ from app.schemas.user import UserUpdate
 from app.services.auth_service import authenticate_user, register_user
 from app.services.content_service import update_user_info
 from app.utils.metrics import PrometheusMiddleware
+from app.utils.pool_monitor import install_pool_monitor
 from app.utils.query_monitor import install_query_monitor
 from app.utils.tracing import setup_tracing
 
@@ -252,6 +253,9 @@ async def lifespan(app: FastAPI):
 
     # Install query monitoring for Prometheus metrics and slow query logging
     install_query_monitor(engine, settings.slow_query_threshold_ms)
+
+    # Install connection pool metrics polling (publishes to Prometheus every N seconds)
+    install_pool_monitor(scheduler, interval_seconds=settings.pool_monitor_interval_seconds)
 
     scheduler.start()
 

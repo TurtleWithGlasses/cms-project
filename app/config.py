@@ -7,7 +7,7 @@ load_dotenv()
 class Settings(BaseSettings):
     # Application settings
     app_name: str = "CMS Project"
-    app_version: str = "1.17.0"
+    app_version: str = "1.18.0"
     debug: bool = False
     environment: str = "development"
 
@@ -70,6 +70,14 @@ class Settings(BaseSettings):
     # OpenTelemetry distributed tracing
     otel_exporter_endpoint: str | None = None  # e.g. "http://jaeger:4317" (OTLP/gRPC)
     otel_service_name: str = "cms-api"
+
+    # Scalability — read replicas & Redis HA
+    database_read_replica_url: str | None = None  # e.g. postgresql+asyncpg://...@db-replica:5432/cms_db
+    redis_sentinel_hosts: str | None = None  # comma-separated "host:port,host:port" — activates Sentinel mode
+    redis_sentinel_master_name: str = "mymaster"
+    redis_sentinel_password: str | None = None  # separate password for Sentinel nodes if needed
+    pool_monitor_interval_seconds: int = 15  # how often to scrape pool stats into Prometheus
+    instance_id: str = "web"  # set per-instance via INSTANCE_ID env var (e.g. web1, web2)
 
     # Social Media
     twitter_handle: str | None = None  # e.g. "@mycms" for OG/TC tags

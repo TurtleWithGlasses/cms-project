@@ -36,7 +36,12 @@ services:
     restart: always
     environment:
       - DATABASE_URL=${DATABASE_URL}
+      # Read replica — set to replica DB URL to enable read-write splitting
+      - DATABASE_READ_REPLICA_URL=${DATABASE_READ_REPLICA_URL:-}
       - REDIS_URL=${REDIS_URL}
+      # Redis Sentinel — set to "host1:26379,host2:26379" to enable HA mode
+      - REDIS_SENTINEL_HOSTS=${REDIS_SENTINEL_HOSTS:-}
+      - REDIS_SENTINEL_MASTER_NAME=${REDIS_SENTINEL_MASTER_NAME:-mymaster}
       - SECRET_KEY=${SECRET_KEY}
       - ENVIRONMENT=production
       - DEBUG=False
@@ -77,7 +82,10 @@ services:
     restart: always
     environment:
       - DATABASE_URL=${DATABASE_URL}
+      - DATABASE_READ_REPLICA_URL=${DATABASE_READ_REPLICA_URL:-}
       - REDIS_URL=${REDIS_URL}
+      - REDIS_SENTINEL_HOSTS=${REDIS_SENTINEL_HOSTS:-}
+      - REDIS_SENTINEL_MASTER_NAME=${REDIS_SENTINEL_MASTER_NAME:-mymaster}
       - SECRET_KEY=${SECRET_KEY}
       - ENVIRONMENT=production
       - DEBUG=False
@@ -109,7 +117,7 @@ services:
       retries: 3
       start_period: 40s
 
-  # PostgreSQL Database with Replication Ready
+  # PostgreSQL Primary (write) with WAL streaming replication enabled
   db:
     image: postgres:15-alpine
     container_name: cms_postgres_prod
@@ -122,8 +130,12 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./postgres/postgresql.conf:/etc/postgresql/postgresql.conf:ro
+      - ./postgres/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
       - ./backups:/backups
-    command: postgres -c config_file=/etc/postgresql/postgresql.conf
+    command: >
+      postgres
+      -c config_file=/etc/postgresql/postgresql.conf
+      -c hba_file=/etc/postgresql/pg_hba.conf
     networks:
       - cms_network
     deploy:
@@ -137,7 +149,54 @@ services:
       timeout: 5s
       retries: 5
 
-  # Redis Cluster (Primary)
+  # PostgreSQL Read Replica — receives WAL from primary via streaming replication.
+  # Set DATABASE_READ_REPLICA_URL=postgresql+asyncpg://user:pass@db_replica:5432/cms_db
+  # in the .env file to activate read-replica routing in the application.
+  db_replica:
+    image: postgres:15-alpine
+    container_name: cms_postgres_replica
+    restart: always
+    environment:
+      POSTGRES_USER: ${DATABASE_USER}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
+      POSTGRES_DB: ${DATABASE_NAME}
+      PGDATA: /var/lib/postgresql/data/pgdata
+      # Streaming replication connection to the primary
+      POSTGRES_PRIMARY_HOST: db
+      POSTGRES_PRIMARY_PORT: "5432"
+    volumes:
+      - postgres_replica_data:/var/lib/postgresql/data
+    command: >
+      bash -c "
+        until pg_isready -h db -U $$POSTGRES_USER; do
+          echo 'Waiting for primary...'; sleep 2;
+        done;
+        if [ -z \"\$$(ls -A $$PGDATA)\" ]; then
+          PGPASSWORD=$$POSTGRES_PASSWORD pg_basebackup
+            -h db -U $$POSTGRES_USER -p 5432
+            -D $$PGDATA -Fp -Xs -P -R;
+        fi;
+        postgres -c hot_standby=on -c primary_conninfo='host=db port=5432 user=$$POSTGRES_USER password=$$POSTGRES_PASSWORD'
+      "
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - cms_network
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DATABASE_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    profiles:
+      - replica
+
+  # Redis Primary (write)
   redis:
     image: redis:7-alpine
     container_name: cms_redis_prod
@@ -163,6 +222,34 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  # Redis Sentinel — monitors the Redis primary and manages automatic failover.
+  # Activate by setting REDIS_SENTINEL_HOSTS=redis_sentinel:26379 in .env.
+  # Scale to 3 sentinel instances in production for proper quorum.
+  redis_sentinel:
+    image: redis:7-alpine
+    container_name: cms_redis_sentinel
+    restart: always
+    command: redis-sentinel /etc/redis/sentinel.conf
+    volumes:
+      - ./redis/sentinel.conf:/etc/redis/sentinel.conf:ro
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - cms_network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 128M
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "26379", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    profiles:
+      - sentinel
 
   # Prometheus Metrics Collector
   prometheus:
@@ -222,6 +309,8 @@ services:
 
 volumes:
   postgres_data:
+    driver: local
+  postgres_replica_data:
     driver: local
   redis_data:
     driver: local

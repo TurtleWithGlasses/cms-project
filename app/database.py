@@ -12,7 +12,9 @@ logger = logging.getLogger(__name__)
 DATABASE_URL = settings.database_url
 SECRET_KEY = settings.secret_key
 
-# Environment-based configurations with optimized pooling
+# ---------------------------------------------------------------------------
+# Primary (write) engine — environment-based pool configuration
+# ---------------------------------------------------------------------------
 if settings.environment == "production":
     # Production: Larger pool with pre-ping for connection health
     engine = create_async_engine(
@@ -42,10 +44,51 @@ else:
         pool_pre_ping=True,  # Check connection health
     )
 
+# ---------------------------------------------------------------------------
+# Read replica engine — optional; falls back to primary when not configured.
+# Routes using get_read_db() must only perform SELECT operations.
+# ---------------------------------------------------------------------------
+if settings.database_read_replica_url:
+    if settings.environment == "production":
+        read_engine = create_async_engine(
+            settings.database_read_replica_url,
+            pool_size=20,
+            max_overflow=50,
+            pool_timeout=60,
+            pool_recycle=1800,
+            pool_pre_ping=True,
+            echo=False,
+        )
+    elif settings.environment == "test":
+        read_engine = create_async_engine(
+            settings.database_read_replica_url,
+            poolclass=NullPool,
+            echo=False,
+        )
+    else:
+        read_engine = create_async_engine(
+            settings.database_read_replica_url,
+            pool_size=10,
+            max_overflow=20,
+            pool_timeout=30,
+            pool_pre_ping=True,
+            echo=False,
+        )
+else:
+    # No replica configured — reads go to the primary (identical to pre-5.4 behaviour)
+    read_engine = engine
+
 AsyncSessionLocal = sessionmaker(
     autocommit=False,
     autoflush=False,
     bind=engine,
+    class_=AsyncSession,
+)
+
+ReadAsyncSessionLocal = sessionmaker(
+    autocommit=False,
+    autoflush=False,
+    bind=read_engine,
     class_=AsyncSession,
 )
 
@@ -67,6 +110,57 @@ async def get_db():
                 logging.info("Database session closed.")
             except Exception as close_error:
                 logger.warning(f"Error closing database session: {close_error}")
+
+
+async def get_read_db():
+    """
+    Read-only database session dependency.
+
+    Uses the read replica engine when DATABASE_READ_REPLICA_URL is set;
+    falls back to the primary engine otherwise.  Only inject this dependency
+    into endpoints that perform SELECT operations — any writes must use get_db().
+    Note: replica data may lag the primary by a small amount (<100 ms typical).
+    """
+    async with ReadAsyncSessionLocal() as db:
+        try:
+            yield db
+        except Exception as e:
+            logger.error(f"Read-DB session error: {e}")
+            raise
+        finally:
+            try:
+                await db.close()
+            except Exception as close_error:
+                logger.warning(f"Error closing read-DB session: {close_error}")
+
+
+def get_pool_stats() -> dict:
+    """
+    Return connection-pool statistics for the primary and read-replica engines.
+
+    Uses SQLAlchemy's sync pool introspection (engine.sync_engine.pool).
+    Returns zeros for NullPool (test environment) where pool stats are unavailable.
+    """
+
+    def _stats(eng) -> dict:
+        pool = eng.sync_engine.pool
+        # NullPool has no size/checkin/checkout counters
+        if isinstance(pool, NullPool):
+            return {"size": 0, "checkedin": 0, "checkedout": 0, "overflow": 0}
+        try:
+            return {
+                "size": pool.size(),
+                "checkedin": pool.checkedin(),
+                "checkedout": pool.checkedout(),
+                "overflow": pool.overflow(),
+            }
+        except Exception:
+            return {"size": 0, "checkedin": 0, "checkedout": 0, "overflow": 0}
+
+    return {
+        "primary": _stats(engine),
+        "replica": _stats(read_engine),
+    }
 
 
 # async def get_async_session() -> AsyncSession:

@@ -5,6 +5,32 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.18.0] — 2026-02-22 — Phase 5.4: Scalability & High Availability
+
+### Added
+- `app/database.py` — `read_engine`, `ReadAsyncSessionLocal`, `get_read_db()` async generator dependency, and `get_pool_stats()` helper; `read_engine` transparently falls back to the primary when `DATABASE_READ_REPLICA_URL` is unset
+- `app/utils/pool_monitor.py` — APScheduler background job that polls SQLAlchemy pool stats every N seconds and pushes them to Prometheus gauges; installed at startup via `install_pool_monitor()`
+- `app/utils/metrics.py` — `DB_POOL_CHECKED_OUT`, `DB_POOL_AVAILABLE`, `DB_POOL_OVERFLOW` Gauges (labeled by `engine`); `REDIS_CONNECTED` Gauge (labeled by `role`); `REDIS_SENTINEL_FAILOVERS` Counter; `update_pool_metrics()` helper
+- `app/utils/cache.py` — Redis Sentinel support in `CacheManager.connect()` (activated by `REDIS_SENTINEL_HOSTS`); three-branch connect logic (Sentinel → redis_url → individual params); 30-second auto-retry on connection failure (`_maybe_retry_connect()`); `_last_connect_attempt` timestamp
+- `app/utils/session.py` — Redis Sentinel support in `RedisSessionManager.connect()` (mirrors CacheManager logic); `_parse_sentinel_hosts()` static helper
+- `app/routes/monitoring.py` — `_check_read_replica()` async helper (returns `not_configured` when no replica URL set); `_check_pool_health()` sync helper (warning ≥70%, critical ≥90% utilisation); added `read_replica` and `connection_pool` to `/health/detailed` checks; added `connection_pool` section to `/metrics/summary` JSON
+- `postgres/postgresql.conf` — WAL streaming replication config (`wal_level=replica`, `max_wal_senders=5`, `wal_keep_size=1GB`), performance tuning, and structured logging settings
+- `postgres/pg_hba.conf` — Allow replication connections from replica container + standard app/loopback access
+- `redis/sentinel.conf` — Redis Sentinel config: monitors `mymaster` at `redis:6379`, `down-after-milliseconds 5000`, `failover-timeout 10000`
+- `docker-compose.prod.yml` — `db_replica` service (postgres:15-alpine streaming replica, `replica` profile), `redis_sentinel` service (redis:7-alpine --sentinel, `sentinel` profile), `postgres_replica_data` volume
+- 67 tests in `test/test_scalability.py` — read replica config, pool metrics, Redis Sentinel config and host parsing, cache failover/auto-retry, health check extensions, nginx and docker-compose infrastructure validation
+
+### Changed
+- `app/config.py` — 6 new settings: `database_read_replica_url`, `redis_sentinel_hosts`, `redis_sentinel_master_name`, `redis_sentinel_password`, `pool_monitor_interval_seconds` (15), `instance_id` ("web"); version bumped to 1.18.0
+- `main.py` — import and call `install_pool_monitor(scheduler, ...)` in lifespan after `install_query_monitor()`
+- `app/routes/content.py` — `get_all_content_route` and `get_content_versions` switched to `Depends(get_read_db)`
+- `app/routes/search.py` — all GET handler dependencies switched to `get_read_db` (all search queries are read-only)
+- `app/routes/analytics.py` — all GET handler dependencies switched to `get_read_db` (all analytics queries are read-only)
+- `docker-compose.prod.yml` — `web1`/`web2` env blocks extended with `DATABASE_READ_REPLICA_URL`, `REDIS_SENTINEL_HOSTS`, `REDIS_SENTINEL_MASTER_NAME` (all default to empty, no behaviour change without explicit values); primary DB service now also mounts `pg_hba.conf`
+- `nginx/nginx.conf` — added `proxy_next_upstream error timeout http_502 http_503 http_504`, `proxy_next_upstream_tries 2`, `proxy_next_upstream_timeout 10s` to `location /` block; updated upstream comment to explain why `least_conn` is correct for JWT+Redis stateless sessions
+
+---
+
 ## [1.17.0] — 2026-02-21 — Phase 5.3: Monitoring & Observability
 
 ### Added

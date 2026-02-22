@@ -10,7 +10,7 @@ from sqlalchemy.orm import selectinload
 from starlette.requests import Request
 
 from app.auth import get_current_user, get_current_user_with_role
-from app.database import get_db
+from app.database import get_db, get_read_db
 from app.models.activity_log import ActivityLog
 from app.models.content import Content, ContentStatus
 from app.models.content_version import ContentVersion
@@ -319,7 +319,7 @@ async def approve_content(
 
 
 @router.get("/{content_id}/versions", response_model=list[ContentVersionOut])
-async def get_content_versions(content_id: int, db: AsyncSession = Depends(get_db)):
+async def get_content_versions(content_id: int, db: AsyncSession = Depends(get_read_db)):
     return await content_version_service.get_versions(content_id, db)
 
 
@@ -341,7 +341,7 @@ async def get_all_content_route(
     category_id: int | None = None,
     author_id: int | None = None,
     fields: FieldSelector = Depends(),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_read_db),
 ):
     # Try cache first
     cache_key = f"{CacheManager.PREFIX_CONTENT}list:{skip}:{limit}:{status}:{category_id}:{author_id}"

@@ -15,7 +15,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.database import get_db
+from app.database import ReadAsyncSessionLocal, get_db, get_pool_stats
 from app.utils.metrics import set_app_info, update_health_status, update_uptime
 
 router = APIRouter(tags=["Monitoring"])
@@ -120,14 +120,20 @@ async def detailed_health_check(db: AsyncSession = Depends(get_db)) -> DetailedH
     # Redis check
     checks["redis"] = await _check_redis()
 
+    # Read replica check (reports not_configured when replica URL is absent)
+    checks["read_replica"] = await _check_read_replica()
+
+    # Connection pool utilisation
+    checks["connection_pool"] = _check_pool_health()
+
     # Disk space check (simplified)
     checks["disk"] = {"status": "healthy", "message": "Disk space available"}
 
     # Memory check (simplified)
     checks["memory"] = {"status": "healthy", "message": "Memory available"}
 
-    # Overall status
-    all_healthy = all(check.get("status") == "healthy" for check in checks.values())
+    # Overall status — not_configured is not unhealthy
+    all_healthy = all(check.get("status") in ("healthy", "not_configured") for check in checks.values())
 
     return DetailedHealth(
         status="healthy" if all_healthy else "degraded",
@@ -209,6 +215,11 @@ async def metrics_summary() -> dict[str, Any]:
     for sample in APP_UPTIME_SECONDS.collect()[0].samples:
         uptime = sample.value
 
+    # Pool stats (live from engine introspection)
+    pool_stats = get_pool_stats()
+    primary_pool = pool_stats["primary"]
+    replica_pool = pool_stats["replica"]
+
     return {
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "uptime_seconds": round(uptime, 2),
@@ -225,6 +236,11 @@ async def metrics_summary() -> dict[str, Any]:
             "hits": total_hits,
             "misses": total_misses,
             "hit_rate_percent": cache_hit_rate,
+        },
+        "connection_pool": {
+            "primary": primary_pool,
+            "replica": replica_pool,
+            "read_replica_configured": bool(settings.database_read_replica_url),
         },
     }
 
@@ -296,3 +312,69 @@ async def _check_redis() -> dict[str, Any]:
             "error": str(e),
             "message": "Redis connection failed",
         }
+
+
+async def _check_read_replica() -> dict[str, Any]:
+    """
+    Check read-replica connectivity.
+
+    Returns {"status": "not_configured"} when DATABASE_READ_REPLICA_URL is absent
+    so callers can distinguish "missing" from "unhealthy".
+    """
+    if not settings.database_read_replica_url:
+        return {"status": "not_configured", "message": "No read replica configured"}
+
+    try:
+        start = time.perf_counter()
+        async with ReadAsyncSessionLocal() as replica_db:
+            await replica_db.execute(text("SELECT 1"))
+        latency_ms = (time.perf_counter() - start) * 1000
+        return {
+            "status": "healthy",
+            "latency_ms": round(latency_ms, 2),
+            "message": "Read replica connection successful",
+        }
+    except Exception as e:
+        return {
+            "status": "unhealthy",
+            "error": str(e),
+            "message": "Read replica connection failed",
+        }
+
+
+def _check_pool_health() -> dict[str, Any]:
+    """
+    Inspect connection pool utilisation and return a health assessment.
+
+    Thresholds:
+      - < 70% utilisation → healthy
+      - 70–90% → warning
+      - ≥ 90% → critical
+    """
+    stats = get_pool_stats()
+    primary = stats["primary"]
+
+    pool_size = primary.get("size", 0)
+    max_capacity = pool_size + primary.get("overflow", 0)
+    checked_out = primary.get("checkedout", 0)
+
+    utilisation = (checked_out / max_capacity * 100) if max_capacity > 0 else 0.0
+
+    if utilisation >= 90:
+        pool_status = "critical"
+        message = f"Primary pool utilisation critical ({utilisation:.1f}%)"
+    elif utilisation >= 70:
+        pool_status = "warning"
+        message = f"Primary pool utilisation elevated ({utilisation:.1f}%)"
+    else:
+        pool_status = "healthy"
+        message = f"Primary pool utilisation normal ({utilisation:.1f}%)"
+
+    return {
+        "status": pool_status,
+        "message": message,
+        "utilisation_percent": round(utilisation, 1),
+        "primary": primary,
+        "replica": stats["replica"],
+        "read_replica_configured": bool(settings.database_read_replica_url),
+    }

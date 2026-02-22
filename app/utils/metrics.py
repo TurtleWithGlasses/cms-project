@@ -71,6 +71,48 @@ DB_CONNECTIONS_ACTIVE = Gauge(
     "Number of active database connections",
 )
 
+# Connection pool utilisation — updated by pool_monitor background task (every 15 s)
+DB_POOL_CHECKED_OUT = Gauge(
+    "cms_db_pool_checked_out",
+    "Number of DB connections currently checked out from the pool",
+    ["engine"],  # "primary" or "replica"
+)
+
+DB_POOL_AVAILABLE = Gauge(
+    "cms_db_pool_available",
+    "Number of DB connections available (checked in) in the pool",
+    ["engine"],
+)
+
+DB_POOL_OVERFLOW = Gauge(
+    "cms_db_pool_overflow",
+    "Number of DB connections currently in pool overflow",
+    ["engine"],
+)
+
+# Redis connectivity — set by CacheManager / RedisSessionManager on connect/disconnect
+REDIS_CONNECTED = Gauge(
+    "cms_redis_connected",
+    "Redis connection status (1 = connected, 0 = disconnected)",
+    ["role"],  # "cache" or "session"
+)
+
+REDIS_SENTINEL_FAILOVERS = Counter(
+    "cms_redis_sentinel_failovers_total",
+    "Total Redis Sentinel failover events detected by the application",
+)
+
+
+def update_pool_metrics(engine_label: str, stats: dict) -> None:
+    """Push connection-pool stats from get_pool_stats() into Prometheus gauges."""
+    checkedout = stats.get("checkedout", 0)
+    checkedin = stats.get("checkedin", 0)
+    overflow = stats.get("overflow", 0)
+    DB_POOL_CHECKED_OUT.labels(engine=engine_label).set(checkedout)
+    DB_POOL_AVAILABLE.labels(engine=engine_label).set(checkedin)
+    DB_POOL_OVERFLOW.labels(engine=engine_label).set(overflow)
+
+
 # =============================================================================
 # Cache Metrics
 # =============================================================================

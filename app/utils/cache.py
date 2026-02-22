@@ -6,13 +6,14 @@ Provides Redis-based caching for frequently accessed data to improve performance
 
 import json
 import logging
+import time
 from functools import wraps
 from typing import Any
 
 import redis.asyncio as redis
 
 from app.config import settings
-from app.utils.metrics import record_cache_hit, record_cache_miss
+from app.utils.metrics import REDIS_CONNECTED, record_cache_hit, record_cache_miss
 
 logger = logging.getLogger(__name__)
 
@@ -42,13 +43,56 @@ class CacheManager:
         """Initialize Redis connection pool"""
         self._redis: redis.Redis | None = None
         self._pool: redis.ConnectionPool | None = None
+        self._sentinel: redis.Sentinel | None = None
         self._enabled = True
+        self._last_connect_attempt: float = 0  # timestamp of last failed connect; enables 30s retry
+
+    @staticmethod
+    def _parse_sentinel_hosts(hosts_str: str) -> list[tuple[str, int]]:
+        """Parse 'host1:port1,host2:port2' into [(host1, port1), (host2, port2)]."""
+        result = []
+        for entry in hosts_str.split(","):
+            entry = entry.strip()
+            if ":" in entry:
+                host, port_str = entry.rsplit(":", 1)
+                result.append((host.strip(), int(port_str.strip())))
+            else:
+                result.append((entry, 26379))
+        return result
 
     async def connect(self) -> None:
-        """Establish connection to Redis server"""
+        """Establish connection to Redis — supports Sentinel HA, redis_url, or individual params."""
         if self._redis is not None:
             return
 
+        self._last_connect_attempt = time.time()
+
+        # 1. Redis Sentinel (HA mode) — activated by REDIS_SENTINEL_HOSTS
+        if settings.redis_sentinel_hosts:
+            try:
+                sentinel_hosts = self._parse_sentinel_hosts(settings.redis_sentinel_hosts)
+                sentinel_kwargs: dict = {"decode_responses": True}
+                if settings.redis_sentinel_password:
+                    sentinel_kwargs["password"] = settings.redis_sentinel_password
+                self._sentinel = redis.Sentinel(sentinel_hosts, **sentinel_kwargs)
+                self._redis = self._sentinel.master_for(
+                    settings.redis_sentinel_master_name,
+                    decode_responses=True,
+                )
+                await self._redis.ping()
+                REDIS_CONNECTED.labels(role="cache").set(1)
+                logger.info(
+                    "Cache: Connected to Redis via Sentinel (master=%s, sentinels=%s)",
+                    settings.redis_sentinel_master_name,
+                    sentinel_hosts,
+                )
+                return
+            except Exception as sentinel_err:
+                logger.warning("Cache: Sentinel connection failed (%s); falling back to standalone.", sentinel_err)
+                self._sentinel = None
+                self._redis = None
+
+        # 2. Standalone — redis_url or individual params
         try:
             if settings.redis_url:
                 self._pool = redis.ConnectionPool.from_url(
@@ -66,8 +110,10 @@ class CacheManager:
 
             self._redis = redis.Redis(connection_pool=self._pool)
             await self._redis.ping()
+            REDIS_CONNECTED.labels(role="cache").set(1)
             logger.info("Cache: Successfully connected to Redis")
         except Exception as e:
+            REDIS_CONNECTED.labels(role="cache").set(0)
             logger.warning(f"Cache: Failed to connect to Redis: {e}. Caching disabled.")
             self._enabled = False
 
@@ -81,6 +127,16 @@ class CacheManager:
             self._pool = None
         logger.info("Cache: Disconnected from Redis")
 
+    async def _maybe_retry_connect(self) -> None:
+        """Re-attempt connection after a 30-second cooldown to allow self-healing."""
+        if not self._enabled and time.time() - self._last_connect_attempt >= 30:
+            logger.info("Cache: retrying Redis connection after cooldown...")
+            self._redis = None
+            self._pool = None
+            self._sentinel = None
+            self._enabled = True  # reset so connect() proceeds
+            await self.connect()
+
     async def get(self, key: str) -> Any | None:
         """
         Get a cached value by key.
@@ -91,6 +147,7 @@ class CacheManager:
         Returns:
             Cached value or None if not found
         """
+        await self._maybe_retry_connect()
         if not self._enabled:
             return None
 
@@ -125,6 +182,7 @@ class CacheManager:
         Returns:
             True if successful, False otherwise
         """
+        await self._maybe_retry_connect()
         if not self._enabled:
             return False
 

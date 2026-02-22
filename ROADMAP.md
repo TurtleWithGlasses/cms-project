@@ -4,7 +4,7 @@
 
 This document outlines the comprehensive development roadmap for the CMS Project, a FastAPI-based content management system with role-based access control, content versioning, and scheduling capabilities. The roadmap addresses code quality improvements, security enhancements, feature additions, performance optimizations, and infrastructure modernization.
 
-**Current Version:** 1.17.0
+**Current Version:** 1.18.0
 **Target Architecture:** Production-ready, scalable CMS platform
 **Technology Stack:** FastAPI, PostgreSQL, SQLAlchemy 2.0, JWT Authentication, React 18, Vite
 
@@ -1099,23 +1099,26 @@ The following major features and improvements have been completed:
   - Promtail log shipping from file + Docker containers ✅
   - Log pipeline with JSON parsing and label extraction ✅
 
-#### 5.4 Scalability & High Availability
-- [ ] **Database Optimization**
-  - Read replica setup
-  - Connection pool monitoring
-  - Query performance monitoring
-  - Database backup automation
+#### 5.4 Scalability & High Availability ✅ COMPLETED (v1.18.0)
+- [x] **Database Optimization** ✅
+  - Read replica engine (`read_engine`, `ReadAsyncSessionLocal`, `get_read_db()` dependency) with transparent fallback to primary when `DATABASE_READ_REPLICA_URL` is unset
+  - Connection pool monitoring via APScheduler background job (15 s interval) → `DB_POOL_CHECKED_OUT`, `DB_POOL_AVAILABLE`, `DB_POOL_OVERFLOW` Prometheus gauges
+  - Read-only routes (content list/versions, search, analytics) switched to `get_read_db` to reduce primary load
+  - PostgreSQL WAL streaming config: `postgres/postgresql.conf` + `postgres/pg_hba.conf`
 
-- [ ] **Caching Strategy**
-  - Redis clustering/replication
-  - Cache failover strategy
-  - Distributed cache coordination
+- [x] **Caching Strategy** ✅
+  - Redis Sentinel HA support in `CacheManager` and `RedisSessionManager` (activated by `REDIS_SENTINEL_HOSTS`); falls back to standalone when not configured
+  - Cache auto-retry: disabled cache re-attempts connection after 30 s cooldown (self-healing without restart)
+  - `REDIS_CONNECTED` Prometheus gauge tracks cache and session manager connectivity
+  - `redis/sentinel.conf` for single-sentinel deployment (scale to 3 for production quorum)
 
-- [ ] **Load Balancing**
-  - Multiple app instances
-  - Session affinity configuration
-  - Health check integration
-  - Auto-scaling configuration
+- [x] **Load Balancing** ✅
+  - `nginx/nginx.conf`: `proxy_next_upstream error timeout http_502 http_503 http_504` with 2 tries and 10 s timeout for automatic failover between `web1`/`web2`
+  - Documented why `least_conn` (not `ip_hash`) is correct for stateless JWT + Redis-session architecture
+  - `docker-compose.prod.yml`: `db_replica` (postgres WAL streaming, `replica` profile) + `redis_sentinel` (`sentinel` profile) services added
+  - `DATABASE_READ_REPLICA_URL` and `REDIS_SENTINEL_HOSTS` env vars wired to `web1`/`web2` (all optional, zero-config fallback)
+  - `/health/detailed` extended with `read_replica` and `connection_pool` checks; `/metrics/summary` extended with pool stats
+  - 67 tests in `test/test_scalability.py`
 
 #### 5.5 Security Compliance
 - [ ] **Security Audit**

@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth import get_current_user, get_current_user_with_role
 from app.config import settings
 from app.constants.roles import RoleEnum
-from app.database import get_db
+from app.database import get_read_db
 from app.models.user import User
 from app.services.analytics_service import analytics_service
 
@@ -27,7 +27,7 @@ router = APIRouter(tags=["Analytics"])
 @router.get("/dashboard")
 async def get_dashboard_overview(
     current_user: User = Depends(get_current_user_with_role([RoleEnum.ADMIN, RoleEnum.SUPERADMIN, RoleEnum.MANAGER])),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_read_db),
 ):
     """
     Get comprehensive dashboard overview with all statistics.
@@ -46,7 +46,7 @@ async def get_dashboard_overview(
 @router.get("/content")
 async def get_content_statistics(
     current_user: User = Depends(get_current_user_with_role([RoleEnum.ADMIN, RoleEnum.SUPERADMIN, RoleEnum.MANAGER])),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_read_db),
 ):
     """
     Get content statistics.
@@ -65,7 +65,7 @@ async def get_content_statistics(
 @router.get("/users")
 async def get_user_statistics(
     current_user: User = Depends(get_current_user_with_role([RoleEnum.ADMIN, RoleEnum.SUPERADMIN])),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_read_db),
 ):
     """
     Get user statistics.
@@ -84,7 +84,7 @@ async def get_user_statistics(
 async def get_activity_statistics(
     days: int = 30,
     current_user: User = Depends(get_current_user_with_role([RoleEnum.ADMIN, RoleEnum.SUPERADMIN, RoleEnum.MANAGER])),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_read_db),
 ):
     """
     Get activity log statistics for a specified period.
@@ -109,7 +109,7 @@ async def get_activity_statistics(
 @router.get("/media")
 async def get_media_statistics(
     current_user: User = Depends(get_current_user_with_role([RoleEnum.ADMIN, RoleEnum.SUPERADMIN])),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_read_db),
 ):
     """
     Get media upload statistics.
@@ -129,7 +129,7 @@ async def get_media_statistics(
 async def get_user_performance_report(
     user_id: int,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_read_db),
 ):
     """
     Get performance report for a specific user.
@@ -159,7 +159,7 @@ async def get_user_performance_report(
 @router.get("/my-performance")
 async def get_my_performance(
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_read_db),
 ):
     """
     Get performance report for the current user.
@@ -177,7 +177,7 @@ async def get_popular_content(
     days: int = 30,
     limit: int = 10,
     current_user: User = Depends(get_current_user_with_role([RoleEnum.ADMIN, RoleEnum.SUPERADMIN, RoleEnum.MANAGER])),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_read_db),
 ):
     """
     Get most popular content ranked by view count.
@@ -201,7 +201,7 @@ async def get_content_view_stats(
     content_id: int,
     days: int = 30,
     current_user: User = Depends(get_current_user_with_role([RoleEnum.ADMIN, RoleEnum.SUPERADMIN, RoleEnum.MANAGER])),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_read_db),
 ):
     """
     Get view statistics for a specific content item.
@@ -222,7 +222,7 @@ async def get_content_view_stats(
 async def get_session_analytics(
     days: int = 30,
     current_user: User = Depends(get_current_user_with_role([RoleEnum.ADMIN, RoleEnum.SUPERADMIN])),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_read_db),
 ):
     """
     Get session analytics including device and browser breakdown.

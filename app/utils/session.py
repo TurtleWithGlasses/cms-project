@@ -139,37 +139,78 @@ class RedisSessionManager:
     - Session invalidation (logout)
     - Automatic expiration handling
     - Active session tracking
+    - Redis Sentinel HA support (activated by REDIS_SENTINEL_HOSTS setting)
     """
 
     def __init__(self):
         """Initialize Redis connection pool"""
         self._redis: redis.Redis | None = None
         self._pool: redis.ConnectionPool | None = None
+        self._sentinel: redis.Sentinel | None = None
+
+    @staticmethod
+    def _parse_sentinel_hosts(hosts_str: str) -> list[tuple[str, int]]:
+        """Parse 'host1:port1,host2:port2' into [(host1, port1), (host2, port2)]."""
+        result = []
+        for entry in hosts_str.split(","):
+            entry = entry.strip()
+            if ":" in entry:
+                host, port_str = entry.rsplit(":", 1)
+                result.append((host.strip(), int(port_str.strip())))
+            else:
+                result.append((entry, 26379))
+        return result
 
     async def connect(self):
-        """Establish connection to Redis server"""
-        if self._redis is None:
+        """Establish connection to Redis — supports Sentinel HA, redis_url, or individual params."""
+        if self._redis is not None:
+            return
+
+        # 1. Redis Sentinel (HA mode) — activated by REDIS_SENTINEL_HOSTS
+        if settings.redis_sentinel_hosts:
             try:
-                # Use redis_url if provided, otherwise build from components
-                if settings.redis_url:
-                    self._pool = redis.ConnectionPool.from_url(settings.redis_url, decode_responses=True)
-                else:
-                    self._pool = redis.ConnectionPool(
-                        host=settings.redis_host,
-                        port=settings.redis_port,
-                        db=settings.redis_db,
-                        password=settings.redis_password,
-                        decode_responses=True,
-                    )
-
-                self._redis = redis.Redis(connection_pool=self._pool)
-
-                # Test connection
+                sentinel_hosts = self._parse_sentinel_hosts(settings.redis_sentinel_hosts)
+                sentinel_kwargs: dict = {"decode_responses": True}
+                if settings.redis_sentinel_password:
+                    sentinel_kwargs["password"] = settings.redis_sentinel_password
+                self._sentinel = redis.Sentinel(sentinel_hosts, **sentinel_kwargs)
+                self._redis = self._sentinel.master_for(
+                    settings.redis_sentinel_master_name,
+                    decode_responses=True,
+                )
                 await self._redis.ping()
-                logger.info("Successfully connected to Redis")
-            except Exception as e:
-                logger.error(f"Failed to connect to Redis: {e}")
-                raise
+                logger.info(
+                    "Session: Connected to Redis via Sentinel (master=%s, sentinels=%s)",
+                    settings.redis_sentinel_master_name,
+                    sentinel_hosts,
+                )
+                return
+            except Exception as sentinel_err:
+                logger.warning("Session: Sentinel connection failed (%s); falling back to standalone.", sentinel_err)
+                self._sentinel = None
+                self._redis = None
+
+        # 2. Standalone — redis_url or individual params
+        try:
+            if settings.redis_url:
+                self._pool = redis.ConnectionPool.from_url(settings.redis_url, decode_responses=True)
+            else:
+                self._pool = redis.ConnectionPool(
+                    host=settings.redis_host,
+                    port=settings.redis_port,
+                    db=settings.redis_db,
+                    password=settings.redis_password,
+                    decode_responses=True,
+                )
+
+            self._redis = redis.Redis(connection_pool=self._pool)
+
+            # Test connection
+            await self._redis.ping()
+            logger.info("Successfully connected to Redis")
+        except Exception as e:
+            logger.error(f"Failed to connect to Redis: {e}")
+            raise
 
     async def disconnect(self):
         """Close Redis connection"""
