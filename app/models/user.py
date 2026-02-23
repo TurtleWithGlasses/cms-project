@@ -34,6 +34,10 @@ class User(Base):
     role_id = Column(Integer, ForeignKey("roles.id"), nullable=False)
     role = relationship("Role", lazy="selectin")
 
+    # Multi-tenancy: nullable FK — NULL means "no tenant" (backward-compatible default)
+    tenant_id = Column(Integer, ForeignKey("tenants.id", ondelete="SET NULL"), nullable=True, index=True)
+    tenant = relationship("Tenant", foreign_keys=[tenant_id], lazy="select")
+
     # Update the relationship to remove `delete-orphan`
     notifications = relationship(
         "Notification",
@@ -71,5 +75,8 @@ class User(Base):
     # Webhooks relationship
     webhooks = relationship("Webhook", back_populates="user", cascade="all, delete-orphan")
 
-    # Index for role-based queries
-    __table_args__ = (Index("ix_users_role_id", "role_id"),)
+    # Indexes for role-based and tenant-based queries
+    __table_args__ = (
+        Index("ix_users_role_id", "role_id"),
+        Index("ix_users_tenant_id", "tenant_id"),
+    )

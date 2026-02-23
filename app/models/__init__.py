@@ -55,6 +55,7 @@ from .password_reset import PasswordResetToken
 from .search_query import SearchQuery
 from .tag import Tag
 from .team import InvitationStatus, Team, TeamInvitation, TeamMember, TeamRole
+from .tenant import Tenant, TenantStatus
 from .two_factor import TwoFactorAuth
 from .user import Role, User
 from .user_session import LoginAttempt, UserSession
@@ -126,6 +127,8 @@ __all__ = [
     "TemplateField",
     "TemplateRevision",
     "TemplateStatus",
+    "Tenant",
+    "TenantStatus",
     "TwoFactorAuth",
     "User",
     "UserSession",

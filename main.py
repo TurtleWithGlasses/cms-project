@@ -48,6 +48,7 @@ from app.middleware.logging import StructuredLoggingMiddleware, setup_structured
 from app.middleware.rate_limit import configure_rate_limiting, limiter
 from app.middleware.rbac import RBACMiddleware
 from app.middleware.security_headers import SecurityHeadersMiddleware
+from app.middleware.tenant import TenantMiddleware
 from app.models import User
 from app.routes import (
     analytics,
@@ -77,6 +78,7 @@ from app.routes import (
     social,
     teams,
     templates as templates_routes,
+    tenants as tenants_routes,
     two_factor,
     user,
     webhooks,
@@ -211,6 +213,10 @@ _OPENAPI_TAGS = [
         "name": "Security",
         "description": "Security audit — posture checks and header configuration (audit: admin-only, headers: public)",
     },
+    {
+        "name": "Tenants",
+        "description": "Multi-tenancy management — create, configure, and administer tenant organisations (superadmin only)",
+    },
     {"name": "Cache", "description": "Cache management — inspect and invalidate Redis cache entries"},
     {"name": "Notifications", "description": "User notifications — in-app notification feed with read/unread state"},
     {"name": "Teams", "description": "Team management — create teams, add/remove members, manage team roles"},
@@ -323,6 +329,9 @@ def create_app() -> FastAPI:
     app.add_middleware(GZipMiddleware, minimum_size=settings.gzip_minimum_size)
     app.add_middleware(SessionMiddleware, secret_key=settings.secret_key)
     app.add_middleware(RBACMiddleware, allowed_roles=["user", "admin", "superadmin"])
+    # TenantMiddleware added AFTER RBAC so it runs BEFORE RBAC (Starlette LIFO)
+    # Sets request.state.tenant_id / tenant_slug for downstream handlers
+    app.add_middleware(TenantMiddleware)
     app.add_middleware(
         CSRFMiddleware,
         secret_key=settings.secret_key,
@@ -369,6 +378,9 @@ def create_app() -> FastAPI:
 
     # Security audit routes — registered before wildcard routers to avoid shadowing
     app.include_router(security_routes.router, prefix="/api/v1/security", tags=["Security"])
+
+    # Tenant management routes — registered before wildcard routers to avoid shadowing
+    app.include_router(tenants_routes.router, prefix="/api/v1/tenants", tags=["Tenants"])
 
     # Comments routes
     app.include_router(comments.router, prefix="/api/v1", tags=["Comments"])

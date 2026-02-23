@@ -7,7 +7,7 @@ load_dotenv()
 class Settings(BaseSettings):
     # Application settings
     app_name: str = "CMS Project"
-    app_version: str = "1.19.0"
+    app_version: str = "1.20.0"
     debug: bool = False
     environment: str = "development"
 
@@ -80,6 +80,10 @@ class Settings(BaseSettings):
     instance_id: str = "web"  # set per-instance via INSTANCE_ID env var (e.g. web1, web2)
     audit_log_retention_days: int = 365  # activity logs older than this are pruned daily
     privacy_policy_version: str = "1.0"  # increment when policy changes to prompt re-consent
+
+    # Multi-tenancy settings
+    enable_multitenancy: bool = False  # feature flag — off by default, no impact on existing behaviour
+    app_domain: str = "localhost"  # base domain for subdomain-based tenant extraction
 
     # Social Media
     twitter_handle: str | None = None  # e.g. "@mycms" for OG/TC tags

@@ -5,6 +5,66 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.20.0] — 2026-02-23 — Phase 6.1: Multi-Tenancy Foundation
+
+### Added
+
+#### Tenant Model
+- `Tenant` SQLAlchemy model (`app/models/tenant.py`) — organisation entity with `id`, `name` (unique), `slug` (unique, indexed), `domain` (nullable custom domain), `status`, `plan`, `metadata_` (JSON), `created_at`, `created_by_id`
+- `TenantStatus` enum: `active`, `suspended`, `deleted` (string-backed for DB compatibility)
+- Alembic migration `q7r8s9t0u1v2` — creates `tenants` table; adds nullable `tenant_id` FK (`ondelete="SET NULL"`) and index `ix_users_tenant_id` to `users` table; chains from `p6q7r8s9t0u1`
+
+#### User Tenant Association
+- `User.tenant_id` — nullable `Integer` FK to `tenants.id` (backward-compatible; existing users default to `NULL`)
+- `User.tenant` — lazy-loaded ORM relationship using string reference `"Tenant"` (avoids circular import)
+- `Index("ix_users_tenant_id", "tenant_id")` added to `User.__table_args__`
+
+#### Tenant Service
+- `app/services/tenant_service.py` — 8 async CRUD functions: `create_tenant`, `get_tenant_by_id`, `get_tenant_by_slug`, `get_tenant_by_domain`, `list_tenants`, `update_tenant`, `suspend_tenant`, `delete_tenant`
+- Soft-delete pattern: `delete_tenant()` sets `status=deleted` (data preserved, tenant resolved no longer)
+
+#### Tenant Middleware
+- `app/middleware/tenant.py` — `TenantMiddleware` resolves the active tenant from `X-Tenant-Slug` request header (API clients) or subdomain (`acme.localhost` → `slug=acme`)
+- Sets `request.state.tenant_id` and `request.state.tenant_slug` for downstream handlers
+- `_extract_slug_from_host()` pure function: strips app domain suffix, strips port, handles multi-level subdomains
+- **No-op when `ENABLE_MULTITENANCY=false`** (default) — zero performance overhead on existing deployments
+- Registered AFTER `RBACMiddleware` in `create_app()` so it runs BEFORE RBAC (Starlette LIFO ordering)
+
+#### Tenant Administration Routes
+- `POST   /api/v1/tenants/` — create tenant (superadmin, HTTP 201)
+- `GET    /api/v1/tenants/` — list all tenants, paginated (superadmin)
+- `GET    /api/v1/tenants/{slug}` — get tenant by slug (superadmin, 404 on miss)
+- `PUT    /api/v1/tenants/{slug}` — partial update name/domain/plan (superadmin)
+- `POST   /api/v1/tenants/{slug}/suspend` — suspend tenant (superadmin)
+- `DELETE /api/v1/tenants/{slug}` — soft-delete tenant (superadmin, HTTP 204)
+- `get_current_tenant` FastAPI dependency (exportable) — reads `request.state.tenant_id`, returns `Tenant | None`
+
+#### Configuration
+- `ENABLE_MULTITENANCY` (bool, default `False`) — feature flag; all existing routes and tests unaffected when off
+- `APP_DOMAIN` (str, default `"localhost"`) — base domain for subdomain-based tenant extraction
+
+### Changed
+- Version bumped to `1.20.0`
+- `app/models/__init__.py` — `Tenant` and `TenantStatus` registered and exported
+- OpenAPI tags updated with "Tenants" tag description
+- `main.py` — `TenantMiddleware` imported and wired; `tenants_routes` router registered before wildcard routers
+
+### Architecture Notes
+- **Row-level security via `tenant_id` FK** (not schema-per-tenant) — single DB, single migration path
+- **Phase 6.1 scope**: foundation only (`tenants` table + `users.tenant_id`); `Content`, `Media`, `Category`, etc. deferred to Phase 6.2+
+- **Circular import prevention**: `Tenant.created_by_id` is a plain FK column (no ORM relationship back to User); `User.tenant` uses string-referenced relationship
+- **`metadata_` naming**: Python attribute uses underscore suffix to avoid shadowing SQLAlchemy `Base.metadata`; DB column name is `metadata`
+
+### Tests
+- 62 tests in `test/test_multi_tenancy.py` — no live database required
+  - `TestTenantModel` (10): ORM model structure, column types, uniqueness constraints, enum values
+  - `TestTenantService` (15): function signatures, `AsyncMock` DB interaction, CRUD return values
+  - `TestTenantMiddleware` (15): `_extract_slug_from_host()` pure-function cases, no-op when disabled, header/subdomain resolution
+  - `TestTenantRoutes` (15): route registration, auth-required (307/401/403), schema fields, dependency importability
+  - `TestUserTenantIsolation` (7): `User.tenant_id` FK + nullable, config defaults, migration file + chain verification
+
+---
+
 ## [1.19.0] — 2026-02-22 — Phase 5.5: Security Compliance
 
 ### Added

@@ -4,7 +4,7 @@
 
 This document outlines the comprehensive development roadmap for the CMS Project, a FastAPI-based content management system with role-based access control, content versioning, and scheduling capabilities. The roadmap addresses code quality improvements, security enhancements, feature additions, performance optimizations, and infrastructure modernization.
 
-**Current Version:** 1.19.0
+**Current Version:** 1.20.0
 **Target Architecture:** Production-ready, scalable CMS platform
 **Technology Stack:** FastAPI, PostgreSQL, SQLAlchemy 2.0, JWT Authentication, React 18, Vite
 
@@ -1147,19 +1147,25 @@ The following major features and improvements have been completed:
 
 **Goal:** Add advanced CMS capabilities, multi-tenancy, and extensibility
 
-#### 6.1 Multi-Tenancy
-- [ ] **Tenant Model**
-  - Create organization/tenant model
-  - Tenant-specific data isolation
-  - Subdomain/domain-based routing
-  - Tenant configuration management
-  - New files: `models/tenant.py`, `middleware/tenant.py`
+#### 6.1 Multi-Tenancy ✅ v1.20.0
+- [x] **Tenant Model** — `app/models/tenant.py` + Alembic migration `q7r8s9t0u1v2`
+  - `Tenant` model: id, name, slug, domain, status, plan, metadata_, created_at, created_by_id
+  - `TenantStatus` enum: active, suspended, deleted
+  - `User.tenant_id` nullable FK with `ondelete="SET NULL"` — backward-compatible
+  - Row-level security architecture (single DB, tenant_id FK); Phase 6.2+ propagates to Content/Media/etc.
+  - `ENABLE_MULTITENANCY=false` feature flag — zero impact on existing deployments
 
-- [ ] **Tenant Administration**
-  - Super-admin tenant management UI
-  - Tenant provisioning automation
-  - Tenant-specific features/limits
-  - Usage-based billing integration (optional)
+- [x] **Tenant Administration** — `app/routes/tenants.py`, `app/services/tenant_service.py`
+  - Superadmin-only CRUD: POST /create, GET /list, GET /{slug}, PUT /{slug}, POST /{slug}/suspend, DELETE /{slug}
+  - Soft-delete pattern (status=deleted)
+  - `TenantMiddleware` resolves tenant from X-Tenant-Slug header or subdomain; sets `request.state.tenant_id`
+  - `get_current_tenant` FastAPI dependency for tenant-aware routes
+  - `ENABLE_MULTITENANCY`, `APP_DOMAIN` settings added to `app/config.py`
+  - 62 tests in `test/test_multi_tenancy.py`
+
+- [ ] **Tenant UI** — Super-admin tenant management dashboard (Phase 6.1 backend complete; UI deferred)
+- [ ] **Tenant-specific features/limits** — per-tenant configuration enforcement (Phase 6.2+)
+- [ ] **Usage-based billing integration** (optional)
 
 #### 6.2 Plugin System
 - [ ] **Plugin Architecture**
