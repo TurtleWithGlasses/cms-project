@@ -4,7 +4,7 @@
 
 This document outlines the comprehensive development roadmap for the CMS Project, a FastAPI-based content management system with role-based access control, content versioning, and scheduling capabilities. The roadmap addresses code quality improvements, security enhancements, feature additions, performance optimizations, and infrastructure modernization.
 
-**Current Version:** 1.20.0
+**Current Version:** 1.21.0
 **Target Architecture:** Production-ready, scalable CMS platform
 **Technology Stack:** FastAPI, PostgreSQL, SQLAlchemy 2.0, JWT Authentication, React 18, Vite
 
@@ -1167,19 +1167,38 @@ The following major features and improvements have been completed:
 - [ ] **Tenant-specific features/limits** — per-tenant configuration enforcement (Phase 6.2+)
 - [ ] **Usage-based billing integration** (optional)
 
-#### 6.2 Plugin System
-- [ ] **Plugin Architecture**
-  - Plugin discovery and loading
-  - Plugin lifecycle management
-  - Plugin API and hooks
-  - Plugin configuration UI
-  - New directory: `plugins/`
+#### 6.2 Plugin System ✅ v1.21.0
+- [x] **Plugin Architecture** — `app/plugins/` package
+  - `PluginMeta` dataclass — declarative metadata (name, version, description, author, hooks, config_schema)
+  - `PluginBase` ABC — abstract `meta` property, default no-op `on_load` / `on_unload` / `handle_hook`
+  - `PluginRegistry` — in-process singleton; `register()`, `get()`, `all_plugins()`, `is_registered()`, `fire_hook()`
+  - `fire_hook()` — async, fire-and-forget dispatch; each call try/except-wrapped (errors logged, never raised)
+  - 13 hook constants in `app/plugins/hooks.py`: `content.*`, `comment.*`, `user.*`, `media.*`
+  - Plugin config stored in `data/plugins_config.json` (mirrors `data/site_settings.json` pattern)
+  - `initialize_plugins()` called in `lifespan()` after retention policy install; deferred imports prevent circular deps
 
-- [ ] **Core Plugins**
-  - SEO plugin
-  - Analytics plugin
-  - Social sharing plugin
-  - Custom field types plugin
+- [x] **Core Plugins** — adapter pattern (wrap existing services, zero duplication)
+  - `SEOPlugin` (`app/plugins/seo_plugin.py`) — hooks: `content.published`, `content.updated`, `content.deleted`
+  - `AnalyticsPlugin` (`app/plugins/analytics_plugin.py`) — hooks: `content.published`, `user.created`
+  - `SocialPlugin` (`app/plugins/social_plugin.py`) — hooks: `content.published`
+  - `CustomFieldsPlugin` (`app/plugins/custom_fields_plugin.py`) — no event hooks; extends content schema
+
+- [x] **Plugin Administration Routes** — `app/routes/plugins.py`
+  - `GET    /api/v1/plugins/` — list all (admin+)
+  - `GET    /api/v1/plugins/{name}` — get single plugin (admin+)
+  - `POST   /api/v1/plugins/{name}/enable` — enable plugin (superadmin)
+  - `POST   /api/v1/plugins/{name}/disable` — disable plugin (superadmin)
+  - `PUT    /api/v1/plugins/{name}/config` — merge-update config (superadmin)
+  - Registered before wildcard routers to avoid shadowing
+
+- [x] **Tests** — 68 tests in `test/test_plugin_system.py` (no live DB required)
+  - `TestPluginMeta` (8): dataclass fields, defaults, mutable default isolation
+  - `TestPluginBase` (8): abstract enforcement, coroutine methods, default return values
+  - `TestPluginRegistry` (12): register/get/fire_hook, exception swallowing, multi-subscriber dispatch
+  - `TestPluginLoader` (10): config I/O roundtrip, missing file defaults, corrupt JSON recovery
+  - `TestCorePlugins` (15): all 4 adapters — name, hooks, coroutine methods, subclass check
+  - `TestPluginHooks` (8): ALL_HOOKS length/uniqueness/format, constant values
+  - `TestPluginRoutes` (8): route registration, access control, schema fields
 
 #### 6.3 Internationalization (i18n)
 - [ ] **Multi-Language Support**

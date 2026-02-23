@@ -5,6 +5,58 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.21.0] — 2026-02-23 — Phase 6.2: Plugin System
+
+### Added
+
+#### Plugin Architecture (`app/plugins/`)
+- `PluginMeta` dataclass (`app/plugins/base.py`) — declarative metadata: `name`, `version`, `description`, `author` (default "CMS Core Team"), `hooks` (list of subscribed hook names), `config_schema` (JSON Schema fragments for admin UI)
+- `PluginBase` ABC (`app/plugins/base.py`) — abstract `meta` property; default async no-op `on_load(config)`, `on_unload()`, `handle_hook(hook_name, payload)` methods
+- `PluginRegistry` (`app/plugins/registry.py`) — in-process singleton with `register()`, `get()`, `all_plugins()`, `is_registered()`, and `fire_hook()` methods
+  - `fire_hook()` — async dispatch to all hook subscribers; each call is try/except-wrapped; misbehaving plugins are logged and skipped (never block request processing)
+- 13 hook name constants (`app/plugins/hooks.py`): `content.created/updated/deleted/published/unpublished`, `comment.created/approved/deleted`, `user.created/updated/deleted`, `media.uploaded/deleted` + `ALL_HOOKS` list
+- Plugin config persistence: `data/plugins_config.json` (JSON file storage, mirrors `data/site_settings.json`); `load_plugins_config()` / `save_plugins_config()` in `app/plugins/loader.py`
+- `initialize_plugins()` async function — loads config, instantiates all 4 built-in plugins, calls `on_load()`, registers with registry; wired into `lifespan()` after retention policy; deferred plugin imports prevent circular dependency at module load time
+- `plugin_registry` global singleton — imported directly from `app.plugins.registry`; no `app.state` injection needed
+
+#### Core Plugin Adapters (adapter pattern — zero duplication of existing services)
+- `SEOPlugin` (`app/plugins/seo_plugin.py`) — wraps `app/routes/seo.py`; hooks: `content.published`, `content.updated`, `content.deleted`; logs sitemap cache invalidation hint on `content.published`; config: `json_ld_enabled` (bool, default `True`)
+- `AnalyticsPlugin` (`app/plugins/analytics_plugin.py`) — wraps `app/routes/analytics.py`; hooks: `content.published`, `user.created`; config: `retention_days` (int, default `90`)
+- `SocialPlugin` (`app/plugins/social_plugin.py`) — wraps `app/services/social_service.py`; hooks: `content.published`; config: `auto_post_enabled` (bool, default `False`)
+- `CustomFieldsPlugin` (`app/plugins/custom_fields_plugin.py`) — wraps content template system; no event hooks (extends content schema, not the event bus); config: `max_fields_per_template` (int, default `50`), `enable_json_field` (bool, default `True`)
+
+#### Plugin Administration Routes (`app/routes/plugins.py`)
+- `GET    /api/v1/plugins/` — list all registered plugins with status + config (admin, superadmin)
+- `GET    /api/v1/plugins/{name}` — get single plugin by name (admin, superadmin; 404 on miss)
+- `POST   /api/v1/plugins/{name}/enable` — enable plugin, persists to config file (superadmin)
+- `POST   /api/v1/plugins/{name}/disable` — disable plugin, persists to config file (superadmin)
+- `PUT    /api/v1/plugins/{name}/config` — merge-update plugin config, preserves `enabled` flag (superadmin)
+- No DB dependency — all reads/writes via `load_plugins_config()` / `save_plugins_config()`
+- Registered before wildcard `/{id}` routers in `create_app()` to avoid route shadowing
+
+### Changed
+- Version bumped to `1.21.0`
+- `main.py` — `initialize_plugins` + `plugin_registry` imported; `plugins as plugins_routes` added to routes import; `await initialize_plugins(plugin_registry)` called in `lifespan()`; plugins router registered; "Plugins" OpenAPI tag added
+- `app/plugins/__init__.py` exports: `PluginBase`, `PluginMeta`, `PluginRegistry`, `plugin_registry`
+
+### Architecture Notes
+- **Adapter pattern**: Core plugins reference existing routes/services via `logger.debug()` — zero code duplication
+- **Hook dispatch is fire-and-forget**: `fire_hook()` try/except-wraps each subscriber; plugin failures are logged, never propagated to callers
+- **No new DB migrations**: Plugin state stored entirely in `data/plugins_config.json`
+- **Route ordering**: `/api/v1/plugins` literal prefix registered BEFORE wildcard `/{id}` routers
+
+### Tests
+- 68 tests in `test/test_plugin_system.py` — no live database required
+  - `TestPluginMeta` (8): dataclass fields, defaults, mutable default isolation
+  - `TestPluginBase` (8): abstract enforcement, coroutine signatures, default return values
+  - `TestPluginRegistry` (12): register/get/fire_hook, exception swallowing, partial results, multi-subscriber
+  - `TestPluginLoader` (10): config I/O, roundtrip, corrupt JSON recovery, parent dir creation
+  - `TestCorePlugins` (15): 4 adapters — name/version/hooks, subclass check, coroutine methods
+  - `TestPluginHooks` (8): ALL_HOOKS length/uniqueness/dot-format, constant values
+  - `TestPluginRoutes` (8): route path registration, unauthenticated rejection, schema field validation
+
+---
+
 ## [1.20.0] — 2026-02-23 — Phase 6.1: Multi-Tenancy Foundation
 
 ### Added

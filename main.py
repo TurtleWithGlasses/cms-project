@@ -50,6 +50,8 @@ from app.middleware.rbac import RBACMiddleware
 from app.middleware.security_headers import SecurityHeadersMiddleware
 from app.middleware.tenant import TenantMiddleware
 from app.models import User
+from app.plugins.loader import initialize_plugins
+from app.plugins.registry import plugin_registry
 from app.routes import (
     analytics,
     api_keys,
@@ -69,6 +71,7 @@ from app.routes import (
     monitoring,
     notifications,
     password_reset,
+    plugins as plugins_routes,
     privacy,
     roles,
     search,
@@ -217,6 +220,10 @@ _OPENAPI_TAGS = [
         "name": "Tenants",
         "description": "Multi-tenancy management — create, configure, and administer tenant organisations (superadmin only)",
     },
+    {
+        "name": "Plugins",
+        "description": "Plugin registry — list, enable/disable, and configure built-in CMS plugins (admin+)",
+    },
     {"name": "Cache", "description": "Cache management — inspect and invalidate Redis cache entries"},
     {"name": "Notifications", "description": "User notifications — in-app notification feed with read/unread state"},
     {"name": "Teams", "description": "Team management — create teams, add/remove members, manage team roles"},
@@ -279,6 +286,9 @@ async def lifespan(app: FastAPI):
 
     # Install audit log retention policy (prunes ActivityLog rows older than retention_days)
     install_retention_policy(scheduler, retention_days=settings.audit_log_retention_days)
+
+    # Load and register all built-in plugins
+    await initialize_plugins(plugin_registry)
 
     scheduler.start()
 
@@ -381,6 +391,9 @@ def create_app() -> FastAPI:
 
     # Tenant management routes — registered before wildcard routers to avoid shadowing
     app.include_router(tenants_routes.router, prefix="/api/v1/tenants", tags=["Tenants"])
+
+    # Plugin registry routes — registered before wildcard routers to avoid shadowing
+    app.include_router(plugins_routes.router, prefix="/api/v1/plugins", tags=["Plugins"])
 
     # Comments routes
     app.include_router(comments.router, prefix="/api/v1", tags=["Comments"])
