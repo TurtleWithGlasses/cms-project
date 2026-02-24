@@ -4,7 +4,7 @@
 
 This document outlines the comprehensive development roadmap for the CMS Project, a FastAPI-based content management system with role-based access control, content versioning, and scheduling capabilities. The roadmap addresses code quality improvements, security enhancements, feature additions, performance optimizations, and infrastructure modernization.
 
-**Current Version:** 1.23.0
+**Current Version:** 1.24.0
 **Target Architecture:** Production-ready, scalable CMS platform
 **Technology Stack:** FastAPI, PostgreSQL, SQLAlchemy 2.0, JWT Authentication, React 18, Vite
 
@@ -1249,19 +1249,34 @@ The following major features and improvements have been completed:
   - Keepalive every 25 s; `X-Accel-Buffering: no` for Nginx compatibility
   - Files: `app/services/sse_manager.py`, `app/routes/sse.py`
 
-#### 6.5 Advanced Permissions
-- [ ] **Custom Permission System**
-  - Granular permission definitions
-  - Permission templates
-  - Object-level permissions (per content item)
-  - Permission inheritance
+#### 6.5 Advanced Permissions (v1.24.0)
+- [x] **Custom Permission System**
+  - `ALL_PERMISSIONS` catalogue — 23 granular tokens (content, workflow, media, users, comments, analytics, settings, permissions management)
+  - `ROLE_INHERITANCE` — transitive inheritance (editor→user, manager→editor)
+  - `get_role_permissions(role)` — resolves effective permissions with full inheritance + wildcard for admin/superadmin
+  - `PERMISSION_TEMPLATES` — 5 predefined bundles (content_editor, content_reviewer, content_publisher, media_manager, analyst)
+  - `ROLE_PERMISSIONS` backward-compat alias retained — no breaking changes
   - Update [permissions_config/permissions.py](app/permissions_config/permissions.py)
 
-- [ ] **Approval Workflows**
-  - Multi-step approval chains
-  - Conditional approvals
-  - Approval delegation
-  - Workflow audit trail
+- [x] **Object-Level Permissions**
+  - `ContentPermission` model — grant or deny a specific permission to a user or role for a specific content item
+  - `PermissionService` — `check_permission()`, `get_effective_permissions()`, `set_object_permission()`, `revoke_object_permission()`
+  - 8 REST endpoints under `/api/v1/permissions` (admin/superadmin management + self-check)
+  - `object_permission_required(permission)` FastAPI dependency factory
+  - Alembic migration `s9t0u1v2w3x4_add_content_permissions`
+  - Files: `app/models/content_permission.py`, `app/services/permission_service.py`, `app/routes/permissions.py`
+  - 60 tests in `test/test_permissions_advanced.py`
+
+- [x] **Approval Workflows** (reused from v1.5+ workflow infrastructure)
+  - Multi-step approval chains via `WorkflowTransition.approval_count`
+  - `WorkflowService._handle_approval_transition()` — accumulates approvals, fires transition when threshold met
+  - `GET /api/v1/workflow/approvals/pending` — inbox for pending approvals
+  - Workflow audit trail via `WorkflowHistory` model
+
+#### 6.6 Future Enhancements
+- [ ] **A/B Testing Framework** — experiment tracking, variant assignment, conversion metrics
+- [ ] **Advanced Search** — faceted search, saved searches, search analytics dashboard
+- [ ] **Content Recommendations** — collaborative filtering, related content API
 
 ---
 

@@ -13,6 +13,7 @@ from .comment_engagement import (
 )
 from .consent_record import ConsentRecord
 from .content import Content
+from .content_permission import ContentPermission
 from .content_relations import (
     ContentRedirect,
     ContentRelation,
@@ -92,6 +93,7 @@ __all__ = [
     "ContentSeries",
     "ContentSeriesItem",
     "ContentTemplate",
+    "ContentPermission",
     "ContentVersion",
     "ContentView",
     "DigestFrequency",

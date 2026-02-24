@@ -5,6 +5,53 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.24.0] — 2026-02-24 — Phase 6.5: Advanced Permissions
+
+### Added
+
+#### Permission Catalogue (`app/permissions_config/permissions.py`)
+- `ALL_PERMISSIONS` — canonical list of 23 granular permission tokens (content, workflow, media, users, comments, analytics, settings, permissions management)
+- `ROLE_OWN_PERMISSIONS` — per-role directly-assigned permissions; replaces the former 3-entry `ROLE_PERMISSIONS` dict
+- `ROLE_INHERITANCE` — maps each role to its parent roles (editor→user, manager→editor) enabling transitive permission inheritance
+- `PERMISSION_TEMPLATES` — 5 predefined permission bundles: `content_editor`, `content_reviewer`, `content_publisher`, `media_manager`, `analyst`
+- `get_role_permissions(role)` — resolves effective permissions with full inheritance; returns `["*"]` for admin/superadmin; raises `ValueError` for unknown roles
+- `ROLE_PERMISSIONS` backward-compat alias → `ROLE_OWN_PERMISSIONS` (no breaking changes to existing `permission_required()` calls)
+
+#### ContentPermission Model (`app/models/content_permission.py`)
+- `ContentPermission` — object-level permission grant/deny per content item
+- Columns: `content_id`, `user_id` (or) `role_name`, `permission`, `granted` (True/False), `created_by_id`, `created_at`
+- `granted=False` = explicit deny that overrides global role grant
+- Compound indexes: `ix_content_perm_content_user`, `ix_content_perm_content_role`
+
+#### PermissionService (`app/services/permission_service.py`)
+- `check_permission(user, permission, content_id=None)` — three-step evaluation: wildcard → inherited global → object-level override
+- `get_effective_permissions(user, content_id=None)` — full permission list with object-level grants/denies applied
+- `set_object_permission(...)` — upsert object-level grant or deny
+- `list_object_permissions(content_id)` — enumerate all overrides for a content item
+- `revoke_object_permission(id)` — delete an override by PK
+- `update_role_permissions(role_name, permissions)` — persist new permission list to `Role.permissions` JSON column in DB
+
+#### Permission Routes (`app/routes/permissions.py`)
+- `GET /api/v1/permissions/` — full catalogue + templates (admin)
+- `GET /api/v1/permissions/roles/{role_name}` — effective permissions for a role (admin)
+- `PUT /api/v1/permissions/roles/{role_name}` — update role DB permissions (superadmin)
+- `GET /api/v1/permissions/content/{content_id}` — object-level permissions list (admin)
+- `POST /api/v1/permissions/content/{content_id}` — grant/deny object-level permission (admin)
+- `DELETE /api/v1/permissions/content/{content_id}/{id}` — revoke override (admin)
+- `GET /api/v1/permissions/check?permission=X[&content_id=Y]` — self-check (any auth)
+- `GET /api/v1/permissions/me` — all effective permissions for current user (any auth)
+
+#### `object_permission_required` Dependency (`app/permissions_config/permission_dependencies.py`)
+- New `object_permission_required(permission)` dependency factory that invokes `PermissionService.check_permission()` with optional `content_id` from request path params
+
+#### Alembic Migration
+- `s9t0u1v2w3x4_add_content_permissions` — creates `content_permissions` table with FKs and indexes
+
+### Tests
+- `test/test_permissions_advanced.py` — 60 tests across 7 classes (definitions, inheritance, templates, service logic, model, routes, dependencies)
+
+---
+
 ## [1.23.0] — 2026-02-24 — Phase 6.4: Real-Time Features (WebSockets + SSE)
 
 ### Added

@@ -315,7 +315,7 @@ class TestRealtimeConfig:
 
     def test_version_bumped_to_1_23_0(self):
         default = Settings.model_fields["app_version"].default
-        assert default == "1.23.0"
+        assert default == "1.24.0"
 
     def test_sse_keepalive_interval_exists(self):
         assert hasattr(settings, "sse_keepalive_interval")

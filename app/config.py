@@ -7,7 +7,7 @@ load_dotenv()
 class Settings(BaseSettings):
     # Application settings
     app_name: str = "CMS Project"
-    app_version: str = "1.23.0"
+    app_version: str = "1.24.0"
     debug: bool = False
     environment: str = "development"
 

@@ -184,7 +184,7 @@ class TestI18nConfig:
         from app.config import Settings
 
         default_version = Settings.model_fields["app_version"].default
-        assert default_version == "1.23.0"
+        assert default_version == "1.24.0"
 
 
 # ══════════════════════════════════════════════════════════════════════════════

@@ -72,6 +72,7 @@ from app.routes import (
     monitoring,
     notifications,
     password_reset,
+    permissions as permissions_routes,
     plugins as plugins_routes,
     privacy,
     roles,
@@ -198,6 +199,10 @@ _OPENAPI_TAGS = [
     {
         "name": "Workflow",
         "description": "Editorial workflow — submit for review, approve, reject, and track content states",
+    },
+    {
+        "name": "Permissions",
+        "description": "Permission management — granular permissions, role inheritance, object-level overrides",
     },
     {
         "name": "Social",
@@ -412,6 +417,9 @@ def create_app() -> FastAPI:
 
     # Plugin registry routes — registered before wildcard routers to avoid shadowing
     app.include_router(plugins_routes.router, prefix="/api/v1/plugins", tags=["Plugins"])
+
+    # Permission management routes — registered before wildcard routers to avoid shadowing
+    app.include_router(permissions_routes.router, prefix="/api/v1/permissions", tags=["Permissions"])
 
     # Translation routes — registered before wildcard routers to avoid shadowing
     app.include_router(
