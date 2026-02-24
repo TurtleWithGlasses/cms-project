@@ -28,6 +28,7 @@ from .content_template import (
     TemplateRevision,
     TemplateStatus,
 )
+from .content_translation import ContentTranslation, TranslationStatus
 from .content_version import ContentVersion
 from .content_view import ContentView
 from .import_job import (
@@ -85,6 +86,7 @@ __all__ = [
     "ConsentRecord",
     "Content",
     "content_tags",
+    "ContentTranslation",
     "ContentRedirect",
     "ContentRelation",
     "ContentSeries",
@@ -129,6 +131,7 @@ __all__ = [
     "TemplateStatus",
     "Tenant",
     "TenantStatus",
+    "TranslationStatus",
     "TwoFactorAuth",
     "User",
     "UserSession",

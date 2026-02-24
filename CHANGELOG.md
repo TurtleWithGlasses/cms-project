@@ -5,6 +5,89 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.22.0] — 2026-02-24 — Phase 6.3: Internationalization (i18n)
+
+### Added
+
+#### i18n Infrastructure (`app/i18n/`)
+- `RTL_LOCALES` frozenset — BCP 47 base language codes that read right-to-left: `ar`, `he`, `fa`, `ur`, `yi`, `ku`
+- `LANGUAGE_NAMES` dict — human-readable names for 10 supported locales
+- `is_rtl_locale(locale)` — pure function; strips region tag (e.g. "ar-SA" → "ar") before checking RTL set
+- `parse_accept_language(header, supported)` — quality-weighted BCP 47 parsing; tries exact match then base-language fallback; returns None on no match
+- `get_language_info(locale)` — returns `{code, name, is_rtl}` metadata dict
+
+#### Configuration
+- `DEFAULT_LANGUAGE` (str, default `"en"`) — BCP 47 locale used when client sends no language preference
+- `SUPPORTED_LANGUAGES` (list[str], default 10 locales: en/fr/de/es/ar/zh/ja/pt/it/nl) — ordered list of supported BCP 47 codes; use JSON array in `.env` to override
+
+#### ContentTranslation Model (`app/models/content_translation.py`)
+- `TranslationStatus` string enum: `draft`, `in_review`, `published` (independent translation lifecycle)
+- `ContentTranslation` SQLAlchemy model (`content_translations` table):
+  - Translatable fields: `title`, `body`, `description`, `slug`, `meta_title`, `meta_description`, `meta_keywords`
+  - Translation metadata: `locale` (BCP 47), `status`, `is_rtl` (auto-computed from locale at insert)
+  - Workflow fields: `translated_by_id` (FK users, SET NULL), `reviewed_by_id` (FK users, SET NULL)
+  - Timestamps: `created_at`, `updated_at`
+  - `UniqueConstraint("content_id", "locale")` — one translation per (content, locale) pair
+  - Indexes: `idx_ct_content_locale`, `idx_ct_locale_status`, `idx_ct_slug`
+- `Content.translations` relationship added — `cascade="all, delete-orphan"`, `lazy="noload"` (never eager-loaded)
+
+#### Alembic Migration
+- `r8s9t0u1v2w3` — creates `content_translations` table; chains from `q7r8s9t0u1v2`
+
+#### Translation Service (`app/services/translation_service.py`)
+- `create_translation()` — inserts new row; auto-sets `is_rtl` from `is_rtl_locale(locale)`
+- `get_translation(content_id, locale, db)` — fetch by (content_id, locale)
+- `list_translations(content_id, db)` — all translations ordered by locale
+- `update_translation(content_id, locale, updates, db)` — partial-update mutable fields (title/body/slug/description/meta_*)
+- `publish_translation(content_id, locale, reviewed_by_id, db)` — set `status=published` + `reviewed_by_id`
+- `delete_translation(content_id, locale, db)` — hard-delete; returns bool
+- `get_content_in_locale(content_id, locale, fallback_locale, db)` — locale fallback: exact → base language → fallback_locale → None (published only)
+- `list_languages_for_content(content_id, db)` — return locale codes with existing translations
+
+#### Language Detection Middleware (`app/middleware/language.py`)
+- `LanguageMiddleware` — sets `request.state.locale` from (in priority order): `X-Language` header → `Accept-Language` header (quality-weighted) → `settings.default_language`
+- No DB lookups — pure header parsing
+- Registered AFTER `TenantMiddleware` (Starlette LIFO → runs before Tenant + RBAC)
+
+#### Translation & i18n Routes (`app/routes/translations.py`)
+
+Content translation routes (`/api/v1/content/{content_id}/translations`):
+- `GET    /` — list all translations (editor+)
+- `POST   /` — create translation (editor+; validates locale against `supported_languages`)
+- `GET    /{locale}` — get specific translation (any authenticated user)
+- `PUT    /{locale}` — update mutable fields (editor+)
+- `DELETE /{locale}` — hard-delete (admin+, HTTP 204)
+- `POST   /{locale}/publish` — publish translation and record reviewer (admin+)
+
+i18n metadata routes (`/api/v1/i18n`):
+- `GET    /languages` — list supported languages with name + RTL flag (public, no auth)
+- `GET    /content/{content_id}/languages` — list locale codes with translations (public)
+- Both paths prefixed under `/api/v1/i18n/` — added to RBAC public-path prefix check
+
+### Changed
+- Version bumped to `1.22.0`
+- `app/models/__init__.py` — `ContentTranslation` and `TranslationStatus` registered and exported
+- `app/middleware/rbac.py` — `/api/v1/i18n/` added to public-path `startswith` check
+- `main.py` — `LanguageMiddleware` imported and wired; `translations_router` + `i18n_router` registered before wildcard routers; "Translations" and "Internationalization" OpenAPI tags added
+
+### Architecture Notes
+- **Translation-table pattern**: `Content` rows remain language-neutral; `ContentTranslation` provides all per-locale variants — clean separation with no schema changes to existing tables
+- **No Babel/gettext dependency**: i18n infrastructure (helpers, middleware, config) is in place; `.po`/`.mo` file management can be layered on top when a translator UI is added
+- **`is_rtl` stored at insert time**: avoids per-request RTL computation; auto-derived from locale via `is_rtl_locale()`
+- **`lazy="noload"` on `Content.translations`**: existing content queries, routes, and tests are 100% untouched — no new JOINs added implicitly
+
+### Tests
+- 65 tests in `test/test_i18n.py` — no live database required
+  - `TestLocaleHelpers` (18): RTL detection, Accept-Language parsing, language info, constants
+  - `TestI18nConfig` (6): settings defaults, supported languages, version check
+  - `TestContentTranslationModel` (12): tablename, columns, enum values, relationships, registration
+  - `TestTranslationService` (11): all functions are coroutines, mock DB interactions, RTL auto-set
+  - `TestLanguageMiddleware` (8): middleware type, dispatch, public i18n endpoint, Arabic RTL flag
+  - `TestTranslationRoutes` (12): path registration, auth enforcement, schema validation, router tags
+  - `TestI18nMigration` (5): file exists, revision/down_revision, table creation, constraint name
+
+---
+
 ## [1.21.0] — 2026-02-23 — Phase 6.2: Plugin System
 
 ### Added

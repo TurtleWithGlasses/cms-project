@@ -4,7 +4,7 @@
 
 This document outlines the comprehensive development roadmap for the CMS Project, a FastAPI-based content management system with role-based access control, content versioning, and scheduling capabilities. The roadmap addresses code quality improvements, security enhancements, feature additions, performance optimizations, and infrastructure modernization.
 
-**Current Version:** 1.21.0
+**Current Version:** 1.22.0
 **Target Architecture:** Production-ready, scalable CMS platform
 **Technology Stack:** FastAPI, PostgreSQL, SQLAlchemy 2.0, JWT Authentication, React 18, Vite
 
@@ -1200,19 +1200,39 @@ The following major features and improvements have been completed:
   - `TestPluginHooks` (8): ALL_HOOKS length/uniqueness/format, constant values
   - `TestPluginRoutes` (8): route registration, access control, schema fields
 
-#### 6.3 Internationalization (i18n)
-- [ ] **Multi-Language Support**
-  - Add i18n infrastructure (Babel)
-  - Translation file management
-  - Language detection and switching
-  - RTL language support
-  - New directory: `translations/`
+#### 6.3 Internationalization (i18n) ✅ v1.22.0
+- [x] **i18n Infrastructure** — `app/i18n/` package
+  - `RTL_LOCALES` frozenset — 6 right-to-left base language codes (ar/he/fa/ur/yi/ku)
+  - `LANGUAGE_NAMES` dict — human-readable names for 10 locales
+  - `is_rtl_locale(locale)` — pure function with BCP 47 region-tag stripping
+  - `parse_accept_language(header, supported)` — quality-weighted Accept-Language parsing with base-language fallback
+  - `get_language_info(locale)` — returns `{code, name, is_rtl}` metadata dict
+  - `DEFAULT_LANGUAGE` + `SUPPORTED_LANGUAGES` added to `app/config.py`
+  - `LanguageMiddleware` (`app/middleware/language.py`) — sets `request.state.locale`; priority: X-Language header → Accept-Language → default
 
-- [ ] **Content Translation**
-  - Multi-language content model
-  - Translation workflow
-  - Language fallback logic
-  - Translation memory
+- [x] **Content Translation** — Translation-table pattern
+  - `ContentTranslation` model (`app/models/content_translation.py`) — stores translatable fields per (content_id, locale)
+  - `TranslationStatus` enum: `draft` → `in_review` → `published`
+  - `is_rtl` stored at insert time (auto-derived from `is_rtl_locale(locale)`)
+  - `UniqueConstraint("content_id", "locale")` — one row per (content, locale) pair
+  - `Content.translations` relationship — `lazy="noload"`, backward-compatible
+  - Alembic migration `r8s9t0u1v2w3` (chains from `q7r8s9t0u1v2`)
+
+- [x] **Translation Workflow** — `app/services/translation_service.py`
+  - 8 async functions: create, get, list, update, publish, delete, get_content_in_locale, list_languages_for_content
+  - `get_content_in_locale()` — locale fallback: exact → base language → fallback_locale → None (published only)
+  - `publish_translation()` — sets status=published + reviewed_by_id
+
+- [x] **Language Fallback** — implemented in `get_content_in_locale()` service function
+
+- [x] **Translation Routes** — `app/routes/translations.py`
+  - 6 content translation endpoints under `/api/v1/content/{content_id}/translations`
+  - 2 public i18n metadata endpoints under `/api/v1/i18n`
+  - `/api/v1/i18n/` prefix added to RBAC public-path checks
+  - 65 tests in `test/test_i18n.py`
+
+- [ ] **Babel/gettext UI strings** — i18n infrastructure in place; .po/.mo file management deferred (needs translator UI/tooling)
+- [ ] **RTL CSS/layout** — backend detection complete; frontend RTL stylesheet deferred to UI phase
 
 #### 6.4 Real-Time Features
 - [ ] **WebSocket Support**

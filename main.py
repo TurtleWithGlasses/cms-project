@@ -44,6 +44,7 @@ from app.database import Base, engine, get_db
 from app.exception_handlers import register_exception_handlers
 from app.middleware.csrf import CSRFMiddleware, get_csrf_token
 from app.middleware.etag import ETagMiddleware
+from app.middleware.language import LanguageMiddleware
 from app.middleware.logging import StructuredLoggingMiddleware, setup_structured_logging
 from app.middleware.rate_limit import configure_rate_limiting, limiter
 from app.middleware.rbac import RBACMiddleware
@@ -82,6 +83,7 @@ from app.routes import (
     teams,
     templates as templates_routes,
     tenants as tenants_routes,
+    translations as translations_routes,
     two_factor,
     user,
     webhooks,
@@ -224,6 +226,14 @@ _OPENAPI_TAGS = [
         "name": "Plugins",
         "description": "Plugin registry — list, enable/disable, and configure built-in CMS plugins (admin+)",
     },
+    {
+        "name": "Translations",
+        "description": "Content translations — create, update, publish and delete per-locale translations (editor+)",
+    },
+    {
+        "name": "Internationalization",
+        "description": "i18n metadata — supported languages list with RTL flags, per-content locale availability (public)",
+    },
     {"name": "Cache", "description": "Cache management — inspect and invalidate Redis cache entries"},
     {"name": "Notifications", "description": "User notifications — in-app notification feed with read/unread state"},
     {"name": "Teams", "description": "Team management — create teams, add/remove members, manage team roles"},
@@ -342,6 +352,9 @@ def create_app() -> FastAPI:
     # TenantMiddleware added AFTER RBAC so it runs BEFORE RBAC (Starlette LIFO)
     # Sets request.state.tenant_id / tenant_slug for downstream handlers
     app.add_middleware(TenantMiddleware)
+    # LanguageMiddleware added AFTER TenantMiddleware (LIFO → runs before Tenant + RBAC)
+    # Sets request.state.locale from X-Language / Accept-Language headers
+    app.add_middleware(LanguageMiddleware)
     app.add_middleware(
         CSRFMiddleware,
         secret_key=settings.secret_key,
@@ -394,6 +407,18 @@ def create_app() -> FastAPI:
 
     # Plugin registry routes — registered before wildcard routers to avoid shadowing
     app.include_router(plugins_routes.router, prefix="/api/v1/plugins", tags=["Plugins"])
+
+    # Translation routes — registered before wildcard routers to avoid shadowing
+    app.include_router(
+        translations_routes.translations_router,
+        prefix="/api/v1/content",
+        tags=["Translations"],
+    )
+    app.include_router(
+        translations_routes.i18n_router,
+        prefix="/api/v1/i18n",
+        tags=["Internationalization"],
+    )
 
     # Comments routes
     app.include_router(comments.router, prefix="/api/v1", tags=["Comments"])

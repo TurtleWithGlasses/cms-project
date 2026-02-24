@@ -52,6 +52,14 @@ class Content(Base):
     # View tracking
     views = relationship("ContentView", back_populates="content", cascade="all, delete-orphan", lazy="noload")
 
+    # i18n: per-locale translations (Phase 6.3)
+    translations = relationship(
+        "ContentTranslation",
+        back_populates="content",
+        cascade="all, delete-orphan",
+        lazy="noload",  # never eager-loaded; use explicit joins in translation queries
+    )
+
     # Unique constraint for slug and performance indexes
     __table_args__ = (
         UniqueConstraint("slug", name="unique_slug"),

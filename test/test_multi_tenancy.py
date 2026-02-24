@@ -548,4 +548,4 @@ class TestUserTenantIsolation:
 
         # Check the code default (not the env-overridden value)
         default_version = Settings.model_fields["app_version"].default
-        assert default_version == "1.21.0"
+        assert default_version == "1.22.0"

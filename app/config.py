@@ -7,7 +7,7 @@ load_dotenv()
 class Settings(BaseSettings):
     # Application settings
     app_name: str = "CMS Project"
-    app_version: str = "1.21.0"
+    app_version: str = "1.22.0"
     debug: bool = False
     environment: str = "development"
 
@@ -84,6 +84,21 @@ class Settings(BaseSettings):
     # Multi-tenancy settings
     enable_multitenancy: bool = False  # feature flag — off by default, no impact on existing behaviour
     app_domain: str = "localhost"  # base domain for subdomain-based tenant extraction
+
+    # Internationalization (i18n) settings
+    default_language: str = "en"  # BCP 47 locale code used when client sends no preference
+    supported_languages: list[str] = [  # ordered list of BCP 47 locale codes
+        "en",
+        "fr",
+        "de",
+        "es",
+        "ar",
+        "zh",
+        "ja",
+        "pt",
+        "it",
+        "nl",
+    ]
 
     # Social Media
     twitter_handle: str | None = None  # e.g. "@mycms" for OG/TC tags
