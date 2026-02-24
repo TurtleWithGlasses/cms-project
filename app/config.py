@@ -7,7 +7,7 @@ load_dotenv()
 class Settings(BaseSettings):
     # Application settings
     app_name: str = "CMS Project"
-    app_version: str = "1.22.0"
+    app_version: str = "1.23.0"
     debug: bool = False
     environment: str = "development"
 
@@ -99,6 +99,10 @@ class Settings(BaseSettings):
         "it",
         "nl",
     ]
+
+    # Real-time settings (WebSocket / SSE)
+    sse_keepalive_interval: int = 25  # seconds between SSE keepalive comments sent to idle clients
+    sse_max_queue_size: int = 100  # max events buffered per SSE listener before dropping
 
     # Social Media
     twitter_handle: str | None = None  # e.g. "@mycms" for OG/TC tags

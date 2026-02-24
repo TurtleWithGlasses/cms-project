@@ -43,6 +43,10 @@ class MessageType(str, Enum):
     # User events
     USER_UPDATED = "user.updated"
 
+    # Presence events
+    USER_ONLINE = "user.online"
+    USER_OFFLINE = "user.offline"
+
 
 @dataclass
 class WebSocketConnection:
@@ -119,6 +123,16 @@ class WebSocketManager:
 
         logger.info(f"WebSocket connected: {connection_id} (user: {user_id})")
 
+        # Broadcast presence event for authenticated users (fire-and-forget)
+        if user_id:
+            asyncio.create_task(  # noqa: RUF006
+                self.broadcast(
+                    message_type=MessageType.USER_ONLINE.value,
+                    data={"user_id": user_id},
+                    exclude_user_ids=[user_id],
+                )
+            )
+
         # Send welcome message
         await self._send_to_connection(
             connection_id,
@@ -153,6 +167,15 @@ class WebSocketManager:
                     self._channel_subscribers[channel].discard(connection_id)
 
                 logger.info(f"WebSocket disconnected: {connection_id}")
+
+                # Broadcast offline presence when all connections for a user close
+                if connection.user_id and not self._user_connections.get(connection.user_id):
+                    asyncio.create_task(  # noqa: RUF006
+                        self.broadcast(
+                            message_type=MessageType.USER_OFFLINE.value,
+                            data={"user_id": connection.user_id},
+                        )
+                    )
 
     async def subscribe(self, connection_id: str, channel: str) -> bool:
         """
@@ -357,6 +380,10 @@ class WebSocketManager:
             "channel_stats": {channel: len(subscribers) for channel, subscribers in self._channel_subscribers.items()},
         }
 
+    def get_online_user_ids(self) -> list[int]:
+        """Return a sorted list of user IDs that have at least one active connection."""
+        return sorted(self._user_connections.keys())
+
     async def cleanup_stale_connections(self, timeout_seconds: int = 60) -> int:
         """
         Remove stale connections that haven't sent heartbeats.
@@ -440,15 +467,17 @@ async def broadcast_content_event(
     title: str,
     author_id: int,
 ) -> None:
-    """Broadcast a content-related event."""
-    await websocket_manager.broadcast(
-        message_type=event_type,
-        data={
-            "content_id": content_id,
-            "title": title,
-            "author_id": author_id,
-        },
-    )
+    """Broadcast a content-related event via WebSocket and SSE."""
+    data = {
+        "content_id": content_id,
+        "title": title,
+        "author_id": author_id,
+    }
+    await websocket_manager.broadcast(message_type=event_type, data=data)
+    # Lazy import avoids circular dependency (sse_manager → config; websocket_manager → config)
+    from app.services.sse_manager import sse_broadcaster  # noqa: PLC0415
+
+    await sse_broadcaster.publish(event_type, data)
 
 
 async def broadcast_comment_event(
@@ -457,17 +486,21 @@ async def broadcast_comment_event(
     content_id: int,
     author_id: int,
 ) -> None:
-    """Broadcast a comment-related event."""
-    # Send to content channel
+    """Broadcast a comment-related event via WebSocket channel and SSE."""
+    data = {
+        "comment_id": comment_id,
+        "content_id": content_id,
+        "author_id": author_id,
+    }
+    # Send to content channel via WebSocket
     await websocket_manager.send_to_channel(
         channel=f"content:{content_id}",
         message_type=event_type,
-        data={
-            "comment_id": comment_id,
-            "content_id": content_id,
-            "author_id": author_id,
-        },
+        data=data,
     )
+    from app.services.sse_manager import sse_broadcaster  # noqa: PLC0415
+
+    await sse_broadcaster.publish(event_type, data)
 
 
 async def send_notification_to_user(

@@ -41,6 +41,9 @@ class RBACMiddleware(BaseHTTPMiddleware):
             # Security & privacy — public informational endpoints
             "/api/v1/policy-version",
             "/api/v1/security/headers",
+            # WebSocket monitoring — public (Prometheus / health checks)
+            "/api/v1/ws/stats",
+            "/api/v1/ws/presence",
         }
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint):

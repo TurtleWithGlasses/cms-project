@@ -5,6 +5,54 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.23.0] — 2026-02-24 — Phase 6.4: Real-Time Features (WebSockets + SSE)
+
+### Added
+
+#### SSE Manager (`app/services/sse_manager.py`)
+- `SSEBroadcaster` — fan-out broadcaster; one `asyncio.Queue` per SSE listener
+- `subscribe()` / `unsubscribe()` — register and deregister listener queues
+- `publish(event_type, data)` — non-blocking fan-out; full queues drop silently
+- `subscriber_count()` — active listener count for monitoring
+- `sse_broadcaster` singleton + `get_sse_broadcaster()` DI getter
+
+#### SSE Routes (`app/routes/sse.py`)
+- `GET /api/v1/sse/events` — full real-time event stream (auth required)
+- `GET /api/v1/sse/activity` — activity feed stream (auth required)
+- `StreamingResponse` with `text/event-stream` media type — no extra dependencies
+- Keepalive comment every `sse_keepalive_interval` seconds (default 25 s) for proxy compatibility
+- `X-Accel-Buffering: no` header disables Nginx buffering for SSE
+
+#### Live User Presence
+- `MessageType.USER_ONLINE` and `USER_OFFLINE` added to `websocket_manager.py`
+- `WebSocketManager.get_online_user_ids()` — sorted list of user IDs with active WS connections
+- `connect()` broadcasts `user.online` via `asyncio.create_task` on authenticated connect
+- `disconnect()` broadcasts `user.offline` when the last connection for a user closes
+- `GET /api/v1/ws/presence` — public endpoint listing `{online_users, count}`
+
+#### WebSocket Bug Fixes
+- `app/routes/websocket.py` used `settings.SECRET_KEY` and `settings.ALGORITHM` (non-existent attributes); corrected to import `SECRET_KEY` and `ALGORITHM` from `app.constants`
+- WebSocket router registered at `/api/v1` (wrong); corrected to `/api/v1/ws` so the WS endpoint is `ws://host/api/v1/ws` (matching frontend JS and test expectations)
+
+#### SSE Event Wiring
+- `broadcast_content_event()` now also calls `sse_broadcaster.publish()` after WS broadcast
+- `broadcast_comment_event()` now also calls `sse_broadcaster.publish()` after WS channel send
+- Lazy import inside each helper avoids circular dependencies
+
+#### Configuration
+- `SSE_KEEPALIVE_INTERVAL` (int, default 25) — seconds between SSE keepalive comments
+- `SSE_MAX_QUEUE_SIZE` (int, default 100) — max events buffered per SSE listener
+
+### Fixed
+- `GET /api/v1/ws/stats` and `GET /api/v1/ws/presence` added to RBAC `public_paths`
+- `test_broadcast_message`, `test_send_to_user`, `test_cleanup_connections` in `test_websocket.py` updated to check for `307/401/403` (admin-only endpoints, no auth in tests)
+
+### Tests
+- 53 tests in `test/test_realtime.py` (SSEManager, SSERoutes, Presence, Fixes, Config, RoutesFull)
+- All 17 existing `test/test_websocket.py` tests now passing (was 4 failing)
+
+---
+
 ## [1.22.0] — 2026-02-24 — Phase 6.3: Internationalization (i18n)
 
 ### Added

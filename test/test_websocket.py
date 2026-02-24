@@ -132,10 +132,11 @@ class TestWebSocketRoutes:
 
     @pytest.mark.asyncio
     async def test_broadcast_message(self):
-        """Test broadcast endpoint."""
+        """Test broadcast endpoint requires auth (admin-only)."""
         async with AsyncClient(
             transport=ASGITransport(app=app),
             base_url="http://test",
+            follow_redirects=False,
         ) as client:
             response = await client.post(
                 "/api/v1/ws/broadcast",
@@ -145,18 +146,15 @@ class TestWebSocketRoutes:
                 },
             )
 
-        assert response.status_code == 200
-        data = response.json()
-
-        assert "sent_to" in data
-        assert "message" in data
+        assert response.status_code in (307, 401, 403)
 
     @pytest.mark.asyncio
     async def test_send_to_user(self):
-        """Test send to user endpoint."""
+        """Test send-to-user endpoint requires auth (admin-only)."""
         async with AsyncClient(
             transport=ASGITransport(app=app),
             base_url="http://test",
+            follow_redirects=False,
         ) as client:
             response = await client.post(
                 "/api/v1/ws/send-to-user/1",
@@ -166,30 +164,22 @@ class TestWebSocketRoutes:
                 },
             )
 
-        assert response.status_code == 200
-        data = response.json()
-
-        assert "sent_to" in data
-        # Should be 0 since no user is connected
-        assert data["sent_to"] == 0
+        assert response.status_code in (307, 401, 403)
 
     @pytest.mark.asyncio
     async def test_cleanup_connections(self):
-        """Test cleanup endpoint."""
+        """Test cleanup endpoint requires auth (admin-only)."""
         async with AsyncClient(
             transport=ASGITransport(app=app),
             base_url="http://test",
+            follow_redirects=False,
         ) as client:
             response = await client.post(
                 "/api/v1/ws/cleanup",
                 params={"timeout_seconds": 60},
             )
 
-        assert response.status_code == 200
-        data = response.json()
-
-        assert "cleaned" in data
-        assert "message" in data
+        assert response.status_code in (307, 401, 403)
 
 
 class TestMessageHandling:

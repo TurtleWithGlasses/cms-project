@@ -13,9 +13,9 @@ from jose import JWTError, jwt
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import settings
+from app.constants import ALGORITHM, SECRET_KEY
 from app.database import get_db_context
-from app.models.user import User
+from app.models.user import User  # noqa: TC001
 from app.services.websocket_manager import WebSocketManager, get_websocket_manager
 
 logger = logging.getLogger(__name__)
@@ -28,8 +28,8 @@ async def get_user_from_token(token: str, db: AsyncSession) -> User | None:
     try:
         payload = jwt.decode(
             token,
-            settings.SECRET_KEY,
-            algorithms=[settings.ALGORITHM],
+            SECRET_KEY,
+            algorithms=[ALGORITHM],
         )
         email = payload.get("sub")
         if not email:
@@ -136,8 +136,26 @@ async def get_websocket_stats(
     Get WebSocket connection statistics.
 
     Returns current connection counts and channel subscriptions.
+    Public endpoint — no auth required (monitoring).
     """
     return manager.get_stats()
+
+
+@router.get("/presence")
+async def get_presence(
+    manager: WebSocketManager = Depends(get_websocket_manager),
+) -> dict:
+    """
+    List currently online user IDs.
+
+    Returns the list of user IDs that have at least one active WebSocket
+    connection.  Public endpoint — no auth required.
+    """
+    online_ids = manager.get_online_user_ids()
+    return {
+        "online_users": online_ids,
+        "count": len(online_ids),
+    }
 
 
 # ============== Admin Endpoints ==============

@@ -80,6 +80,7 @@ from app.routes import (
     seo,
     settings as settings_routes,
     social,
+    sse as sse_routes,
     teams,
     templates as templates_routes,
     tenants as tenants_routes,
@@ -190,6 +191,10 @@ _OPENAPI_TAGS = [
         "description": "Webhook subscriptions — register, list, pause/resume endpoints for event delivery",
     },
     {"name": "WebSocket", "description": "Real-time WebSocket — live content and moderation event broadcasting"},
+    {
+        "name": "Server-Sent Events",
+        "description": "SSE streams — real-time event feed and activity stream for clients that prefer HTTP over WebSocket",
+    },
     {
         "name": "Workflow",
         "description": "Editorial workflow — submit for review, approve, reject, and track content states",
@@ -438,8 +443,11 @@ def create_app() -> FastAPI:
     # Webhooks routes
     app.include_router(webhooks.router, prefix="/api/v1", tags=["Webhooks"])
 
-    # WebSocket routes
-    app.include_router(websocket.router, prefix="/api/v1", tags=["WebSocket"])
+    # WebSocket routes — prefix /api/v1/ws (WS endpoint at /api/v1/ws, stats at /api/v1/ws/stats)
+    app.include_router(websocket.router, prefix="/api/v1/ws", tags=["WebSocket"])
+
+    # Server-Sent Events routes — registered before wildcard routers
+    app.include_router(sse_routes.router, prefix="/api/v1/sse", tags=["Server-Sent Events"])
 
     # Workflow routes
     app.include_router(workflow.router, prefix="/api/v1", tags=["Workflow"])

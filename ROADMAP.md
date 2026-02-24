@@ -4,7 +4,7 @@
 
 This document outlines the comprehensive development roadmap for the CMS Project, a FastAPI-based content management system with role-based access control, content versioning, and scheduling capabilities. The roadmap addresses code quality improvements, security enhancements, feature additions, performance optimizations, and infrastructure modernization.
 
-**Current Version:** 1.22.0
+**Current Version:** 1.23.0
 **Target Architecture:** Production-ready, scalable CMS platform
 **Technology Stack:** FastAPI, PostgreSQL, SQLAlchemy 2.0, JWT Authentication, React 18, Vite
 
@@ -1234,18 +1234,20 @@ The following major features and improvements have been completed:
 - [ ] **Babel/gettext UI strings** — i18n infrastructure in place; .po/.mo file management deferred (needs translator UI/tooling)
 - [ ] **RTL CSS/layout** — backend detection complete; frontend RTL stylesheet deferred to UI phase
 
-#### 6.4 Real-Time Features
-- [ ] **WebSocket Support**
-  - WebSocket endpoint setup
-  - Real-time notifications
-  - Collaborative editing (basic)
-  - Live user presence
-  - New file: `websockets/notifications.py`
+#### 6.4 Real-Time Features ✅ v1.23.0
+- [x] **WebSocket Support**
+  - WebSocket endpoint at `/api/v1/ws` (fixed registration prefix)
+  - Real-time notifications via `send_notification_to_user()`
+  - Live user presence — `user.online` / `user.offline` broadcasts + `GET /api/v1/ws/presence`
+  - Bug fixes: wrong config attribute names (`SECRET_KEY`, `ALGORITHM`) corrected
+  - Files: `app/services/websocket_manager.py`, `app/routes/websocket.py`
 
-- [ ] **Server-Sent Events**
-  - SSE endpoint for live updates
-  - Content publish notifications
-  - Activity feed streaming
+- [x] **Server-Sent Events**
+  - SSE endpoint at `/api/v1/sse/events` — full event stream (auth required)
+  - SSE activity feed at `/api/v1/sse/activity` (auth required)
+  - Content publish + comment events wired into `sse_broadcaster`
+  - Keepalive every 25 s; `X-Accel-Buffering: no` for Nginx compatibility
+  - Files: `app/services/sse_manager.py`, `app/routes/sse.py`
 
 #### 6.5 Advanced Permissions
 - [ ] **Custom Permission System**
