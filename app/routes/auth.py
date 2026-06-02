@@ -1,7 +1,7 @@
 import logging
 from datetime import timedelta
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 from jose import JWTError, jwt
 from pydantic import BaseModel
@@ -32,6 +32,7 @@ TEMP_TOKEN_EXPIRE_MINUTES = 5
 @limiter.limit("5/minute")  # Strict rate limit to prevent brute force attacks
 async def login_for_access_token(
     request: Request,
+    response: Response,
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: AsyncSession = Depends(get_db),
 ):
@@ -106,6 +107,7 @@ async def login_for_access_token(
 @limiter.limit("5/minute")  # Strict rate limit to prevent 2FA code guessing
 async def verify_2fa_and_get_token(
     request: Request,
+    response: Response,
     data: TwoFactorVerifyRequest,
     db: AsyncSession = Depends(get_db),
 ):
@@ -191,6 +193,7 @@ class TempTokenRequest(BaseModel):
 @limiter.limit("3/minute")
 async def send_email_otp_for_login(
     request: Request,
+    response: Response,
     data: TempTokenRequest,
     db: AsyncSession = Depends(get_db),
 ) -> dict:
@@ -235,6 +238,7 @@ async def send_email_otp_for_login(
 @limiter.limit("30/minute")  # Moderate rate limit for logout
 async def logout(
     request: Request,
+    response: Response,
     current_user: User = Depends(get_current_user),
     x_session_id: str | None = Header(None, alias="X-Session-ID"),
 ):
@@ -255,7 +259,7 @@ async def logout(
 
 @router.post("/logout-all", status_code=status.HTTP_200_OK)
 @limiter.limit("10/minute")  # Rate limit to prevent abuse
-async def logout_all_sessions(request: Request, current_user: User = Depends(get_current_user)):
+async def logout_all_sessions(request: Request, response: Response, current_user: User = Depends(get_current_user)):
     """
     Logout from all devices - invalidates all sessions for the current user.
     """
@@ -268,7 +272,7 @@ async def logout_all_sessions(request: Request, current_user: User = Depends(get
 
 @router.get("/sessions", status_code=status.HTTP_200_OK)
 @limiter.limit("30/minute")  # Moderate rate limit for session queries
-async def get_active_sessions(request: Request, current_user: User = Depends(get_current_user)):
+async def get_active_sessions(request: Request, response: Response, current_user: User = Depends(get_current_user)):
     """
     Get all active sessions for the current user.
     """
