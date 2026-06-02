@@ -82,6 +82,7 @@ from app.routes import (
     settings as settings_routes,
     social,
     sse as sse_routes,
+    tags,
     teams,
     templates as templates_routes,
     tenants as tenants_routes,
@@ -392,6 +393,7 @@ def create_app() -> FastAPI:
     app.include_router(content_router, prefix="/api/v1/content", tags=["Content"])
     app.include_router(search.router, prefix="/api/v1/search", tags=["Search"])
     app.include_router(category.router, prefix="/api/v1/categories", tags=["Categories"])
+    app.include_router(tags.router, prefix="/api/v1/tags", tags=["Tags"])
     app.include_router(password_reset.router, prefix="/api/v1/password-reset", tags=["Password Reset"])
     app.include_router(media.router, prefix="/api/v1/media", tags=["Media"])
     app.include_router(media_folders.router, prefix="/api/v1/media/folders", tags=["Media Folders"])
