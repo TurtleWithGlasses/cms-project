@@ -11,7 +11,7 @@ from app.schemas.tag import TagCreate, TagResponse
 router = APIRouter()
 
 
-@router.get("/", response_model=list[TagResponse])
+@router.get("", response_model=list[TagResponse])
 async def list_tags(
     search: str = "",
     db: AsyncSession = Depends(get_db),
@@ -24,7 +24,7 @@ async def list_tags(
     return result.scalars().all()
 
 
-@router.post("/", response_model=TagResponse, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=TagResponse, status_code=status.HTTP_201_CREATED)
 async def create_tag(
     tag_data: TagCreate,
     db: AsyncSession = Depends(get_db),
