@@ -241,6 +241,37 @@ async def create_comment(
 # ============== Comment Management Endpoints ==============
 
 
+@router.get("/comments", response_model=list[CommentResponse])
+async def list_comments(
+    search: str = Query(default=""),
+    status: str = Query(default=""),
+    skip: int = 0,
+    limit: int = 50,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> list[CommentResponse]:
+    """List comments with optional search and status filter. Admins see all; users see only their own."""
+    from sqlalchemy.future import select
+
+    from app.models.comment import Comment
+
+    query = select(Comment).where(Comment.is_deleted.is_(False))
+
+    if current_user.role.name not in ("admin", "superadmin", "editor", "manager"):
+        query = query.where(Comment.user_id == current_user.id)
+
+    if search:
+        query = query.where(Comment.body.ilike(f"%{search}%"))
+
+    if status:
+        with contextlib.suppress(ValueError):
+            query = query.where(Comment.status == CommentStatus(status))
+
+    query = query.order_by(Comment.created_at.desc()).offset(skip).limit(limit)
+    result = await db.execute(query)
+    return [_comment_to_response(c) for c in result.scalars().all()]
+
+
 @router.get("/{comment_id}", response_model=CommentResponse)
 async def get_comment(
     comment_id: int,

@@ -11,7 +11,7 @@ from app.schemas.tag import TagCreate, TagResponse
 router = APIRouter()
 
 
-@router.get("", response_model=list[TagResponse])
+@router.get("/tags", response_model=list[TagResponse])
 async def list_tags(
     search: str = "",
     db: AsyncSession = Depends(get_db),
@@ -24,7 +24,7 @@ async def list_tags(
     return result.scalars().all()
 
 
-@router.post("", response_model=TagResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/tags", response_model=TagResponse, status_code=status.HTTP_201_CREATED)
 async def create_tag(
     tag_data: TagCreate,
     db: AsyncSession = Depends(get_db),
@@ -41,7 +41,7 @@ async def create_tag(
     return tag
 
 
-@router.delete("/{tag_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/tags/{tag_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_tag(
     tag_id: int,
     db: AsyncSession = Depends(get_db),
