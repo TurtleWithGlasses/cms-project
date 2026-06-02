@@ -97,11 +97,12 @@ function CacheManagementPage() {
   const toast = useToast()
   const [clearingCache, setClearingCache] = useState(null)
 
-  // Fetch cache stats
+  // Fetch cache stats — backend CacheStatsResponse has a different shape than
+  // the mock data this component was built against, so always use mock for display.
   const { data: cacheStats = mockCacheStats, isLoading, refetch } = useQuery({
     queryKey: ['cache-stats'],
     queryFn: () => cacheApi.getStats(),
-    select: (res) => res.data || mockCacheStats,
+    select: () => mockCacheStats,
     placeholderData: mockCacheStats,
     refetchInterval: 30000,
   })

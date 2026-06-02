@@ -163,7 +163,8 @@ logs/
 
 # Static files (if applicable)
 static/
-media/
+/media/
+app/media/
 
 # Uploads directory
 uploads/
