@@ -17,7 +17,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models.notification import Notification
+from app.models.notification import Notification, NotificationStatus
 from app.models.notification_preference import (
     DigestFrequency,
     NotificationCategory,
@@ -370,7 +370,7 @@ class NotificationService:
         query = select(Notification).where(Notification.user_id == user_id)
 
         if unread_only:
-            query = query.where(Notification.is_read.is_(False))
+            query = query.where(Notification.status == NotificationStatus.UNREAD)
 
         query = query.order_by(Notification.created_at.desc()).limit(limit)
 
@@ -383,7 +383,7 @@ class NotificationService:
                 "title": n.title,
                 "message": n.message,
                 "type": n.type,
-                "is_read": n.is_read,
+                "is_read": n.status == NotificationStatus.READ,
                 "created_at": n.created_at.isoformat(),
             }
             for n in notifications
@@ -402,7 +402,7 @@ class NotificationService:
         if not notification:
             return False
 
-        notification.is_read = True
+        notification.status = NotificationStatus.READ
         await self.db.commit()
         return True
 
@@ -411,14 +411,14 @@ class NotificationService:
         result = await self.db.execute(
             select(Notification).where(
                 Notification.user_id == user_id,
-                Notification.is_read.is_(False),
+                Notification.status == NotificationStatus.UNREAD,
             )
         )
         notifications = result.scalars().all()
 
         count = 0
         for n in notifications:
-            n.is_read = True
+            n.status = NotificationStatus.READ
             count += 1
 
         await self.db.commit()
@@ -429,7 +429,7 @@ class NotificationService:
         result = await self.db.execute(
             select(Notification).where(
                 Notification.user_id == user_id,
-                Notification.is_read.is_(False),
+                Notification.status == NotificationStatus.UNREAD,
             )
         )
         return len(result.scalars().all())

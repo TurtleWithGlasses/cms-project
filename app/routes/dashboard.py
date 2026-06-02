@@ -118,7 +118,7 @@ class ActivityTimelineResponse(BaseModel):
 @router.get("/summary", response_model=DashboardSummaryResponse)
 async def get_dashboard_summary(
     period_days: int = 30,
-    current_user: User = Depends(require_role(["admin", "editor"])),
+    current_user: User = Depends(require_role(["admin", "superadmin", "editor"])),
     db: AsyncSession = Depends(get_db),
 ):
     """Get comprehensive dashboard summary with all KPIs."""
@@ -129,7 +129,7 @@ async def get_dashboard_summary(
 @router.get("/kpis/content", response_model=ContentKPIsResponse)
 async def get_content_kpis(
     period_days: int = 30,
-    current_user: User = Depends(require_role(["admin", "editor"])),
+    current_user: User = Depends(require_role(["admin", "superadmin", "editor"])),
     db: AsyncSession = Depends(get_db),
 ):
     """Get content-related KPIs."""
@@ -139,7 +139,7 @@ async def get_content_kpis(
 @router.get("/kpis/users", response_model=UserKPIsResponse)
 async def get_user_kpis(
     period_days: int = 30,
-    current_user: User = Depends(require_role(["admin"])),
+    current_user: User = Depends(require_role(["admin", "superadmin"])),
     db: AsyncSession = Depends(get_db),
 ):
     """Get user-related KPIs. Admin only."""
@@ -149,7 +149,7 @@ async def get_user_kpis(
 @router.get("/kpis/activity", response_model=ActivityKPIsResponse)
 async def get_activity_kpis(
     period_days: int = 30,
-    current_user: User = Depends(require_role(["admin"])),
+    current_user: User = Depends(require_role(["admin", "superadmin"])),
     db: AsyncSession = Depends(get_db),
 ):
     """Get activity-related KPIs. Admin only."""
@@ -159,7 +159,7 @@ async def get_activity_kpis(
 @router.get("/kpis/comments", response_model=CommentKPIsResponse)
 async def get_comment_kpis(
     period_days: int = 30,
-    current_user: User = Depends(require_role(["admin", "editor"])),
+    current_user: User = Depends(require_role(["admin", "superadmin", "editor"])),
     db: AsyncSession = Depends(get_db),
 ):
     """Get comment-related KPIs."""
@@ -169,7 +169,7 @@ async def get_comment_kpis(
 @router.get("/kpis/imports", response_model=ImportKPIsResponse)
 async def get_import_kpis(
     period_days: int = 30,
-    current_user: User = Depends(require_role(["admin"])),
+    current_user: User = Depends(require_role(["admin", "superadmin"])),
     db: AsyncSession = Depends(get_db),
 ):
     """Get import-related KPIs. Admin only."""
@@ -178,7 +178,7 @@ async def get_import_kpis(
 
 @router.get("/system-health", response_model=SystemHealthResponse)
 async def get_system_health(
-    current_user: User = Depends(require_role(["admin"])),
+    current_user: User = Depends(require_role(["admin", "superadmin"])),
     db: AsyncSession = Depends(get_db),
 ):
     """Get system health metrics. Admin only."""
@@ -189,7 +189,7 @@ async def get_system_health(
 async def get_content_performance(
     period_days: int = 30,
     limit: int = 10,
-    current_user: User = Depends(require_role(["admin", "editor"])),
+    current_user: User = Depends(require_role(["admin", "superadmin", "editor"])),
     db: AsyncSession = Depends(get_db),
 ):
     """Get top performing content based on engagement."""
@@ -210,7 +210,7 @@ async def get_my_activity(
 async def get_user_activity(
     user_id: int,
     period_days: int = 7,
-    current_user: User = Depends(require_role(["admin"])),
+    current_user: User = Depends(require_role(["admin", "superadmin"])),
     db: AsyncSession = Depends(get_db),
 ):
     """Get activity timeline for a specific user. Admin only."""
