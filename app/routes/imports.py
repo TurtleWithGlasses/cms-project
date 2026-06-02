@@ -177,7 +177,7 @@ async def import_users_csv(
     name: str | None = Form(None),
     duplicate_handling: DuplicateHandling = Form(DuplicateHandling.SKIP),
     field_mapping: str | None = Form(None),
-    current_user: User = Depends(require_role(["admin"])),
+    current_user: User = Depends(require_role(["admin", "superadmin"])),
     db: AsyncSession = Depends(get_db),
 ):
     """Import users from CSV file. Admin only."""
@@ -200,7 +200,7 @@ async def import_users_json(
     name: str | None = Form(None),
     duplicate_handling: DuplicateHandling = Form(DuplicateHandling.SKIP),
     field_mapping: str | None = Form(None),
-    current_user: User = Depends(require_role(["admin"])),
+    current_user: User = Depends(require_role(["admin", "superadmin"])),
     db: AsyncSession = Depends(get_db),
 ):
     """Import users from JSON file. Admin only."""

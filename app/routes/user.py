@@ -65,7 +65,9 @@ async def list_users(skip: int = 0, limit: int = 50, db: AsyncSession = Depends(
     return response
 
 
-@router.put("/{user_id}/role", response_model=UserResponse, dependencies=[Depends(get_role_validator(["admin"]))])
+@router.put(
+    "/{user_id}/role", response_model=UserResponse, dependencies=[Depends(get_role_validator(["admin", "superadmin"]))]
+)
 async def update_user_role(user_id: int, role_data: RoleUpdate, db: AsyncSession = Depends(get_db)):
     logging.info(f"Received request to update user_id: {user_id} to role: {role_data.role}")
 
@@ -549,12 +551,14 @@ async def get_activity_logs(db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=500, detail=f"An error occurred while fetching logs: {str(e)}") from e
 
 
-@router.get("/secure-endpoint", dependencies=[Depends(get_role_validator(["admin", "editor"]))])
+@router.get("/secure-endpoint", dependencies=[Depends(get_role_validator(["admin", "superadmin", "editor"]))])
 async def secure_endpoint():
     return {"message": "You have permission to access this resource."}
 
 
-@router.get("/admin-only", dependencies=[Depends(get_role_validator(["admin"]))], status_code=status.HTTP_200_OK)
+@router.get(
+    "/admin-only", dependencies=[Depends(get_role_validator(["admin", "superadmin"]))], status_code=status.HTTP_200_OK
+)
 async def admin_only_endpoint():
     """
     This endpoint is restricted to admin users only.

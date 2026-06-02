@@ -145,7 +145,7 @@ class TemplateUsageResponse(BaseModel):
 @router.post("", response_model=TemplateResponse, status_code=status.HTTP_201_CREATED)
 async def create_template(
     template_data: TemplateCreate,
-    current_user: User = Depends(require_role(["admin", "editor"])),
+    current_user: User = Depends(require_role(["admin", "superadmin", "editor"])),
     db: AsyncSession = Depends(get_db),
 ):
     """Create a new content template."""
@@ -215,7 +215,7 @@ async def get_template(
 async def update_template(
     template_id: int,
     template_data: TemplateUpdate,
-    current_user: User = Depends(require_role(["admin", "editor"])),
+    current_user: User = Depends(require_role(["admin", "superadmin", "editor"])),
     db: AsyncSession = Depends(get_db),
 ):
     """Update a template."""
@@ -241,7 +241,7 @@ async def delete_template(
 @router.post("/{template_id}/publish", response_model=TemplateResponse)
 async def publish_template(
     template_id: int,
-    current_user: User = Depends(require_role(["admin", "editor"])),
+    current_user: User = Depends(require_role(["admin", "superadmin", "editor"])),
     db: AsyncSession = Depends(get_db),
 ):
     """Publish a template, making it available for content creation."""
@@ -263,7 +263,7 @@ async def archive_template(
 @router.get("/{template_id}/usage", response_model=TemplateUsageResponse)
 async def get_template_usage(
     template_id: int,
-    current_user: User = Depends(require_role(["admin", "editor"])),
+    current_user: User = Depends(require_role(["admin", "superadmin", "editor"])),
     db: AsyncSession = Depends(get_db),
 ):
     """Get usage statistics for a template."""
@@ -275,7 +275,7 @@ async def get_template_usage(
 async def add_field(
     template_id: int,
     field_data: FieldCreate,
-    current_user: User = Depends(require_role(["admin", "editor"])),
+    current_user: User = Depends(require_role(["admin", "superadmin", "editor"])),
     db: AsyncSession = Depends(get_db),
 ):
     """Add a field to a template."""
@@ -292,7 +292,7 @@ async def update_field(
     template_id: int,
     field_id: int,
     field_data: FieldUpdate,
-    current_user: User = Depends(require_role(["admin", "editor"])),
+    current_user: User = Depends(require_role(["admin", "superadmin", "editor"])),
     db: AsyncSession = Depends(get_db),
 ):
     """Update a template field."""
@@ -308,7 +308,7 @@ async def update_field(
 async def delete_field(
     template_id: int,
     field_id: int,
-    current_user: User = Depends(require_role(["admin", "editor"])),
+    current_user: User = Depends(require_role(["admin", "superadmin", "editor"])),
     db: AsyncSession = Depends(get_db),
 ):
     """Delete a template field."""
@@ -319,7 +319,7 @@ async def delete_field(
 async def reorder_fields(
     template_id: int,
     order_data: FieldOrderUpdate,
-    current_user: User = Depends(require_role(["admin", "editor"])),
+    current_user: User = Depends(require_role(["admin", "superadmin", "editor"])),
     db: AsyncSession = Depends(get_db),
 ):
     """Reorder fields in a template."""

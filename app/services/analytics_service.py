@@ -7,7 +7,7 @@ Includes Redis caching for performance optimization.
 
 import logging
 import math
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from typing import Any
 
 from sqlalchemy import and_, func
@@ -48,7 +48,7 @@ class AnalyticsService:
         content_by_status = {status.value: count for status, count in status_result.all()}
 
         # Content created in last 30 days
-        thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
+        thirty_days_ago = datetime.utcnow() - timedelta(days=30)
         recent_result = await db.execute(select(func.count(Content.id)).where(Content.created_at >= thirty_days_ago))
         recent_content = recent_result.scalar()
 
@@ -121,7 +121,7 @@ class AnalyticsService:
         Returns:
             Dict with activity statistics
         """
-        start_date = datetime.now(timezone.utc) - timedelta(days=days)
+        start_date = datetime.utcnow() - timedelta(days=days)
 
         # Total activities
         total_result = await db.execute(select(func.count(ActivityLog.id)).where(ActivityLog.timestamp >= start_date))
@@ -250,7 +250,7 @@ class AnalyticsService:
             "users": user_stats,
             "activity": activity_stats,
             "media": media_stats,
-            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "generated_at": datetime.utcnow().isoformat(),
         }
 
         # Cache the result
@@ -339,7 +339,7 @@ class AnalyticsService:
 
         Returns True if a new view was recorded, False if deduplicated.
         """
-        dedup_window = datetime.now(timezone.utc) - timedelta(minutes=30)
+        dedup_window = datetime.utcnow() - timedelta(minutes=30)
 
         # Check for recent view by same user or IP
         dedup_conditions = [
@@ -366,7 +366,7 @@ class AnalyticsService:
             ip_address=ip_address,
             user_agent=user_agent,
             referrer=referrer,
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.utcnow(),
         )
         db.add(view)
         await db.commit()
@@ -379,7 +379,7 @@ class AnalyticsService:
         days: int = 30,
     ) -> dict[str, Any]:
         """Get view statistics for a specific content item."""
-        start_date = datetime.now(timezone.utc) - timedelta(days=days)
+        start_date = datetime.utcnow() - timedelta(days=days)
 
         # Total views and unique visitors
         agg_result = await db.execute(
@@ -429,7 +429,7 @@ class AnalyticsService:
         limit: int = 10,
     ) -> list[dict[str, Any]]:
         """Get most popular content ranked by view count."""
-        start_date = datetime.now(timezone.utc) - timedelta(days=days)
+        start_date = datetime.utcnow() - timedelta(days=days)
 
         result = await db.execute(
             select(
@@ -465,7 +465,7 @@ class AnalyticsService:
         days: int = 30,
     ) -> dict[str, Any]:
         """Get session analytics from UserSession data."""
-        now = datetime.now(timezone.utc)
+        now = datetime.utcnow()
         start_date = now - timedelta(days=days)
 
         # Active sessions
