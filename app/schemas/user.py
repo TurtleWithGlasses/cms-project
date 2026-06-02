@@ -6,9 +6,10 @@ from app.utils.sanitize import sanitize_email, sanitize_username
 
 
 class RoleEnum(str, Enum):
-    admin = "admin"
     user = "user"
+    editor = "editor"
     manager = "manager"
+    admin = "admin"
     superadmin = "superadmin"
 
 

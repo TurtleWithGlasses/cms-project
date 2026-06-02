@@ -118,7 +118,7 @@ function UsersPage() {
       username: '',
       email: '',
       password: '',
-      role: 'viewer',
+      role: 'user',
       is_active: true,
     })
     setShowModal(true)
@@ -143,7 +143,7 @@ function UsersPage() {
       username: '',
       email: '',
       password: '',
-      role: 'viewer',
+      role: 'user',
       is_active: true,
     })
   }
@@ -258,10 +258,11 @@ function UsersPage() {
               className="input w-full sm:w-40 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
             >
               <option value="">All Roles</option>
-              <option value="admin">Admin</option>
+              <option value="user">User</option>
               <option value="editor">Editor</option>
-              <option value="author">Author</option>
-              <option value="viewer">Viewer</option>
+              <option value="manager">Manager</option>
+              <option value="admin">Admin</option>
+              <option value="superadmin">Superadmin</option>
             </select>
           </div>
         </CardContent>
@@ -412,10 +413,11 @@ function UsersPage() {
                   onChange={(e) => setFormData({ ...formData, role: e.target.value })}
                   className="input dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                 >
-                  <option value="viewer">Viewer</option>
-                  <option value="author">Author</option>
+                  <option value="user">User</option>
                   <option value="editor">Editor</option>
+                  <option value="manager">Manager</option>
                   <option value="admin">Admin</option>
+                  <option value="superadmin">Superadmin</option>
                 </select>
               </div>
               <div className="flex items-center gap-2">
