@@ -71,7 +71,7 @@ export const usersApi = {
   create: (data) => api.post('/users', data),
   update: (id, data) => api.put(`/users/${id}`, data),
   delete: (id) => api.delete(`/users/${id}`),
-  updateRole: (id, roleId) => api.put(`/users/${id}/role`, { role_id: roleId }),
+  updateRole: (id, role) => api.put(`/users/${id}/role`, { role }),
 }
 
 // Categories API

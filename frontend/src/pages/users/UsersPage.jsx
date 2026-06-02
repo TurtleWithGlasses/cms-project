@@ -66,7 +66,14 @@ function UsersPage() {
 
   // Update mutation
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }) => usersApi.update(id, data),
+    mutationFn: async ({ id, data, originalRole }) => {
+      const { role, is_active, ...userUpdateData } = data
+      const result = await usersApi.update(id, userUpdateData)
+      if (role && role !== originalRole) {
+        await usersApi.updateRole(id, role)
+      }
+      return result
+    },
     onSuccess: () => {
       queryClient.invalidateQueries(['users'])
       toast({
@@ -148,7 +155,7 @@ function UsersPage() {
       delete submitData.password
     }
     if (editingUser) {
-      updateMutation.mutate({ id: editingUser.id, data: submitData })
+      updateMutation.mutate({ id: editingUser.id, data: submitData, originalRole: editingUser.role })
     } else {
       createMutation.mutate(submitData)
     }
