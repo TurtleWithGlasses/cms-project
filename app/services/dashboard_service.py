@@ -10,6 +10,7 @@ from app.models.comment import Comment, CommentStatus
 from app.models.content import Content
 from app.models.content_view import ContentView
 from app.models.import_job import ImportJob, ImportStatus
+from app.models.two_factor import TwoFactorAuth
 from app.models.user import User
 from app.models.user_session import UserSession
 
@@ -74,20 +75,22 @@ async def get_user_kpis(
     now = datetime.utcnow()
     period_start = now - timedelta(days=period_days)
 
-    # Single query: total, active, new, 2fa
-    agg_result = await db.execute(
-        select(
-            func.count(User.id).label("total"),
-            func.count(User.id).filter(User.is_active.is_(True)).label("active"),
-            func.count(User.id).filter(User.created_at >= period_start).label("new"),
-            func.count(User.id).filter(User.two_factor_enabled.is_(True)).label("two_fa"),
+    total_users = (await db.execute(select(func.count(User.id)))).scalar() or 0
+
+    new_users = (
+        await db.execute(
+            select(func.count(ActivityLog.id)).where(
+                ActivityLog.action == "user_register",
+                ActivityLog.timestamp >= period_start,
+            )
         )
-    )
-    row = agg_result.one()
-    total_users = row.total or 0
-    active_users = row.active or 0
-    new_users = row.new or 0
-    two_fa_users = row.two_fa or 0
+    ).scalar() or 0
+
+    two_fa_users = (
+        await db.execute(select(func.count(TwoFactorAuth.id)).where(TwoFactorAuth.is_enabled.is_(True)))
+    ).scalar() or 0
+
+    active_users = total_users  # User model has no is_active column
 
     # Active sessions (different table, separate query)
     active_sessions_result = await db.execute(
