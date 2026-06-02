@@ -27,6 +27,7 @@ from app.routes import (
     privacy,
     roles,
     seo,
+    tags,
     teams,
     templates,
     two_factor,
@@ -85,6 +86,14 @@ app.include_router(roles.router, prefix="/api/v1/roles", tags=["Roles"])
 app.include_router(content_router, prefix="/api/v1/content", tags=["Content"])
 app.include_router(category.router, prefix="/api/v1/categories", tags=["Categories"])
 app.include_router(comments.router, prefix="/api/v1/comments", tags=["Comments"])
+app.include_router(tags.router, prefix="/api/v1", tags=["Tags"])
+app.add_api_route(
+    "/api/v1/comments",
+    comments.list_comments,
+    methods=["GET"],
+    tags=["Comments"],
+    summary="List comments",
+)
 app.include_router(media.router, prefix="/api/v1/media", tags=["Media"])
 app.include_router(teams.router, prefix="/api/v1/teams", tags=["Teams"])
 
