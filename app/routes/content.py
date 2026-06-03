@@ -54,7 +54,15 @@ async def create_draft(
     content: ContentCreate, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)
 ):
     try:
-        slug = content.slug or slugify(content.title)
+        base_slug = content.slug or slugify(content.title)
+        slug = base_slug
+        counter = 1
+        while True:
+            existing = await db.execute(select(Content).where(Content.slug == slug))
+            if not existing.scalars().first():
+                break
+            slug = f"{base_slug}-{counter}"
+            counter += 1
 
         # Create new content
         new_content = Content(
