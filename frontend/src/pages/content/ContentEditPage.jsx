@@ -84,11 +84,9 @@ function ContentEditPage() {
   // Save mutation
   const saveMutation = useMutation({
     mutationFn: (data) => (isNew ? contentApi.create(data) : contentApi.update(id, data)),
-    onSuccess: (res) => {
+    onSuccess: () => {
       queryClient.invalidateQueries(['content'])
-      if (isNew) {
-        navigate(`/content/${res.data.id}`)
-      }
+      navigate('/content')
     },
   })
 
