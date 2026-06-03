@@ -1,7 +1,7 @@
 import asyncio
 import contextlib
 import logging
-from datetime import datetime, timezone
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -67,7 +67,7 @@ async def create_draft(
             meta_description=content.meta_description,
             meta_keywords=content.meta_keywords,
             author_id=current_user.id,
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.utcnow(),
         )
         db.add(new_content)
         await db.commit()
@@ -158,7 +158,7 @@ async def update_content(
     existing_content.meta_title = content.meta_title or existing_content.meta_title
     existing_content.meta_description = content.meta_description or existing_content.meta_description
     existing_content.meta_keywords = content.meta_keywords or existing_content.meta_keywords
-    existing_content.updated_at = datetime.now(timezone.utc)
+    existing_content.updated_at = datetime.utcnow()
 
     try:
         # Commit updates
@@ -214,7 +214,7 @@ async def submit_for_approval(
     validate_content_status(content, ContentStatus.DRAFT)
 
     content.status = ContentStatus.PENDING
-    content.updated_at = datetime.now(timezone.utc)
+    content.updated_at = datetime.utcnow()
 
     details = {
         "id": content.id,
@@ -232,7 +232,7 @@ async def submit_for_approval(
             content_id=content.id,
             description=f"Content with ID {content.id} submitted for approval.",
             details=details,
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.utcnow(),
         )
         db.add(new_log)
 
@@ -261,8 +261,8 @@ async def approve_content(
 
         # Update content status and timestamps
         content.status = ContentStatus.PUBLISHED
-        content.publish_date = datetime.now(timezone.utc)
-        content.updated_at = datetime.now(timezone.utc)
+        content.publish_date = datetime.utcnow()
+        content.updated_at = datetime.utcnow()
 
         # Prepare details for logging
         details = {
@@ -280,7 +280,7 @@ async def approve_content(
             content_id=content.id,
             description=f"Content with ID {content.id} approved and published.",
             details=details,
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.utcnow(),
         )
         db.add(new_log)
 
