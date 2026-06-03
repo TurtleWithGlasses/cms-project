@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timezone
+from datetime import datetime
 
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -35,8 +35,8 @@ async def create_content(db: AsyncSession, content_data: ContentCreate) -> Conte
         title=content_data.title,
         body=content_data.body,
         status=content_data.status,
-        created_at=datetime.now(timezone.utc),
-        updated_at=datetime.now(timezone.utc),
+        created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
     )
     db.add(new_content)
 
