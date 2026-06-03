@@ -1,10 +1,12 @@
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
+from app.auth import require_role
 from app.database import get_db
+from app.models import User
 from app.models.category import Category
 from app.schemas.category import CategoryCreate, CategoryResponse
 from app.utils.cache import CacheManager, cache_manager
@@ -34,6 +36,57 @@ async def create_category(category: CategoryCreate, db: AsyncSession = Depends(g
     await cache_manager.delete(CACHE_KEY_CATEGORIES)
 
     return new_category
+
+
+@router.get("/{category_id}", response_model=CategoryResponse)
+async def get_category(category_id: int, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Category).where(Category.id == category_id))
+    category = result.scalars().first()
+    if not category:
+        raise HTTPException(status_code=404, detail="Category not found")
+    return category
+
+
+@router.put("/{category_id}", response_model=CategoryResponse)
+async def update_category(
+    category_id: int,
+    category_data: CategoryCreate,
+    db: AsyncSession = Depends(get_db),
+    _current_user: User = Depends(require_role(["admin", "superadmin", "editor"])),
+):
+    result = await db.execute(select(Category).where(Category.id == category_id))
+    category = result.scalars().first()
+    if not category:
+        raise HTTPException(status_code=404, detail="Category not found")
+
+    new_slug = category_data.slug or slugify(category_data.name)
+    existing = await db.execute(select(Category).where(Category.slug == new_slug, Category.id != category_id))
+    if existing.scalars().first():
+        raise HTTPException(status_code=400, detail="Slug already exists.")
+
+    category.name = category_data.name
+    category.slug = new_slug
+    category.parent_id = category_data.parent_id
+    await db.commit()
+    await db.refresh(category)
+    await cache_manager.delete(CACHE_KEY_CATEGORIES)
+    return category
+
+
+@router.delete("/{category_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_category(
+    category_id: int,
+    db: AsyncSession = Depends(get_db),
+    _current_user: User = Depends(require_role(["admin", "superadmin"])),
+):
+    result = await db.execute(select(Category).where(Category.id == category_id))
+    category = result.scalars().first()
+    if not category:
+        raise HTTPException(status_code=404, detail="Category not found")
+
+    await db.delete(category)
+    await db.commit()
+    await cache_manager.delete(CACHE_KEY_CATEGORIES)
 
 
 @router.get("/", response_model=list[CategoryResponse])
