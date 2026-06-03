@@ -102,7 +102,8 @@ function ContentEditPage() {
   })
 
   const onSubmit = (data) => {
-    saveMutation.mutate(data)
+    const { excerpt, ...rest } = data
+    saveMutation.mutate({ ...rest, description: excerpt || '' })
   }
 
   const handleDelete = () => {

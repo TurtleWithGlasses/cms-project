@@ -23,7 +23,7 @@ status: ContentStatus = Field(ContentStatus.DRAFT, title="Content Status", descr
 class ContentCreate(BaseModel):
     title: str = Field(..., title="Content Title", description="The title of the content.")
     body: str = Field(..., title="Content Body", description="The main body of the content.")
-    description: str = Field(..., title="Description", description="A short description of the content.")
+    description: str = Field("", title="Description", description="A short description of the content.")
     status: str = Field(ContentStatus.DRAFT, title="Content Status")
     slug: str | None = Field(None, title="Slug", description="Slug for the content.")
     meta_title: str | None = Field(None, title="Meta Title", description="SEO title for the content.")
