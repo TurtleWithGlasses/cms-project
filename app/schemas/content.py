@@ -62,6 +62,8 @@ class ContentUpdate(BaseModel):
     slug: str | None = Field(
         None, title="Slug", description="The slugified version of the content title for URL purposes."
     )
+    description: str | None = Field(None, title="Description", description="A short description of the content.")
+    category_id: int | None = Field(None, title="Category ID", description="The category this content belongs to.")
     meta_title: str | None = Field(None, title="Meta Title", description="SEO title for the content.")
     meta_description: str | None = Field(None, title="Meta Description", description="SEO description for the content.")
     meta_keywords: str | None = Field(None, title="Meta Keywords", description="SEO keywords for the content.")
@@ -111,6 +113,9 @@ class ContentResponse(BaseModel):
     id: int = Field(..., title="Content ID", description="The unique identifier for the content.")
     title: str = Field(..., title="Content Title", description="The title of the content.")
     body: str = Field(..., title="Content Body", description="The body of the content.")
+    slug: str = Field(..., title="Slug", description="The URL slug for the content.")
+    description: str | None = Field(None, title="Description", description="A short description of the content.")
+    category_id: int | None = Field(None, title="Category ID", description="The category this content belongs to.")
     status: ContentStatus = Field(
         ..., title="Content Status", description="The status of the content (e.g., draft, published)."
     )

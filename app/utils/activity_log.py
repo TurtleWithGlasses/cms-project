@@ -1,6 +1,6 @@
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import datetime
 
 from app.database import AsyncSessionLocal
 from app.models.activity_log import ActivityLog
@@ -43,7 +43,7 @@ async def log_activity(
                 user_id=user_id,
                 content_id=content_id,
                 target_user_id=target_user_id,
-                timestamp=datetime.now(timezone.utc),
+                timestamp=datetime.utcnow(),
                 description=description,
                 details=details_serialized,
             )

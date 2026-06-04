@@ -13,7 +13,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import get_current_user
-from app.database import get_db
+from app.database import AsyncSessionLocal, get_db
 from app.models.comment import CommentStatus
 from app.models.comment_engagement import ReactionType, ReportReason, ReportStatus
 from app.models.user import User
@@ -229,8 +229,12 @@ async def create_comment(
         )
 
         # Dispatch webhook event (fire-and-forget)
+        async def _dispatch_comment_created():
+            async with AsyncSessionLocal() as _session:
+                await WebhookEventDispatcher(_session).comment_created(comment.id, content_id, current_user.id)
+
         with contextlib.suppress(Exception):
-            asyncio.create_task(WebhookEventDispatcher(db).comment_created(comment.id, content_id, current_user.id))
+            asyncio.create_task(_dispatch_comment_created())
 
         return _comment_to_response(comment)
 
@@ -722,8 +726,12 @@ async def approve_comment(
         await broadcast_comment_event("comment.approved", comment_id, comment.content_id, current_user.id)
 
     # Dispatch webhook event (fire-and-forget)
+    async def _dispatch_comment_approved():
+        async with AsyncSessionLocal() as _session:
+            await WebhookEventDispatcher(_session).comment_approved(comment_id, comment.content_id)
+
     with contextlib.suppress(Exception):
-        asyncio.create_task(WebhookEventDispatcher(db).comment_approved(comment_id, comment.content_id))
+        asyncio.create_task(_dispatch_comment_approved())
 
     comment = await service.get_comment(comment.id)
     return _comment_to_response(comment)

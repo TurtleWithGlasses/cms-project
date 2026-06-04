@@ -172,7 +172,7 @@ async def get_my_performance(
     return await analytics_service.get_user_performance_report(db, current_user.id)
 
 
-@router.get("/analytics/content/popular")
+@router.get("/content/popular")
 async def get_popular_content(
     days: int = 30,
     limit: int = 10,
@@ -196,7 +196,7 @@ async def get_popular_content(
     return await analytics_service.get_popular_content(db, days=days, limit=limit)
 
 
-@router.get("/analytics/content/{content_id}/views")
+@router.get("/content/{content_id}/views")
 async def get_content_view_stats(
     content_id: int,
     days: int = 30,
@@ -218,7 +218,7 @@ async def get_content_view_stats(
     return await analytics_service.get_content_view_stats(db, content_id, days=days)
 
 
-@router.get("/analytics/sessions")
+@router.get("/sessions")
 async def get_session_analytics(
     days: int = 30,
     current_user: User = Depends(get_current_user_with_role([RoleEnum.ADMIN, RoleEnum.SUPERADMIN])),
@@ -238,7 +238,7 @@ async def get_session_analytics(
     return await analytics_service.get_session_analytics(db, days=days)
 
 
-@router.get("/analytics/config")
+@router.get("/config")
 async def get_analytics_config() -> dict:
     """Return frontend analytics configuration (GA4, Plausible). Public endpoint."""
     return {
@@ -254,7 +254,7 @@ async def get_analytics_config() -> dict:
     }
 
 
-@router.post("/analytics/events", status_code=202)
+@router.post("/events", status_code=202)
 async def track_event(
     request: Request,
     payload: dict,

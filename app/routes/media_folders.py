@@ -23,7 +23,7 @@ from app.services.upload_service import upload_service
 router = APIRouter(tags=["Media Folders"])
 
 
-@router.post("/", response_model=MediaFolderResponse, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=MediaFolderResponse, status_code=status.HTTP_201_CREATED)
 async def create_folder(
     data: MediaFolderCreate,
     current_user: User = Depends(get_current_user),
@@ -34,7 +34,7 @@ async def create_folder(
     return folder
 
 
-@router.get("/", response_model=MediaFolderListResponse)
+@router.get("", response_model=MediaFolderListResponse)
 async def list_folders(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),

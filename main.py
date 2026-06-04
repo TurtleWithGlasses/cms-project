@@ -1,23 +1,20 @@
 import contextlib
 import logging
 from contextlib import asynccontextmanager
-from datetime import timedelta
+from pathlib import Path
 
 import sentry_sdk
-from fastapi import Depends, FastAPI, Form, HTTPException, Request, Response
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.openapi.utils import get_openapi
-from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.middleware.sessions import SessionMiddleware
 from strawberry.fastapi import GraphQLRouter
 
-from app.auth import (
-    create_access_token,
-    get_current_user,
-)
+from app.auth import get_current_user
 from app.config import settings
 from app.graphql.context import GraphQLContext
 from app.graphql.schema import schema
@@ -42,15 +39,14 @@ if settings.sentry_dsn:
     )
 from app.database import Base, engine, get_db
 from app.exception_handlers import register_exception_handlers
-from app.middleware.csrf import CSRFMiddleware, get_csrf_token
+from app.middleware.csrf import CSRFMiddleware
 from app.middleware.etag import ETagMiddleware
 from app.middleware.language import LanguageMiddleware
 from app.middleware.logging import StructuredLoggingMiddleware, setup_structured_logging
-from app.middleware.rate_limit import configure_rate_limiting, limiter
+from app.middleware.rate_limit import configure_rate_limiting
 from app.middleware.rbac import RBACMiddleware
 from app.middleware.security_headers import SecurityHeadersMiddleware
 from app.middleware.tenant import TenantMiddleware
-from app.models import User
 from app.plugins.loader import initialize_plugins
 from app.plugins.registry import plugin_registry
 from app.routes import (
@@ -71,6 +67,7 @@ from app.routes import (
     media_folders,
     monitoring,
     notifications,
+    pages,
     password_reset,
     permissions as permissions_routes,
     plugins as plugins_routes,
@@ -94,10 +91,9 @@ from app.routes import (
     workflow,
 )
 from app.routes.content import router as content_router
+from app.routes.workflow import workflow_compat_router
+from app.routes.workflow_compat import router as workflow_compat_router2
 from app.scheduler import scheduler
-from app.schemas.user import UserUpdate
-from app.services.auth_service import authenticate_user, register_user
-from app.services.content_service import update_user_info
 from app.utils.audit_retention import install_retention_policy
 from app.utils.metrics import PrometheusMiddleware
 from app.utils.pool_monitor import install_pool_monitor
@@ -272,18 +268,6 @@ else:
 
 logger = logging.getLogger(__name__)
 
-templates = Jinja2Templates(directory="templates")
-
-
-# Add CSRF token helper to template context
-def csrf_token_context(request: Request):
-    """Add CSRF token to template context."""
-    return {"csrf_token": get_csrf_token(request)}
-
-
-# Add context processor to templates
-templates.env.globals["csrf_token"] = get_csrf_token
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -386,6 +370,9 @@ def create_app() -> FastAPI:
         enable_hsts=not settings.debug,  # Only enable HSTS in production
     )
 
+    # Workflow compat routes — FIRST to prevent shadowing by any wildcard routers
+    app.include_router(workflow_compat_router2, prefix="/api/v1/workflow", tags=["Workflow"])
+
     # Include routers with API versioning
     # API v1 routes (standardized)
     app.include_router(user.router, prefix="/api/v1/users", tags=["Users"])
@@ -399,7 +386,7 @@ def create_app() -> FastAPI:
     app.include_router(media_folders.router, prefix="/api/v1/media/folders", tags=["Media Folders"])
     app.include_router(bulk.router, prefix="/api/v1", tags=["Bulk Operations"])
     app.include_router(export.router, prefix="/api/v1", tags=["Export"])
-    app.include_router(analytics.router, prefix="/api/v1", tags=["Analytics"])
+    app.include_router(analytics.router, prefix="/api/v1/analytics", tags=["Analytics"])
     app.include_router(backup.router, prefix="/api/v1/backups", tags=["Backups"])
 
     # Auth routes (keep at /auth for OAuth2 compatibility)
@@ -409,7 +396,7 @@ def create_app() -> FastAPI:
     app.include_router(monitoring.router, tags=["Monitoring"])
 
     # Privacy & GDPR compliance routes
-    app.include_router(privacy.router, prefix="/api/v1", tags=["Privacy & GDPR"])
+    app.include_router(privacy.router, prefix="/api/v1/privacy", tags=["Privacy & GDPR"])
 
     # Security audit routes — registered before wildcard routers to avoid shadowing
     app.include_router(security_routes.router, prefix="/api/v1/security", tags=["Security"])
@@ -422,6 +409,9 @@ def create_app() -> FastAPI:
 
     # Permission management routes — registered before wildcard routers to avoid shadowing
     app.include_router(permissions_routes.router, prefix="/api/v1/permissions", tags=["Permissions"])
+
+    # Workflow compat routes — registered before wildcard routers to avoid shadowing
+    app.include_router(workflow_compat_router, prefix="/api/v1/workflow", tags=["Workflow"])
 
     # Translation routes — registered before wildcard routers to avoid shadowing
     app.include_router(
@@ -439,7 +429,7 @@ def create_app() -> FastAPI:
     app.include_router(comments.router, prefix="/api/v1", tags=["Comments"])
 
     # Two-Factor Authentication routes
-    app.include_router(two_factor.router, prefix="/api/v1", tags=["Two-Factor Authentication"])
+    app.include_router(two_factor.router, prefix="/api/v1/2fa", tags=["Two-Factor Authentication"])
 
     # SEO routes (sitemap, RSS, robots.txt)
     app.include_router(seo.router, tags=["SEO"])
@@ -448,10 +438,10 @@ def create_app() -> FastAPI:
     app.include_router(social.router, prefix="/api/v1", tags=["Social"])
 
     # API Keys routes
-    app.include_router(api_keys.router, prefix="/api/v1", tags=["API Keys"])
+    app.include_router(api_keys.router, prefix="/api/v1/api-keys", tags=["API Keys"])
 
     # Webhooks routes
-    app.include_router(webhooks.router, prefix="/api/v1", tags=["Webhooks"])
+    app.include_router(webhooks.router, prefix="/api/v1/webhooks", tags=["Webhooks"])
 
     # WebSocket routes — prefix /api/v1/ws (WS endpoint at /api/v1/ws, stats at /api/v1/ws/stats)
     app.include_router(websocket.router, prefix="/api/v1/ws", tags=["WebSocket"])
@@ -463,22 +453,22 @@ def create_app() -> FastAPI:
     app.include_router(workflow.router, prefix="/api/v1", tags=["Workflow"])
 
     # Cache management routes
-    app.include_router(cache.router, prefix="/api/v1", tags=["Cache"])
+    app.include_router(cache.router, prefix="/api/v1/cache", tags=["Cache"])
 
     # Notification routes
-    app.include_router(notifications.router, prefix="/api/v1", tags=["Notifications"])
+    app.include_router(notifications.router, prefix="/api/v1/notifications", tags=["Notifications"])
 
     # Team management routes
-    app.include_router(teams.router, prefix="/api/v1", tags=["Teams"])
+    app.include_router(teams.router, prefix="/api/v1/teams", tags=["Teams"])
 
     # Import routes
     app.include_router(imports.router, prefix="/api/v1", tags=["Import"])
 
     # Dashboard routes
-    app.include_router(dashboard.router, prefix="/api/v1", tags=["Dashboard"])
+    app.include_router(dashboard.router, prefix="/api/v1/dashboard", tags=["Dashboard"])
 
     # Content template routes
-    app.include_router(templates_routes.router, prefix="/api/v1", tags=["Content Templates"])
+    app.include_router(templates_routes.router, prefix="/api/v1/templates", tags=["Content Templates"])
 
     # Content relations routes
     app.include_router(content_relations.router, prefix="/api/v1", tags=["Content Relations"])
@@ -488,6 +478,9 @@ def create_app() -> FastAPI:
 
     # Developer portal and changelog
     app.include_router(developer.router, tags=["Developer Portal"])
+
+    # HTML page routes (login, register, profile, user update)
+    app.include_router(pages.router)
 
     # GraphQL endpoint — auth handled per-resolver via context
     async def get_graphql_context(
@@ -559,125 +552,25 @@ def _custom_openapi() -> dict:
 
 app.openapi = _custom_openapi
 
+# ── React frontend static files ───────────────────────────────────────────────
+_FRONTEND_DIST = Path(__file__).parent / "frontend" / "dist"
 
-@app.get("/", tags=["Root"])
-async def root():
-    return {"message": "Welcome to the CMS API"}
+if _FRONTEND_DIST.exists():
+    app.mount("/assets", StaticFiles(directory=_FRONTEND_DIST / "assets"), name="spa_assets")
 
-
-# Health check endpoints are now provided by monitoring router
-# The /health endpoint is kept for backwards compatibility
-# but the comprehensive endpoints are at /health, /ready, /metrics
-
-
-@app.get("/register")
-async def get_register(request: Request):
-    return templates.TemplateResponse("register.html", {"request": request})
+    @app.get("/vite.svg", include_in_schema=False)
+    async def vite_svg():
+        svg_path = _FRONTEND_DIST / "vite.svg"
+        if svg_path.exists():
+            return FileResponse(svg_path)
+        raise HTTPException(status_code=404, detail="Not found")
 
 
-@app.post("/register")
-@limiter.limit("3/hour")  # Strict rate limit for registration
-async def post_register(
-    request: Request,
-    username: str = Form(...),
-    email: str = Form(...),
-    password: str = Form(...),
-    db: AsyncSession = Depends(get_db),
-):
-    import asyncio
-    import contextlib
-
-    from app.services.webhook_service import WebhookEventDispatcher
-
-    new_user = await register_user(username, email, password, db)
-    with contextlib.suppress(Exception):
-        asyncio.create_task(WebhookEventDispatcher(db).user_created(new_user.id, new_user.email))
-    return RedirectResponse("/login", status_code=302)
-
-
-@app.get("/login")
-async def get_login(request: Request):
-    return templates.TemplateResponse("login.html", {"request": request})
-
-
-@app.post("/login")
-@limiter.limit("5/minute")  # Strict rate limit for login attempts
-async def post_login(
-    response: Response,
-    request: Request,
-    email: str = Form(...),
-    password: str = Form(...),
-    db: AsyncSession = Depends(get_db),
-):
-    form = await request.form()
-    print("Received from data:", dict(form))
-    email = str(form.get("email", ""))
-    password = str(form.get("password", ""))
-
-    try:
-        user = await authenticate_user(email, password, db)
-        if not user:
-            return templates.TemplateResponse(
-                "login.html", {"request": request, "error": "Invalid credentials during login"}
-            )
-
-        access_token = create_access_token(
-            {"sub": user.email}, expires_delta=timedelta(minutes=settings.access_token_expire_minutes)
-        )
-
-        # Redirect based on role
-        redirect_url = (
-            "/api/v1/users/admin/dashboard" if user.role.name in ["admin", "superadmin", "manager"] else "/profile"
-        )
-        redirect_response = RedirectResponse(redirect_url, status_code=302)
-        redirect_response.set_cookie(
-            key="access_token",
-            value=access_token,
-            httponly=True,
-            max_age=60 * 60 * 24,
-        )
-
-        print("Login successful, redirecting...")
-        return redirect_response
-
-    except HTTPException as e:
-        print(f"Login failes due to HTTP error: {e.detail}")
-        return templates.TemplateResponse("login.html", {"request": request, "error": e.detail})
-
-
-@app.get("/logout")
-async def logout(response: Response):
-    # request.session.clear()  # This clears the user session
-    response = RedirectResponse(url="/login", status_code=302)
-    response.delete_cookie("access_token")
-    return response
-
-
-@app.get("/profile", response_class=HTMLResponse)
-async def get_profile(request: Request, current_user: User = Depends(get_current_user)):
-    return templates.TemplateResponse("profile.html", {"request": request, "user": current_user})
-
-
-@app.get("/user/update", response_class=HTMLResponse)
-async def get_user_update_form(request: Request, current_user: User = Depends(get_current_user)):
-    return templates.TemplateResponse("edit_user.html", {"request": request, "user": current_user})
-
-
-@app.post("/user/update", response_class=HTMLResponse)
-async def update_user(
-    request: Request,
-    username: str = Form(...),
-    email: str = Form(...),
-    password: str = Form(None),
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    user_update = UserUpdate(username=username, email=email, password=password)
-    await update_user_info(int(current_user.id), user_update, db)
-
-    if user_update.email != current_user.email or user_update.password:
-        response = RedirectResponse(url="/login", status_code=302)
-        response.delete_cookie("access_token")
-        return response
-
-    return RedirectResponse(url="/profile", status_code=302)
+# SPA catch-all — serve index.html for any path React Router handles.
+# Must be registered LAST so API routes take priority.
+@app.get("/{full_path:path}", include_in_schema=False)
+async def spa_catch_all(full_path: str):
+    index = _FRONTEND_DIST / "index.html"
+    if index.exists():
+        return FileResponse(index)
+    raise HTTPException(status_code=404, detail="Not found")

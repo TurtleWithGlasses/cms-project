@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-@router.get("/", response_model=FullTextSearchResponse)
+@router.get("", response_model=FullTextSearchResponse)
 async def fulltext_search(
     q: str = Query(
         ...,

@@ -55,10 +55,10 @@ export const dashboardApi = {
 
 // Content API
 export const contentApi = {
-  getAll: (params = {}) => api.get('/content', { params }),
+  getAll: (params = {}) => api.get('/content/', { params }),
   getById: (id) => api.get(`/content/${id}`),
-  create: (data) => api.post('/content', data),
-  update: (id, data) => api.put(`/content/${id}`, data),
+  create: (data) => api.post('/content/', data),
+  update: (id, data) => api.patch(`/content/${id}`, data),
   delete: (id) => api.delete(`/content/${id}`),
   publish: (id) => api.post(`/content/${id}/publish`),
   unpublish: (id) => api.post(`/content/${id}/unpublish`),
@@ -225,11 +225,12 @@ export const monitoringApi = {
 
 // Workflow API
 export const workflowApi = {
-  getPending: (params = {}) => api.get('/workflow/pending', { params }),
-  approve: (id, data) => api.post(`/workflow/${id}/approve`, data),
-  reject: (id, data) => api.post(`/workflow/${id}/reject`, data),
-  requestChanges: (id, data) => api.post(`/workflow/${id}/request-changes`, data),
-  getHistory: (contentId) => api.get(`/workflow/${contentId}/history`),
+  getPending: (params = {}) =>
+    params.status === 'all' ? api.get('/approvals/all') : api.get('/approvals/pending'),
+  approve: (id, data) => api.post(`/approvals/${id}/decide`, { approved: true, ...data }),
+  reject: (id, data) => api.post(`/approvals/${id}/decide`, { approved: false, ...data }),
+  requestChanges: (id, data) => api.post(`/approvals/${id}/decide`, { approved: false, ...data }),
+  getHistory: (contentId) => api.get(`/content/${contentId}/history`),
 }
 
 // SEO API

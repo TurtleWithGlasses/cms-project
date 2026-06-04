@@ -10,7 +10,7 @@ from sqlalchemy.orm import selectinload
 from starlette.requests import Request
 
 from app.auth import get_current_user, get_current_user_with_role
-from app.database import get_db, get_read_db
+from app.database import AsyncSessionLocal, get_db, get_read_db
 from app.models.activity_log import ActivityLog
 from app.models.content import Content, ContentStatus
 from app.models.content_version import ContentVersion
@@ -49,7 +49,7 @@ def validate_content_status(content: Content, required_status: ContentStatus):
         raise HTTPException(status_code=400, detail=f"Content must be in {required_status.value} status.")
 
 
-@router.post("/", response_model=ContentResponse, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=ContentResponse, status_code=status.HTTP_201_CREATED)
 async def create_draft(
     content: ContentCreate, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)
 ):
@@ -110,10 +110,14 @@ async def create_draft(
             logger.warning(f"WebSocket broadcast failed: {e}")
 
         # Dispatch webhook event (fire-and-forget)
+        async def _dispatch_created():
+            async with AsyncSessionLocal() as _session:
+                await WebhookEventDispatcher(_session).content_created(
+                    new_content.id, new_content.title, current_user.id
+                )
+
         with contextlib.suppress(Exception):
-            asyncio.create_task(
-                WebhookEventDispatcher(db).content_created(new_content.id, new_content.title, current_user.id)
-            )
+            asyncio.create_task(_dispatch_created())
 
         return new_content
 
@@ -122,7 +126,48 @@ async def create_draft(
         raise HTTPException(status_code=500, detail=f"Failed to create content: {str(e)}") from e
 
 
-@router.patch("/{content_id}", response_model=ContentResponse)
+@router.get("/{content_id}", response_model=ContentResponse)
+async def get_content_by_id(content_id: int, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Content).where(Content.id == content_id))
+    content = result.scalars().first()
+    if not content:
+        raise HTTPException(status_code=404, detail="Content not found")
+    return content
+
+
+@router.delete("/{content_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_content(
+    content_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    result = await db.execute(select(Content).where(Content.id == content_id))
+    existing = result.scalars().first()
+    if not existing:
+        raise HTTPException(status_code=404, detail="Content not found")
+    await db.delete(existing)
+    await db.commit()
+    try:
+        await log_activity(
+            action="delete_content",
+            user_id=current_user.id,
+            description=f"User {current_user.username} deleted content with ID {content_id}.",
+            details={"title": existing.title, "slug": existing.slug},
+        )
+    except Exception as e:
+        logger.warning(f"Activity logging failed: {e}")
+    with contextlib.suppress(Exception):
+        await cache_manager.invalidate_content(content_id)
+
+    async def _dispatch_deleted():
+        async with AsyncSessionLocal() as _session:
+            await WebhookEventDispatcher(_session).content_deleted(content_id, existing.title, current_user.id)
+
+    with contextlib.suppress(Exception):
+        asyncio.create_task(_dispatch_deleted())
+
+
+@router.api_route("/{content_id}", methods=["PATCH", "PUT"], response_model=ContentResponse)
 async def update_content(
     content_id: int,
     content: ContentUpdate,
@@ -156,6 +201,10 @@ async def update_content(
         title=existing_content.title,
         body=existing_content.body,
         slug=existing_content.slug,
+        status=existing_content.status.value
+        if hasattr(existing_content.status, "value")
+        else str(existing_content.status),
+        author_id=existing_content.author_id,
         editor_id=current_user.id,
     )
     db.add(version)
@@ -163,6 +212,12 @@ async def update_content(
     # Update fields
     existing_content.title = content.title or existing_content.title
     existing_content.body = content.body or existing_content.body
+    existing_content.description = (
+        content.description if content.description is not None else existing_content.description
+    )
+    existing_content.category_id = (
+        content.category_id if content.category_id is not None else existing_content.category_id
+    )
     existing_content.meta_title = content.meta_title or existing_content.meta_title
     existing_content.meta_description = content.meta_description or existing_content.meta_description
     existing_content.meta_keywords = content.meta_keywords or existing_content.meta_keywords
@@ -197,12 +252,14 @@ async def update_content(
             logger.warning(f"WebSocket broadcast failed: {e}")
 
         # Dispatch webhook event (fire-and-forget)
-        with contextlib.suppress(Exception):
-            asyncio.create_task(
-                WebhookEventDispatcher(db).content_updated(
+        async def _dispatch_updated():
+            async with AsyncSessionLocal() as _session:
+                await WebhookEventDispatcher(_session).content_updated(
                     content_id, existing_content.title, existing_content.author_id
                 )
-            )
+
+        with contextlib.suppress(Exception):
+            asyncio.create_task(_dispatch_updated())
 
     except Exception as e:
         await db.rollback()
@@ -306,10 +363,12 @@ async def approve_content(
             logger.warning(f"WebSocket broadcast failed: {ws_err}")
 
         # Dispatch webhook event (fire-and-forget)
+        async def _dispatch_published():
+            async with AsyncSessionLocal() as _session:
+                await WebhookEventDispatcher(_session).content_published(content.id, content.title, current_user.id)
+
         with contextlib.suppress(Exception):
-            asyncio.create_task(
-                WebhookEventDispatcher(db).content_published(content.id, content.title, current_user.id)
-            )
+            asyncio.create_task(_dispatch_published())
 
         # Social auto-post on publish (fire-and-forget stub)
         with contextlib.suppress(Exception):
@@ -341,7 +400,7 @@ async def rollback_content_version(
     return await content_version_service.rollback_to_version(content_id, version_id, db, current_user)
 
 
-@router.get("/", response_model=list[ContentResponse])
+@router.get("", response_model=list[ContentResponse])
 async def get_all_content_route(
     skip: int = 0,
     limit: int = 10,

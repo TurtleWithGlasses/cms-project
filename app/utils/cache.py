@@ -98,6 +98,8 @@ class CacheManager:
                 self._pool = redis.ConnectionPool.from_url(
                     settings.redis_url,
                     decode_responses=True,
+                    socket_connect_timeout=1,
+                    socket_timeout=1,
                 )
             else:
                 self._pool = redis.ConnectionPool(
@@ -106,6 +108,8 @@ class CacheManager:
                     db=settings.redis_db,
                     password=settings.redis_password,
                     decode_responses=True,
+                    socket_connect_timeout=1,
+                    socket_timeout=1,
                 )
 
             self._redis = redis.Redis(connection_pool=self._pool)

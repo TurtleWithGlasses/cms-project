@@ -8,7 +8,7 @@ from app.models.user import Role
 router = APIRouter()
 
 
-@router.get("/", response_model=list[str], tags=["Roles"])
+@router.get("", response_model=list[str], tags=["Roles"])
 async def get_roles(db: AsyncSession = Depends(get_db)):
     """
     Fetch all available roles from the database.

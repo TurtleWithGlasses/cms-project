@@ -14,7 +14,7 @@ from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import get_current_user, require_role
-from app.database import get_db
+from app.database import AsyncSessionLocal, get_db
 from app.middleware.rate_limit import limiter
 from app.models.user import User
 from app.schemas.media import (
@@ -53,8 +53,12 @@ async def upload_file(
     media = await upload_service.upload_file(file, current_user, db)
 
     # Dispatch webhook event (fire-and-forget)
+    async def _dispatch_media_uploaded():
+        async with AsyncSessionLocal() as _session:
+            await WebhookEventDispatcher(_session).media_uploaded(media.id, media.filename, current_user.id)
+
     with contextlib.suppress(Exception):
-        asyncio.create_task(WebhookEventDispatcher(db).media_uploaded(media.id, media.filename, current_user.id))
+        asyncio.create_task(_dispatch_media_uploaded())
 
     base_url = "/api/v1/media"
 
@@ -181,7 +185,7 @@ async def admin_list_all_media(
     return MediaListResponse(media=results, total=total, limit=limit, offset=offset)
 
 
-@router.get("/", response_model=MediaListResponse)
+@router.get("", response_model=MediaListResponse)
 async def list_media(
     limit: int = 50,
     offset: int = 0,

@@ -4,12 +4,14 @@ Workflow Routes
 API endpoints for content workflow management.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
 
 from app.auth import get_current_user
 from app.database import get_db
+from app.models.content import Content, ContentStatus
 from app.models.user import User
 from app.models.workflow import WorkflowType
 from app.services.workflow_service import WorkflowService
@@ -347,3 +349,133 @@ async def decide_approval(
         return result
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+
+
+# ============== Frontend-compatible routes (added to main router, which is at /api/v1/workflow) ==============
+
+
+@router.get("/pending")
+async def get_workflow_pending(
+    status: str = Query("pending"),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> list[dict]:
+    """Return content items in pending/review state for the workflow board."""
+    query = select(Content)
+    if status != "all":
+        query = query.where(Content.status == ContentStatus.PENDING)
+    result = await db.execute(query)
+    contents = result.scalars().all()
+    return [
+        {
+            "id": c.id,
+            "title": c.title,
+            "status": c.status.value if hasattr(c.status, "value") else str(c.status),
+            "author_id": c.author_id,
+            "submittedAt": c.updated_at.isoformat() if c.updated_at else None,
+            "currentStage": c.status.value if hasattr(c.status, "value") else str(c.status),
+            "comments": 0,
+        }
+        for c in contents
+    ]
+
+
+@router.post("/{content_id}/approve")
+async def workflow_approve(
+    content_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """Approve pending content — sets status to PUBLISHED."""
+    result = await db.execute(select(Content).where(Content.id == content_id))
+    content = result.scalars().first()
+    if not content:
+        raise HTTPException(status_code=404, detail="Content not found")
+    content.status = ContentStatus.PUBLISHED
+    await db.commit()
+    return {"status": "approved", "content_id": content_id}
+
+
+@router.post("/{content_id}/reject")
+async def workflow_reject(
+    content_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """Reject pending content — sets status back to DRAFT."""
+    result = await db.execute(select(Content).where(Content.id == content_id))
+    content = result.scalars().first()
+    if not content:
+        raise HTTPException(status_code=404, detail="Content not found")
+    content.status = ContentStatus.DRAFT
+    await db.commit()
+    return {"status": "rejected", "content_id": content_id}
+
+
+# ============== Old compat router (not used by app/main.py — kept for root main.py) ==============
+
+workflow_compat_router = APIRouter(tags=["Workflow"])
+
+
+class WorkflowActionData(BaseModel):
+    comment: str | None = None
+
+
+@workflow_compat_router.get("/pending")
+async def get_workflow_pending_compat(
+    status_filter: str = Query("pending", alias="status"),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> list[dict]:
+    """Return content items in pending/review state for the workflow board."""
+    query = select(Content)
+    if status_filter != "all":
+        query = query.where(Content.status == ContentStatus.PENDING)
+    result = await db.execute(query)
+    contents = result.scalars().all()
+    return [
+        {
+            "id": c.id,
+            "title": c.title,
+            "status": c.status.value if hasattr(c.status, "value") else str(c.status),
+            "author_id": c.author_id,
+            "submittedAt": c.updated_at.isoformat() if c.updated_at else None,
+            "currentStage": c.status.value if hasattr(c.status, "value") else str(c.status),
+            "comments": len(c.comments) if c.comments else 0,
+        }
+        for c in contents
+    ]
+
+
+@workflow_compat_router.post("/{content_id}/approve")
+async def workflow_approve_compat(
+    content_id: int,
+    data: WorkflowActionData,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """Approve pending content — sets status to PUBLISHED."""
+    result = await db.execute(select(Content).where(Content.id == content_id))
+    content = result.scalars().first()
+    if not content:
+        raise HTTPException(status_code=404, detail="Content not found")
+    content.status = ContentStatus.PUBLISHED
+    await db.commit()
+    return {"status": "approved", "content_id": content_id}
+
+
+@workflow_compat_router.post("/{content_id}/reject")
+async def workflow_reject_compat(
+    content_id: int,
+    data: WorkflowActionData,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """Reject pending content — sets status back to DRAFT."""
+    result = await db.execute(select(Content).where(Content.id == content_id))
+    content = result.scalars().first()
+    if not content:
+        raise HTTPException(status_code=404, detail="Content not found")
+    content.status = ContentStatus.DRAFT
+    await db.commit()
+    return {"status": "rejected", "content_id": content_id}

@@ -63,7 +63,7 @@ function DashboardPage() {
   } = useQuery({
     queryKey: ['dashboard-summary'],
     queryFn: () => dashboardApi.getSummary(30),
-    select: (res) => res.data,
+    select: (res) => (res.data && typeof res.data === 'object' && !Array.isArray(res.data) ? res.data : null),
   })
 
   const {
@@ -74,7 +74,7 @@ function DashboardPage() {
   } = useQuery({
     queryKey: ['my-activity'],
     queryFn: () => dashboardApi.getMyActivity(7),
-    select: (res) => res.data,
+    select: (res) => (Array.isArray(res.data) ? res.data : []),
   })
 
   const isLoading = summaryLoading || activityLoading

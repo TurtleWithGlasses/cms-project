@@ -19,7 +19,7 @@ router = APIRouter()
 CACHE_KEY_CATEGORIES = "cache:categories:all"
 
 
-@router.post("/", response_model=CategoryResponse)
+@router.post("", response_model=CategoryResponse)
 async def create_category(category: CategoryCreate, db: AsyncSession = Depends(get_db)):
     slug = category.slug or slugify(category.name)
 
@@ -89,7 +89,7 @@ async def delete_category(
     await cache_manager.delete(CACHE_KEY_CATEGORIES)
 
 
-@router.get("/", response_model=list[CategoryResponse])
+@router.get("", response_model=list[CategoryResponse])
 async def get_categories(db: AsyncSession = Depends(get_db)):
     # Try cache first
     cached = await cache_manager.get(CACHE_KEY_CATEGORIES)

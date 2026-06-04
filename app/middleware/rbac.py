@@ -18,19 +18,13 @@ class RBACMiddleware(BaseHTTPMiddleware):
         super().__init__(app)
         self.allowed_roles = allowed_roles or []
         self.public_paths = {
-            "/",
             "/docs",
             "/openapi.json",
             "/redoc",
-            "/login",
-            "/logout",
-            "/register",
             "/api/v1/users/register",
             "/auth/token",
             "/token",
-            "/favicon.ico",
             "/graphql",
-            "/developer",
             "/api/v1/developer/changelog",
             # Monitoring endpoints — must be reachable by Prometheus and k8s probes
             "/health",
@@ -55,10 +49,14 @@ class RBACMiddleware(BaseHTTPMiddleware):
         if request.url.path in self.public_paths:
             return await call_next(request)
 
-        # Allow static assets (for frontend)
+        # Allow static assets (JS, CSS, fonts, images)
         if request.url.path.startswith("/assets/") or request.url.path.endswith(
             (".js", ".css", ".svg", ".png", ".jpg", ".ico", ".woff", ".woff2", ".ttf")
         ):
+            return await call_next(request)
+
+        # All non-API, non-auth paths are SPA frontend routes — React handles auth itself
+        if not request.url.path.startswith("/api/") and not request.url.path.startswith("/auth/"):
             return await call_next(request)
 
         # Allow public API paths (social sharing, analytics config, i18n metadata)

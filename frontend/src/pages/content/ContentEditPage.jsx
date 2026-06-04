@@ -67,7 +67,7 @@ function ContentEditPage() {
         title: content.title || '',
         slug: content.slug || '',
         body: content.body || '',
-        excerpt: content.excerpt || '',
+        excerpt: content.description || '',
         status: content.status || 'draft',
         category_id: content.category_id || null,
       })
@@ -87,6 +87,10 @@ function ContentEditPage() {
     onSuccess: () => {
       queryClient.invalidateQueries(['content'])
       navigate('/content')
+    },
+    onError: (error) => {
+      const message = error.response?.data?.detail || error.message || 'Failed to save content'
+      alert(`Error: ${message}`)
     },
   })
 

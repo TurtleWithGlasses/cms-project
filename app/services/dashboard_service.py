@@ -335,9 +335,10 @@ async def get_user_activity_timeline(
         {
             "id": log.id,
             "action": log.action,
-            "content_id": log.content_id,
+            "resource_type": "content" if log.content_id is not None else None,
+            "resource_id": log.content_id,
             "details": log.details,
-            "timestamp": log.timestamp.isoformat(),
+            "created_at": log.timestamp.isoformat(),
         }
         for log in result.scalars().all()
     ]
