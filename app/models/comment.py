@@ -51,7 +51,12 @@ class Comment(Base):
     body = Column(Text, nullable=False)
 
     # Moderation status
-    status = Column(Enum(CommentStatus), default=CommentStatus.PENDING, nullable=False, index=True)
+    status = Column(
+        Enum(CommentStatus, values_callable=lambda x: [e.value for e in x]),
+        default=CommentStatus.PENDING,
+        nullable=False,
+        index=True,
+    )
 
     # Soft delete flag
     is_deleted = Column(Boolean, default=False, nullable=False)

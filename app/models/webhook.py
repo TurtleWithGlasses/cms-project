@@ -82,7 +82,11 @@ class Webhook(Base):
     events = Column(Text, nullable=False)
 
     # Status
-    status = Column(Enum(WebhookStatus), default=WebhookStatus.ACTIVE, nullable=False)
+    status = Column(
+        Enum(WebhookStatus, values_callable=lambda x: [e.value for e in x]),
+        default=WebhookStatus.ACTIVE,
+        nullable=False,
+    )
 
     # Failure tracking
     failure_count = Column(Integer, default=0, nullable=False)

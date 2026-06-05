@@ -61,10 +61,16 @@ class ImportJob(Base):
     description = Column(Text, nullable=True)
 
     # Import configuration
-    import_type = Column(Enum(ImportType), nullable=False)
-    import_format = Column(Enum(ImportFormat), nullable=False)
-    status = Column(Enum(ImportStatus), default=ImportStatus.PENDING, nullable=False)
-    duplicate_handling = Column(Enum(DuplicateHandling), default=DuplicateHandling.SKIP, nullable=False)
+    import_type = Column(Enum(ImportType, values_callable=lambda x: [e.value for e in x]), nullable=False)
+    import_format = Column(Enum(ImportFormat, values_callable=lambda x: [e.value for e in x]), nullable=False)
+    status = Column(
+        Enum(ImportStatus, values_callable=lambda x: [e.value for e in x]), default=ImportStatus.PENDING, nullable=False
+    )
+    duplicate_handling = Column(
+        Enum(DuplicateHandling, values_callable=lambda x: [e.value for e in x]),
+        default=DuplicateHandling.SKIP,
+        nullable=False,
+    )
 
     # File information
     file_name = Column(String(255), nullable=False)
@@ -118,7 +124,9 @@ class ImportRecord(Base):
     source_id = Column(String(255), nullable=True)  # Original ID from source
 
     # Result
-    status = Column(Enum(ImportStatus), default=ImportStatus.PENDING, nullable=False)
+    status = Column(
+        Enum(ImportStatus, values_callable=lambda x: [e.value for e in x]), default=ImportStatus.PENDING, nullable=False
+    )
     created_record_id = Column(Integer, nullable=True)  # ID of created/updated record
     created_record_type = Column(String(50), nullable=True)  # content, user, etc.
 
@@ -146,9 +154,13 @@ class ExportJob(Base):
     name = Column(String(255), nullable=False)
 
     # Export configuration
-    export_type = Column(Enum(ImportType), nullable=False)  # Reuse ImportType
-    export_format = Column(Enum(ImportFormat), nullable=False)
-    status = Column(Enum(ImportStatus), default=ImportStatus.PENDING, nullable=False)
+    export_type = Column(
+        Enum(ImportType, values_callable=lambda x: [e.value for e in x]), nullable=False
+    )  # Reuse ImportType
+    export_format = Column(Enum(ImportFormat, values_callable=lambda x: [e.value for e in x]), nullable=False)
+    status = Column(
+        Enum(ImportStatus, values_callable=lambda x: [e.value for e in x]), default=ImportStatus.PENDING, nullable=False
+    )
 
     # Filters applied (JSON)
     filters = Column(Text, nullable=True)

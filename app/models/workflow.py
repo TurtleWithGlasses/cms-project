@@ -40,7 +40,9 @@ class WorkflowState(Base):
     description = Column(Text, nullable=True)
 
     # Workflow association
-    workflow_type = Column(Enum(WorkflowType), default=WorkflowType.CONTENT, nullable=False)
+    workflow_type = Column(
+        Enum(WorkflowType, values_callable=lambda x: [e.value for e in x]), default=WorkflowType.CONTENT, nullable=False
+    )
 
     # State properties
     is_initial = Column(Boolean, default=False, nullable=False)  # Starting state

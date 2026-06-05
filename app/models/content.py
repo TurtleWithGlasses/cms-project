@@ -24,7 +24,9 @@ class Content(Base):
     slug = Column(String, unique=True, index=True, nullable=False)
     description = Column(Text, nullable=True)
     publish_date = Column(DateTime, nullable=True)
-    status: Column[ContentStatus] = Column(Enum(ContentStatus), default=ContentStatus.DRAFT, nullable=False)
+    status: Column[ContentStatus] = Column(
+        Enum(ContentStatus, values_callable=lambda x: [e.value for e in x]), default=ContentStatus.DRAFT, nullable=False
+    )
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
     author_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)

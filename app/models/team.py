@@ -56,7 +56,11 @@ class Team(Base):
     # Settings
     is_active = Column(Boolean, default=True, nullable=False)
     allow_member_invite = Column(Boolean, default=False, nullable=False)
-    default_member_role = Column(Enum(TeamRole), default=TeamRole.MEMBER, nullable=False)
+    default_member_role = Column(
+        Enum(TeamRole, values_callable=lambda x: [e.value for e in x]),
+        default=TeamRole.MEMBER,
+        nullable=False,
+    )
 
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
@@ -79,7 +83,11 @@ class TeamMember(Base):
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
 
     # Role within team
-    role = Column(Enum(TeamRole), default=TeamRole.MEMBER, nullable=False)
+    role = Column(
+        Enum(TeamRole, values_callable=lambda x: [e.value for e in x]),
+        default=TeamRole.MEMBER,
+        nullable=False,
+    )
 
     # Timestamps
     joined_at = Column(DateTime, default=datetime.utcnow, nullable=False)
@@ -103,8 +111,16 @@ class TeamInvitation(Base):
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True)
 
     # Invitation details
-    role = Column(Enum(TeamRole), default=TeamRole.MEMBER, nullable=False)
-    status = Column(Enum(InvitationStatus), default=InvitationStatus.PENDING, nullable=False)
+    role = Column(
+        Enum(TeamRole, values_callable=lambda x: [e.value for e in x]),
+        default=TeamRole.MEMBER,
+        nullable=False,
+    )
+    status = Column(
+        Enum(InvitationStatus, values_callable=lambda x: [e.value for e in x]),
+        default=InvitationStatus.PENDING,
+        nullable=False,
+    )
     token = Column(String(255), unique=True, nullable=False, index=True)
     message = Column(Text, nullable=True)
 

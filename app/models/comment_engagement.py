@@ -58,7 +58,7 @@ class CommentReaction(Base):
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     comment_id = Column(Integer, ForeignKey("comments.id", ondelete="CASCADE"), nullable=False, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    reaction_type = Column(Enum(ReactionType), nullable=False)
+    reaction_type = Column(Enum(ReactionType, values_callable=lambda x: [e.value for e in x]), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     # Relationships
@@ -83,9 +83,14 @@ class CommentReport(Base):
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     comment_id = Column(Integer, ForeignKey("comments.id", ondelete="CASCADE"), nullable=False, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    reason = Column(Enum(ReportReason), nullable=False)
+    reason = Column(Enum(ReportReason, values_callable=lambda x: [e.value for e in x]), nullable=False)
     description = Column(Text, nullable=True)
-    status = Column(Enum(ReportStatus), default=ReportStatus.PENDING, nullable=False, index=True)
+    status = Column(
+        Enum(ReportStatus, values_callable=lambda x: [e.value for e in x]),
+        default=ReportStatus.PENDING,
+        nullable=False,
+        index=True,
+    )
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     reviewed_at = Column(DateTime, nullable=True)
     reviewed_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)

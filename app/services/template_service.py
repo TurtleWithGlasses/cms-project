@@ -360,8 +360,7 @@ async def create_revision(
         created_by_id=user_id,
     )
     db.add(revision)
-    await db.commit()
-    await db.refresh(revision)
+    await db.flush()  # write to DB without committing — outer caller owns the transaction
     return revision
 
 

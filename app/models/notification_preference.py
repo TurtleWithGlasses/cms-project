@@ -60,7 +60,9 @@ class NotificationTemplate(Base):
     description = Column(Text, nullable=True)
 
     # Category
-    category = Column(Enum(NotificationCategory), nullable=False, index=True)
+    category = Column(
+        Enum(NotificationCategory, values_callable=lambda x: [e.value for e in x]), nullable=False, index=True
+    )
 
     # Template content (supports {{variable}} syntax)
     subject = Column(String(255), nullable=False)  # Email subject / notification title
@@ -105,7 +107,7 @@ class NotificationPreference(Base):
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
 
     # Category being configured
-    category = Column(Enum(NotificationCategory), nullable=False)
+    category = Column(Enum(NotificationCategory, values_callable=lambda x: [e.value for e in x]), nullable=False)
 
     # Channel preferences
     email_enabled = Column(Boolean, default=True, nullable=False)
@@ -114,7 +116,11 @@ class NotificationPreference(Base):
     sms_enabled = Column(Boolean, default=False, nullable=False)
 
     # Digest settings
-    digest_frequency = Column(Enum(DigestFrequency), default=DigestFrequency.IMMEDIATE, nullable=False)
+    digest_frequency = Column(
+        Enum(DigestFrequency, values_callable=lambda x: [e.value for e in x]),
+        default=DigestFrequency.IMMEDIATE,
+        nullable=False,
+    )
 
     # Quiet hours (24-hour format, e.g., "22:00-08:00")
     quiet_hours = Column(String(20), nullable=True)
@@ -165,7 +171,9 @@ class NotificationQueue(Base):
     )
 
     # Notification content
-    category = Column(Enum(NotificationCategory), nullable=False, index=True)
+    category = Column(
+        Enum(NotificationCategory, values_callable=lambda x: [e.value for e in x]), nullable=False, index=True
+    )
     subject = Column(String(255), nullable=False)
     body = Column(Text, nullable=False)
 
@@ -173,7 +181,7 @@ class NotificationQueue(Base):
     variables = Column(Text, nullable=True)
 
     # Delivery settings
-    channel = Column(Enum(NotificationChannel), nullable=False)
+    channel = Column(Enum(NotificationChannel, values_callable=lambda x: [e.value for e in x]), nullable=False)
 
     # Status
     is_sent = Column(Boolean, default=False, nullable=False, index=True)
@@ -220,7 +228,7 @@ class NotificationDigest(Base):
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
 
     # Digest period
-    frequency = Column(Enum(DigestFrequency), nullable=False)
+    frequency = Column(Enum(DigestFrequency, values_callable=lambda x: [e.value for e in x]), nullable=False)
     period_start = Column(DateTime, nullable=False)
     period_end = Column(DateTime, nullable=False)
 
