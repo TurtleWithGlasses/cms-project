@@ -38,7 +38,16 @@ function MediaPage() {
   const { data: media, isLoading, error, refetch } = useQuery({
     queryKey: ['media', search, typeFilter],
     queryFn: () => mediaApi.getAll({ search, type: typeFilter }),
-    select: (res) => res.data?.media ?? res.data ?? [],
+    select: (res) => {
+      const items = res.data?.media ?? res.data ?? []
+      if (!Array.isArray(items)) return []
+      return items.map((item) => ({
+        ...item,
+        url: item.url || `/api/v1/media/files/${item.id}`,
+        size: item.size ?? item.file_size,
+        created_at: item.created_at || item.uploaded_at,
+      }))
+    },
   })
 
   // Upload mutation
@@ -48,9 +57,12 @@ function MediaPage() {
       setUploadProgress(0)
       const results = []
       for (let i = 0; i < files.length; i++) {
-        const formData = new FormData()
-        formData.append('file', files[i])
-        const result = await mediaApi.upload(formData)
+        const result = await mediaApi.upload(files[i], (progressEvent) => {
+          const fileProgress = progressEvent.total
+            ? progressEvent.loaded / progressEvent.total
+            : 0
+          setUploadProgress(((i + fileProgress) / files.length) * 100)
+        })
         results.push(result.data)
         setUploadProgress(((i + 1) / files.length) * 100)
       }

@@ -425,8 +425,8 @@ def create_app() -> FastAPI:
         tags=["Internationalization"],
     )
 
-    # Comments routes
-    app.include_router(comments.router, prefix="/api/v1", tags=["Comments"])
+    # Notification routes
+    app.include_router(notifications.router, prefix="/api/v1/notifications", tags=["Notifications"])
 
     # Two-Factor Authentication routes
     app.include_router(two_factor.router, prefix="/api/v1/2fa", tags=["Two-Factor Authentication"])
@@ -446,7 +446,7 @@ def create_app() -> FastAPI:
     # WebSocket routes — prefix /api/v1/ws (WS endpoint at /api/v1/ws, stats at /api/v1/ws/stats)
     app.include_router(websocket.router, prefix="/api/v1/ws", tags=["WebSocket"])
 
-    # Server-Sent Events routes — registered before wildcard routers
+    # Server-Sent Events routes
     app.include_router(sse_routes.router, prefix="/api/v1/sse", tags=["Server-Sent Events"])
 
     # Workflow routes
@@ -454,9 +454,6 @@ def create_app() -> FastAPI:
 
     # Cache management routes
     app.include_router(cache.router, prefix="/api/v1/cache", tags=["Cache"])
-
-    # Notification routes
-    app.include_router(notifications.router, prefix="/api/v1/notifications", tags=["Notifications"])
 
     # Team management routes
     app.include_router(teams.router, prefix="/api/v1/teams", tags=["Teams"])
@@ -479,8 +476,12 @@ def create_app() -> FastAPI:
     # Developer portal and changelog
     app.include_router(developer.router, tags=["Developer Portal"])
 
-    # HTML page routes (login, register, profile, user update)
+    # HTML page routes
     app.include_router(pages.router)
+
+    # Comments routes — LAST among API routes: its GET /api/v1/{comment_id} wildcard
+    # would otherwise shadow any literal /api/v1/<name> route registered after it.
+    app.include_router(comments.router, prefix="/api/v1", tags=["Comments"])
 
     # GraphQL endpoint — auth handled per-resolver via context
     async def get_graphql_context(

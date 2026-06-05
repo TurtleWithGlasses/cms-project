@@ -107,7 +107,7 @@ export const mediaApi = {
   upload: (file, onProgress) => {
     const formData = new FormData()
     formData.append('file', file)
-    return api.post('/upload', formData, {
+    return api.post('/media/upload', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
       onUploadProgress: onProgress,
     })

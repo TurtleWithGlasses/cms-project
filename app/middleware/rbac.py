@@ -60,16 +60,21 @@ class RBACMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         # Allow public API paths (social sharing, analytics config, i18n metadata)
+        # Allow media file/thumbnail serving — browser <img> tags can't send Authorization headers
         if (
             request.url.path.startswith("/api/v1/social/")
             or request.url.path == "/api/v1/analytics/config"
             or request.url.path.startswith("/api/v1/i18n/")
+            or request.url.path.startswith("/api/v1/media/files/")
+            or request.url.path.startswith("/api/v1/media/thumbnails/")
+            or request.url.path.startswith("/api/v1/media/sizes/")
         ):
             return await call_next(request)
 
         # Allow requests authenticated via API key — route-level dependency validates them
         x_api_key = request.headers.get("X-API-Key")
-        token = request.cookies.get("access_token") or request.headers.get("Authorization", "").replace("Bearer ", "")
+        # Prefer Authorization header (React/localStorage) over cookie (Jinja2/legacy)
+        token = request.headers.get("Authorization", "").replace("Bearer ", "") or request.cookies.get("access_token")
         if not token and not x_api_key:
             return RedirectResponse(url="/login")
         if not token and x_api_key:

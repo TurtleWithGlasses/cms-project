@@ -5,7 +5,7 @@ Represents folders for organizing uploaded media files.
 """
 
 import re
-from datetime import datetime, timezone
+from datetime import datetime
 
 from sqlalchemy import Column, DateTime, ForeignKey, Index, Integer, String
 from sqlalchemy.orm import relationship
@@ -30,10 +30,8 @@ class MediaFolder(Base):
     slug = Column(String, nullable=False, index=True)
     parent_id = Column(Integer, ForeignKey("media_folders.id", ondelete="SET NULL"), nullable=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
-    updated_at = Column(
-        DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc)
-    )
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
     parent = relationship("MediaFolder", remote_side=[id], backref="subfolders")

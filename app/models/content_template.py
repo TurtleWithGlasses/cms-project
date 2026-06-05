@@ -58,7 +58,11 @@ class ContentTemplate(Base):
     icon = Column(String(50), nullable=True)  # Icon name for UI
 
     # Template status
-    status = Column(Enum(TemplateStatus), default=TemplateStatus.DRAFT, nullable=False)
+    status = Column(
+        Enum(TemplateStatus, values_callable=lambda x: [e.value for e in x]),
+        default=TemplateStatus.DRAFT,
+        nullable=False,
+    )
     version = Column(Integer, default=1, nullable=False)
 
     # Default values for content created from this template
@@ -111,7 +115,7 @@ class TemplateField(Base):
     description = Column(Text, nullable=True)  # Help text
 
     # Field type and configuration
-    field_type = Column(Enum(FieldType), nullable=False)
+    field_type = Column(Enum(FieldType, values_callable=lambda x: [e.value for e in x]), nullable=False)
     is_required = Column(Boolean, default=False, nullable=False)
     is_unique = Column(Boolean, default=False, nullable=False)
     is_searchable = Column(Boolean, default=True, nullable=False)

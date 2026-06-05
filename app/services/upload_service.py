@@ -6,7 +6,7 @@ Handles file uploads, validation, image processing, optimization, and storage.
 
 import logging
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 
 from fastapi import HTTPException, UploadFile, status
@@ -423,7 +423,7 @@ class UploadService:
             if hasattr(media, field):
                 setattr(media, field, value)
 
-        media.updated_at = datetime.now(timezone.utc)
+        media.updated_at = datetime.utcnow()
         await db.commit()
         await db.refresh(media)
 
@@ -617,7 +617,7 @@ class UploadService:
                     continue
 
                 media.folder_id = folder_id
-                media.updated_at = datetime.now(timezone.utc)
+                media.updated_at = datetime.utcnow()
                 success_count += 1
 
             except HTTPException:

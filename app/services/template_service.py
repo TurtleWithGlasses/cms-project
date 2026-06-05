@@ -57,8 +57,14 @@ async def create_template(
         created_by_id=created_by_id,
     )
     db.add(template)
+
+    # Disable expire_on_commit so the new template's empty fields collection
+    # survives the commit and _template_to_response can access it without
+    # triggering a lazy load (which fails in async SQLAlchemy).
+    db.sync_session.expire_on_commit = False
     await db.commit()
-    await db.refresh(template)
+    db.sync_session.expire_on_commit = True
+
     return template
 
 
@@ -117,8 +123,9 @@ async def update_template(
             setattr(template, key, value)
 
     template.version += 1
+    db.sync_session.expire_on_commit = False
     await db.commit()
-    await db.refresh(template)
+    db.sync_session.expire_on_commit = True
     return template
 
 
@@ -286,8 +293,9 @@ async def publish_template(
 
     template.status = TemplateStatus.PUBLISHED
     template.published_at = datetime.utcnow()
+    db.sync_session.expire_on_commit = False
     await db.commit()
-    await db.refresh(template)
+    db.sync_session.expire_on_commit = True
     return template
 
 
@@ -307,8 +315,9 @@ async def archive_template(
     await create_revision(db, template, user_id, "Archived template")
 
     template.status = TemplateStatus.ARCHIVED
+    db.sync_session.expire_on_commit = False
     await db.commit()
-    await db.refresh(template)
+    db.sync_session.expire_on_commit = True
     return template
 
 

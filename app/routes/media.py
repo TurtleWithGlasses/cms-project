@@ -9,7 +9,7 @@ import contextlib
 from pathlib import Path
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, Response, UploadFile, status
 from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -34,9 +34,10 @@ router = APIRouter(tags=["Media"])
 
 
 @router.post("/upload", response_model=MediaUploadResponse, status_code=status.HTTP_201_CREATED)
-@limiter.limit("10/hour")  # Rate limit: 10 uploads per hour per IP
+@limiter.limit("10/hour")
 async def upload_file(
     request: Request,
+    response: Response,
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -52,10 +53,14 @@ async def upload_file(
     """
     media = await upload_service.upload_file(file, current_user, db)
 
+    # Capture values before the session may be closed
+    media_id = media.id
+    media_filename = media.filename
+
     # Dispatch webhook event (fire-and-forget)
     async def _dispatch_media_uploaded():
         async with AsyncSessionLocal() as _session:
-            await WebhookEventDispatcher(_session).media_uploaded(media.id, media.filename, current_user.id)
+            await WebhookEventDispatcher(_session).media_uploaded(media_id, media_filename, current_user.id)
 
     with contextlib.suppress(Exception):
         asyncio.create_task(_dispatch_media_uploaded())
@@ -85,6 +90,7 @@ async def upload_file(
 @limiter.limit("5/hour")
 async def bulk_upload_files(
     request: Request,
+    response: Response,
     files: list[UploadFile] = File(...),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -247,19 +253,10 @@ async def update_media(
 @router.get("/files/{media_id}")
 async def download_file(
     media_id: int,
-    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Download/view the actual file."""
+    """Download/view the actual file. Public — browser img tags cannot send Bearer tokens."""
     media = await upload_service.get_media_by_id(media_id, db)
-
-    from app.constants.roles import RoleEnum
-
-    if media.uploaded_by != current_user.id and current_user.role.name not in [
-        RoleEnum.ADMIN.value,
-        RoleEnum.SUPERADMIN.value,
-    ]:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to access this file")
 
     safe_file_path = validate_file_path(media.file_path, UPLOAD_DIR)
 
@@ -276,19 +273,10 @@ async def download_file(
 @router.get("/thumbnails/{media_id}")
 async def get_thumbnail(
     media_id: int,
-    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Get thumbnail for an image."""
+    """Get thumbnail for an image. Public — browser img tags cannot send Bearer tokens."""
     media = await upload_service.get_media_by_id(media_id, db)
-
-    from app.constants.roles import RoleEnum
-
-    if media.uploaded_by != current_user.id and current_user.role.name not in [
-        RoleEnum.ADMIN.value,
-        RoleEnum.SUPERADMIN.value,
-    ]:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to access this file")
 
     if not media.thumbnail_path:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No thumbnail available for this media")
@@ -308,10 +296,9 @@ async def get_thumbnail(
 async def get_image_size(
     media_id: int,
     size: str,
-    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Get a specific image size variant (small, medium, large)."""
+    """Get a specific image size variant. Public — browser img tags cannot send Bearer tokens."""
     if size not in IMAGE_SIZES:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -319,14 +306,6 @@ async def get_image_size(
         )
 
     media = await upload_service.get_media_by_id(media_id, db)
-
-    from app.constants.roles import RoleEnum
-
-    if media.uploaded_by != current_user.id and current_user.role.name not in [
-        RoleEnum.ADMIN.value,
-        RoleEnum.SUPERADMIN.value,
-    ]:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to access this file")
 
     if not media.sizes or size not in media.sizes:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Size variant '{size}' not available")
