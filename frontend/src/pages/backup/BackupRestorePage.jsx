@@ -61,7 +61,7 @@ function BackupRestorePage() {
     select: (res) => res.data,
   })
 
-  const backups = backupsData?.items || backupsData || []
+  const backups = backupsData?.backups || []
 
   // Create backup mutation
   const createBackupMutation = useMutation({
@@ -123,7 +123,7 @@ function BackupRestorePage() {
       const url = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `${backup.name || 'backup'}-${new Date(backup.created_at).toISOString().split('T')[0]}.zip`
+      a.download = `${backup.filename || 'backup'}-${new Date(backup.created_at).toISOString().split('T')[0]}.zip`
       document.body.appendChild(a)
       a.click()
       window.URL.revokeObjectURL(url)
@@ -437,23 +437,23 @@ function BackupRestorePage() {
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                      {getTypeIcon(backup.type)}
+                      {getTypeIcon(backup.backup_type)}
                       <div>
                         <div className="flex items-center gap-2">
                           <span className="font-medium text-gray-900 dark:text-white">
-                            {backup.name || 'Backup'}
+                            {backup.filename || 'Backup'}
                           </span>
                           {getStatusIcon(backup.status)}
                         </div>
                         <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400 mt-1">
                           <span>{formatDate(backup.created_at)}</span>
-                          {backup.size && <span>{formatSize(backup.size)}</span>}
-                          <span className="capitalize">{backup.type}</span>
+                          {backup.file_size && <span>{formatSize(backup.file_size)}</span>}
+                          <span className="capitalize">{backup.backup_type}</span>
                         </div>
-                        {backup.error && (
+                        {backup.error_message && (
                           <p className="text-sm text-red-600 dark:text-red-400 mt-1 flex items-center gap-1">
                             <AlertTriangle className="h-4 w-4" />
-                            {backup.error}
+                            {backup.error_message}
                           </p>
                         )}
                       </div>
@@ -493,18 +493,17 @@ function BackupRestorePage() {
                   </div>
 
                   {/* Backup includes */}
-                  {backup.includes && backup.includes.length > 0 && (
-                    <div className="mt-3 flex items-center gap-2">
-                      {backup.includes.map((item) => (
-                        <span
-                          key={item}
-                          className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 px-2 py-1 rounded capitalize"
-                        >
-                          {item}
-                        </span>
-                      ))}
-                    </div>
-                  )}
+                  <div className="mt-3 flex items-center gap-2">
+                    {backup.include_database && (
+                      <span className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 px-2 py-1 rounded">Database</span>
+                    )}
+                    {backup.include_media && (
+                      <span className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 px-2 py-1 rounded">Media</span>
+                    )}
+                    {backup.include_config && (
+                      <span className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 px-2 py-1 rounded">Config</span>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -636,7 +635,7 @@ function BackupRestorePage() {
               <p className="text-gray-600 dark:text-gray-400 mb-4">
                 Are you sure you want to restore from{' '}
                 <strong className="text-gray-900 dark:text-white">
-                  {showRestoreConfirm.name || 'this backup'}
+                  {showRestoreConfirm.filename || 'this backup'}
                 </strong>
                 ? This will replace your current data with the backup from{' '}
                 {formatDate(showRestoreConfirm.created_at)}.

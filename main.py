@@ -63,6 +63,7 @@ from app.routes import (
     developer,
     export,
     imports,
+    localization as localization_routes,
     media,
     media_folders,
     monitoring,
@@ -388,6 +389,7 @@ def create_app() -> FastAPI:
     app.include_router(export.router, prefix="/api/v1", tags=["Export"])
     app.include_router(analytics.router, prefix="/api/v1/analytics", tags=["Analytics"])
     app.include_router(backup.router, prefix="/api/v1/backups", tags=["Backups"])
+    app.include_router(localization_routes.router, prefix="/api/v1/localization", tags=["Localization"])
 
     # Auth routes (keep at /auth for OAuth2 compatibility)
     app.include_router(auth.router, prefix="/auth", tags=["Auth"])

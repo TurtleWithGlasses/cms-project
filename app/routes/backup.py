@@ -108,12 +108,14 @@ class BackupScheduleResponse(BaseModel):
 class StorageInfoResponse(BaseModel):
     """Response for storage information."""
 
-    backup_count: int
-    total_size_bytes: int
-    total_size_mb: float
+    # Fields matched to the frontend's expected shape
+    used: float  # backup files total (GB)
+    total: float  # disk total space (GB)
+    backups_count: int
+    oldest_backup: str | None
+
+    # Additional detail
     backup_directory: str
-    disk_total_bytes: int
-    disk_free_bytes: int
     disk_used_percent: float
 
 
@@ -236,6 +238,108 @@ async def create_backup(
     return _backup_to_response(backup)
 
 
+@router.get("/schedule", response_model=BackupScheduleResponse | None)
+async def get_schedule(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role(["admin", "superadmin"])),
+):
+    """
+    Get the current backup schedule.
+
+    Requires admin or superadmin role.
+    """
+    service = BackupService(db)
+    schedule = await service.get_schedule()
+
+    if not schedule:
+        # Return default schedule
+        return BackupScheduleResponse(
+            id=0,
+            enabled=False,
+            frequency="daily",
+            time_of_day="02:00",
+            day_of_week=None,
+            day_of_month=None,
+            retention_days=30,
+            max_backups=10,
+            backup_type="full",
+            include_database=True,
+            include_media=True,
+            include_config=False,
+            last_run_at=None,
+            next_run_at=None,
+        )
+
+    return _schedule_to_response(schedule)
+
+
+@router.put("/schedule", response_model=BackupScheduleResponse)
+async def update_schedule(
+    request: BackupScheduleRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role(["admin", "superadmin"])),
+):
+    """
+    Update the backup schedule.
+
+    Requires admin or superadmin role.
+    """
+    # Convert backup type if provided
+    backup_type = None
+    if request.backup_type:
+        try:
+            backup_type = BackupType(request.backup_type)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid backup type: {request.backup_type}",
+            ) from None
+
+    service = BackupService(db)
+    schedule = await service.update_schedule(
+        enabled=request.enabled,
+        frequency=request.frequency,
+        time_of_day=request.time_of_day,
+        day_of_week=request.day_of_week,
+        day_of_month=request.day_of_month,
+        retention_days=request.retention_days,
+        max_backups=request.max_backups,
+        backup_type=backup_type,
+        include_database=request.include_database,
+        include_media=request.include_media,
+        include_config=request.include_config,
+    )
+
+    return _schedule_to_response(schedule)
+
+
+@router.get("/storage", response_model=StorageInfoResponse)
+async def get_storage_info(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role(["admin", "superadmin"])),
+):
+    """
+    Get backup storage information.
+
+    Requires admin or superadmin role.
+    """
+    service = BackupService(db)
+    info = await service.get_storage_info()
+
+    return StorageInfoResponse(
+        used=round(info["total_size_bytes"] / (1024**3), 2),
+        total=round(info["disk_total_bytes"] / (1024**3), 2),
+        backups_count=info["backup_count"],
+        oldest_backup=info.get("oldest_backup"),
+        backup_directory=info["backup_directory"],
+        disk_used_percent=info["disk_used_percent"],
+    )
+
+
+# Wildcard routes must be registered AFTER all literal-path routes above
+# to prevent shadowing /schedule and /storage.
+
+
 @router.get("/{backup_id}", response_model=BackupResponse)
 async def get_backup(
     backup_id: int,
@@ -346,94 +450,3 @@ async def restore_backup(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e),
         ) from None
-
-
-@router.get("/schedule", response_model=BackupScheduleResponse | None)
-async def get_schedule(
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_role(["admin", "superadmin"])),
-):
-    """
-    Get the current backup schedule.
-
-    Requires admin or superadmin role.
-    """
-    service = BackupService(db)
-    schedule = await service.get_schedule()
-
-    if not schedule:
-        # Return default schedule
-        return BackupScheduleResponse(
-            id=0,
-            enabled=False,
-            frequency="daily",
-            time_of_day="02:00",
-            day_of_week=None,
-            day_of_month=None,
-            retention_days=30,
-            max_backups=10,
-            backup_type="full",
-            include_database=True,
-            include_media=True,
-            include_config=False,
-            last_run_at=None,
-            next_run_at=None,
-        )
-
-    return _schedule_to_response(schedule)
-
-
-@router.put("/schedule", response_model=BackupScheduleResponse)
-async def update_schedule(
-    request: BackupScheduleRequest,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_role(["admin", "superadmin"])),
-):
-    """
-    Update the backup schedule.
-
-    Requires admin or superadmin role.
-    """
-    # Convert backup type if provided
-    backup_type = None
-    if request.backup_type:
-        try:
-            backup_type = BackupType(request.backup_type)
-        except ValueError:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid backup type: {request.backup_type}",
-            ) from None
-
-    service = BackupService(db)
-    schedule = await service.update_schedule(
-        enabled=request.enabled,
-        frequency=request.frequency,
-        time_of_day=request.time_of_day,
-        day_of_week=request.day_of_week,
-        day_of_month=request.day_of_month,
-        retention_days=request.retention_days,
-        max_backups=request.max_backups,
-        backup_type=backup_type,
-        include_database=request.include_database,
-        include_media=request.include_media,
-        include_config=request.include_config,
-    )
-
-    return _schedule_to_response(schedule)
-
-
-@router.get("/storage", response_model=StorageInfoResponse)
-async def get_storage_info(
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_role(["admin", "superadmin"])),
-):
-    """
-    Get backup storage information.
-
-    Requires admin or superadmin role.
-    """
-    service = BackupService(db)
-    info = await service.get_storage_info()
-
-    return StorageInfoResponse(**info)

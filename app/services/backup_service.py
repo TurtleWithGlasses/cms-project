@@ -349,12 +349,16 @@ class BackupService:
         """Get backup storage information."""
         total_size = 0
         backup_count = 0
+        oldest_mtime: float | None = None
 
-        # Calculate total size of backup files
+        # Calculate total size and find oldest backup file
         if BACKUP_DIR.exists():
             for file in BACKUP_DIR.glob("*.tar.gz"):
-                total_size += file.stat().st_size
+                stat = file.stat()
+                total_size += stat.st_size
                 backup_count += 1
+                if oldest_mtime is None or stat.st_mtime < oldest_mtime:
+                    oldest_mtime = stat.st_mtime
 
         # Get disk space info
         try:
@@ -367,6 +371,12 @@ class BackupService:
             disk_free = 0
             disk_used_percent = 0
 
+        oldest_backup = None
+        if oldest_mtime is not None:
+            from datetime import datetime, timezone
+
+            oldest_backup = datetime.fromtimestamp(oldest_mtime, tz=timezone.utc).isoformat()
+
         return {
             "backup_count": backup_count,
             "total_size_bytes": total_size,
@@ -375,6 +385,7 @@ class BackupService:
             "disk_total_bytes": disk_total,
             "disk_free_bytes": disk_free,
             "disk_used_percent": round(disk_used_percent, 2),
+            "oldest_backup": oldest_backup,
         }
 
     async def cleanup_old_backups(self, retention_days: int = 30, max_backups: int = 10) -> int:
